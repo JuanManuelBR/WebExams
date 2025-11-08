@@ -16,7 +16,7 @@ import { User } from "@src/models/User";
 export const AppDataSource = new DataSource({
   type: "mysql",
   host: DB_HOST,
-  name: DB_NAME,
+  database: DB_NAME,
   password: DB_PASS,
   port: DB_PORT,
   username: DB_USER,
