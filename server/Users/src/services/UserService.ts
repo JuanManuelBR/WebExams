@@ -1,6 +1,6 @@
 import { AppDataSource } from "@src/data-source/AppDataSource";
 import { User } from "@src/models/User";
-import { add_user_dto } from "@src/types/user";
+import { add_user_dto, edit_user_dto } from "@src/types/user";
 import bcrypt from "bcrypt";
 
 export class UserService {
@@ -11,7 +11,6 @@ export class UserService {
       const requiredFields = [
         "primer_nombre",
         "primer_apellido",
-        "tipo",
         "email",
         "contrasena",
       ];
@@ -32,7 +31,6 @@ export class UserService {
       if (existingUser) {
         throw new Error("El correo electrónico ya está en uso");
       }
-
 
       const hashed_password = await bcrypt.hash(data.contrasena, 10);
       data.contrasena = hashed_password;
@@ -62,8 +60,78 @@ export class UserService {
       await this.user_repository.remove(usuario_buscar);
 
       return `Se eliminó al usuario correctamente`;
-    } catch (error) {
-      throw new Error("No se pudo eliminar el usuario");
+    } catch (error: any) {
+      throw new Error(error.message || "No se pudo eliminar el usuario");
+    }
+  }
+
+  async editUser(data: edit_user_dto, id: number) {
+    try {
+      const usuario = await this.user_repository.findOne({
+        where: { id: id },
+      });
+
+      if (!usuario) {
+        throw new Error(`No se encontró un usuario con el id ${id}`);
+      }
+
+      if (data.contrasena && data.confirmar_nueva_contrasena) {
+        if (data.contrasena !== data.confirmar_nueva_contrasena) {
+          throw new Error("Las contraseñas no coinciden");
+        }
+
+        const hashed = await bcrypt.hash(data.contrasena, 10);
+        usuario.contrasena = hashed;
+      }
+
+      if (data.primer_nombre) usuario.primer_nombre = data.primer_nombre;
+      if (data.segundo_nombre) usuario.segundo_nombre = data.segundo_nombre;
+      if (data.primer_apellido) usuario.primer_apellido = data.primer_apellido;
+      if (data.segundo_apellido)
+        usuario.segundo_apellido = data.segundo_apellido;
+      await this.user_repository.save(usuario);
+
+      return {
+        message: "Usuario actualizado correctamente",
+        usuario,
+      };
+    } catch (error: any) {
+      throw new Error(error.message || "Error al actualizar usuario");
+    }
+  }
+
+  async getUserById(id: number) {
+    try {
+      const usuario_buscar = await this.user_repository.findOne({
+        where: { id: id },
+      });
+
+      if (!usuario_buscar) {
+        throw new Error(`No se encontró Ningún usuario con el id: ${id} `);
+      }
+
+      return usuario_buscar;
+    } catch (error: any) {
+      throw new Error("Ocurrió un error inesperado: " + error.message);
+    }
+  }
+
+  async getAllusers() {
+    try {
+      const usuarios = await this.user_repository.find({
+        select: [
+          "id",
+          "primer_nombre",
+          "segundo_apellido",
+          "primer_apellido",
+          "segundo_apellido",
+          "email",
+        ],
+      });
+
+      return usuarios;
+    } catch (error: any) {
+      throw new Error("Error inesperado: " + error.message);
     }
   }
 }
