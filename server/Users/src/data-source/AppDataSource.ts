@@ -11,7 +11,6 @@ import {
 } from "../../config/config";
 import { User } from "@src/models/User";
 
-
 // crear el AppDataSource (Conexión BD)
 export const AppDataSource = new DataSource({
   type: "mysql",
@@ -20,7 +19,7 @@ export const AppDataSource = new DataSource({
   password: DB_PASS,
   port: DB_PORT,
   username: DB_USER,
-  synchronize: true,
+  synchronize: false,
   logging: true,
   entities: [User],
 });

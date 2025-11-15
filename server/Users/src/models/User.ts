@@ -1,4 +1,3 @@
-import { tipo_usuario } from "@src/types/user";
 import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity("usuarios")
@@ -9,19 +8,17 @@ export class User {
   @Column({ type: "varchar", length: 50 })
   primer_nombre!: string;
 
-  @Column({ type: "varchar", length: 50 })
+  @Column({ type: "varchar", length: 50, nullable: true })
   segundo_nombre?: string;
 
   @Column({ type: "varchar", length: 50 })
-  primer_apellido?: string;
+  primer_apellido!: string;
 
-  @Column({ type: "varchar", length: 50 })
+  @Column({ type: "varchar", length: 50, nullable: true })
   segundo_apellido?: string;
 
-  @Column({ type: "enum", enum: tipo_usuario })
-  tipo!: tipo_usuario;
 
-  @Column({ type: "varchar", length: 100 })
+  @Column({ type: "varchar", length: 100, unique: true })
   email!: string;
 
   @Column({ type: "varchar", length: 100 })
