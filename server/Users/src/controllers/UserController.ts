@@ -91,6 +91,7 @@ export class UserController {
         secure: false,
         sameSite: "lax",
         maxAge: 3600000,
+        domain: "localhost",
       });
 
       return res.status(200).json({

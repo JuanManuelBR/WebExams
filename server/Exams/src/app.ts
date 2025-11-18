@@ -1,9 +1,10 @@
 import express from "express";
 import { AppDataSource } from "./data-source/AppDataSource";
 import cors from "cors";
-
+import ExamRoutes from "./routes/ExamRoutes";
 //import UserRoutes from "./routes/UserRoutes";
 import cookieParser from "cookie-parser";
+
 
 // Llamar express
 const app = express();
@@ -14,7 +15,8 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(cors());
 
-//app.use("/api/users", UserRoutes);
+app.use("/api/exams", ExamRoutes);
+
 AppDataSource.initialize()
 
   .then(() => console.log("Base de datos conectada correctamente"))

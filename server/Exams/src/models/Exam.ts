@@ -6,7 +6,6 @@ import {
   OneToMany,
 } from "typeorm";
 
-import { Question } from "./Question";
 import { ExamenState } from "../types/Exam";
 
 @Entity("examenes")

@@ -2,7 +2,7 @@ import { AppDataSource } from "@src/data-source/AppDataSource";
 import { User } from "@src/models/User";
 import { add_user_dto, edit_user_dto } from "@src/types/user";
 
-import { JWT_EXPIRES } from "config/config";
+
 import { JWT_SECRET } from "config/config";
 
 import jwt from "jsonwebtoken";

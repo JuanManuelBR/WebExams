@@ -1,5 +1,9 @@
-import { ChildEntity } from "typeorm";
+import { ChildEntity, Column } from "typeorm";
 import { Question } from "./Question";
+import { MatchPair } from "./MatchPair";
 
 @ChildEntity("match")
-export class MatchQuestion extends Question {}
+export class MatchQuestion extends Question {
+
+
+}
