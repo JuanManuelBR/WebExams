@@ -6,7 +6,9 @@
     "strict": true,
     "baseUrl": "./",
     "esModuleInterop": true,                 
-    "skipLibCheck": true,                     
+    "skipLibCheck": true,    
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,                 
     "forceConsistentCasingInFileNames": true,
     "paths": {
       "@src/*": ["src/*"]
