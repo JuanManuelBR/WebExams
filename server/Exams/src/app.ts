@@ -2,7 +2,7 @@ import express from "express";
 import { AppDataSource } from "./data-source/AppDataSource";
 import cors from "cors";
 import ExamRoutes from "./routes/ExamRoutes";
-import QuestionRoutes from "./routes/QuestionRoutes";
+
 
 //import UserRoutes from "./routes/UserRoutes";
 import cookieParser from "cookie-parser";
@@ -19,7 +19,6 @@ app.use(cors());
 
 app.use("/api/exams", ExamRoutes);
 
-app.use ("/api/questions", QuestionRoutes)
 AppDataSource.initialize()
 
   .then(() => console.log("Base de datos conectada correctamente"))

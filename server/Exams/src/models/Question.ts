@@ -21,7 +21,7 @@ export abstract class Question {
 
   @Column()
   type!: string;  
-  
-  @ManyToOne(() => Exam)
+
+  @ManyToOne("Exam","questions")
   exam!: Exam;
 }
