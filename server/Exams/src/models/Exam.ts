@@ -7,7 +7,7 @@ import {
 } from "typeorm";
 
 import { ExamenState } from "../types/Exam";
-
+import { Question } from "./Question";
 @Entity("examenes")
 export class Exam {
   @PrimaryGeneratedColumn()
@@ -28,4 +28,6 @@ export class Exam {
   @Column()
   id_profesor!: number;
 
+  @OneToMany(() => Question, (question) => question.exam, { cascade: true })
+  questions!: Question[];
 }

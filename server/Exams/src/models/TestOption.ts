@@ -1,6 +1,6 @@
 // TestOption.ts
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from "typeorm";
-import { TestQuestion } from "./TestQuestion";
+import type { TestQuestion } from "./TestQuestion";
 
 @Entity()
 export class TestOption {
@@ -13,6 +13,6 @@ export class TestOption {
   @Column({ default: false })
   esCorrecta!: boolean;
 
-  @ManyToOne(() => TestQuestion)
+  @ManyToOne("TestQuestion", "options")
   question!: TestQuestion;
 }

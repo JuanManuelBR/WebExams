@@ -7,7 +7,7 @@ export class ExamsController {
   static async addExam(req: Request, res: Response) {
     try {
       const data = req.body;
-      const cookies = req.headers.cookie; // cookies enviadas por el cliente
+      const cookies = req.headers.cookie;
 
       const examen = await exam_service.addExam(data, cookies);
 
@@ -16,7 +16,19 @@ export class ExamsController {
         examen,
       });
     } catch (error: any) {
+      
       return res.status(400).json({ message: error.message });
     }
   }
+
+  static async listExams(res: Response) {
+    try {
+      const profesores = await exam_service.listExams();
+
+      return res.status(200).json(profesores);
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message });
+    }
+  }
+  
 }

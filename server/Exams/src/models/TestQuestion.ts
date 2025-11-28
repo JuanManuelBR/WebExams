@@ -1,8 +1,13 @@
-import { Entity, Column, OneToMany } from "typeorm";
+// TestQuestion.ts
+import { Column, ChildEntity, OneToMany } from "typeorm";
 import { Question } from "./Question";
+import { TestOption } from "./TestOption";
 
-@Entity()
+@ChildEntity("test")
 export class TestQuestion extends Question {
   @Column()
   shuffleOptions!: boolean;
+
+  @OneToMany(() => TestOption, (option) => option.question, { cascade: true })
+  options!: TestOption[];
 }
