@@ -13,6 +13,6 @@ export class TestOption {
   @Column({ default: false })
   esCorrecta!: boolean;
 
-  @ManyToOne("TestQuestion", "options")
+  @ManyToOne("TestQuestion", "options", { onDelete: "CASCADE" })
   question!: TestQuestion;
 }

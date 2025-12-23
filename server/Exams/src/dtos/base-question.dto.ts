@@ -1,5 +1,13 @@
 import { QuestionType } from "@src/types/Question";
-import { IsEnum, IsIn, IsNumber, IsOptional, IsString } from "class-validator";
+import {
+  IsBoolean,
+  IsEnum,
+  IsIn,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from "class-validator";
 
 // Se marca como abstracta
 export abstract class BaseQuestionDto {
@@ -11,6 +19,13 @@ export abstract class BaseQuestionDto {
 
   @IsIn(Object.values(QuestionType))
   type!: QuestionType;
+
+  @IsBoolean({ message: "calificacionParcial debe ser booleano" })
+  @IsNotEmpty({
+    message:
+      "Es obligatorio especificar si la calificación a la pregunta es parcial o completa",
+  })
+  calificacionParcial!: boolean;
 
   @IsNumber({}, { message: "El ID del examen debe ser un número." })
   @IsOptional()

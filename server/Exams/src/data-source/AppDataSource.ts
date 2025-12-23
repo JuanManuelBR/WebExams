@@ -17,16 +17,14 @@ import { TestOption } from "@src/models/TestOption";
 import { BlankAnswer } from "@src/models/FillBlankAnswer";
 import { FillBlankQuestion } from "@src/models/FillBlankQuestion";
 
-
-
 import { OpenQuestion } from "@src/models/OpenQuestion";
 
 import { MatchQuestion } from "@src/models/MatchQuestion";
 
-
 import { MatchItemA } from "@src/models/MatchItemA";
 import { MatchItemB } from "@src/models/MatchItemB";
 import { MatchPair } from "@src/models/MatchPair";
+import { OpenQuestionKeyword } from "@src/models/OpenQuestionKeyWord";
 
 // crear el AppDataSource (Conexión BD)
 export const AppDataSource = new DataSource({
@@ -50,5 +48,6 @@ export const AppDataSource = new DataSource({
     MatchItemA,
     MatchItemB,
     MatchPair,
+    OpenQuestionKeyword,
   ],
 });

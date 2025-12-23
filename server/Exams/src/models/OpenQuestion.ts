@@ -1,9 +1,22 @@
 // OpenQuestion.ts
-import { ChildEntity, Column } from "typeorm";
+import { ChildEntity, Column, OneToMany } from "typeorm";
 import { Question } from "./Question";
+import { OpenQuestionKeyword } from "./OpenQuestionKeyWord";
 
 @ChildEntity("open")
 export class OpenQuestion extends Question {
+
+  
   @Column({ type: "text", nullable: true })
-  respuestaAbiertaCorrecta?: string;
+  textoRespuesta?: string;
+
+  @Column({ type: "boolean", nullable: true })
+  debeContenerTodasPalabrasClave?: boolean;
+
+  @OneToMany(() => OpenQuestionKeyword, (keyword) => keyword.question, {
+    cascade: true,
+    eager: true,
+    onDelete: "CASCADE",
+  })
+  keywords!: OpenQuestionKeyword[];
 }

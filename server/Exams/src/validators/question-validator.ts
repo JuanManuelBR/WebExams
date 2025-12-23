@@ -17,6 +17,7 @@ export class QuestionValidator {
         enunciado: questionDto.enunciado,
         type: questionDto.type,
         puntaje: questionDto.puntaje,
+        calificacionParcial: questionDto.calificacionParcial,
         exam,
       };
 
@@ -40,24 +41,16 @@ export class QuestionValidator {
                 };
               }) || [],
           } as Question;
-
-        case "TRUE_FALSE":
-          if (typeof questionDto.respuestaCorrecta !== "boolean") {
-            throwHttpError(
-              `respuestaCorrecta inválida en pregunta ${index}`,
-              400
-            );
-          }
-
+        case "open":
           return {
             ...preguntaBase,
-            respuestaCorrecta: questionDto.respuestaCorrecta,
-          } as Question;
 
-        case "OPEN":
-          return {
-            ...preguntaBase,
-            respuestaSugerida: questionDto.respuestaSugerida ?? null,
+            palabrasClave: questionDto.palabrasClave ?? null,
+
+            textoRespuesta: questionDto.textoRespuesta ?? null,
+
+            debeContenerTodasPalabrasClave:
+              questionDto.debeContenerTodasPalabrasClave ?? null,
           } as Question;
 
         default:

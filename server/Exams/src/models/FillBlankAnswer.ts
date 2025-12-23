@@ -8,7 +8,7 @@ export class BlankAnswer {
   id!: number;
 
   @Column()
-  posicion!: number; // en qué {{}} va
+  posicion!: number; 
 
   @Column()
   textoCorrecto!: string;

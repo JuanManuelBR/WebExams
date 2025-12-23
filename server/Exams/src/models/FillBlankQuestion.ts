@@ -6,7 +6,7 @@ import { BlankAnswer } from "./FillBlankAnswer";
 @ChildEntity("fill")
 export class FillBlankQuestion extends Question {
   @Column({ type: "text" })
-  textoPreguntaEnBlanco!: string;
+  textoPreguntaRellenarEspacios!: string;
 
   @OneToMany(() => BlankAnswer, (b) => b.question, {
     cascade: true,
