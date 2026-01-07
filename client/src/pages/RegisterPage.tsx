@@ -5,12 +5,13 @@ import logoUniversidad from '../../assets/logo-universidad.png';
 import logoUniversidadNoche from '../../assets/logo-universidad-noche.png';
 import fondoImagen from '../../assets/fondo.jpg';
 import ExamSearchBar from '../components/ExamSearchBar';
+import { authService } from '../services/Authservice'; // ← CAMBIAR ESTA RUTA según tu estructura
 
 // Importa Firebase
 import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, updateProfile } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 
-// Configuración de Firebase (la misma que en LoginPage)
+// Configuración de Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyBv1_xkK7oXRxxIXdvXTPsWOK3Joz6A2xo",
   authDomain: "universidad-tesis.firebaseapp.com",
@@ -145,6 +146,7 @@ export default function RegisterPage() {
     return true;
   };
 
+  // REGISTRO CON EMAIL/PASSWORD
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -156,69 +158,45 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(
+      // Usar el servicio de autenticación
+      await authService.registerWithEmail(
         auth,
+        formData.nombre,
+        formData.apellido,
         formData.email,
         formData.password
       );
 
-      const user = userCredential.user;
-
-      await updateProfile(user, {
-        displayName: `${formData.nombre} ${formData.apellido}`
-      });
-
-      const newUser = {
-        id: user.uid,
-        username: formData.email,
-        nombre: formData.nombre,
-        apellido: formData.apellido,
-        email: formData.email,
-        rol: 'estudiante',
-        loginMethod: 'email',
-        picture: ''
-      };
-
-      localStorage.setItem('usuario', JSON.stringify(newUser));
+      console.log('✅ Registro exitoso');
+      
+      // Navegar a la página principal
       navigate('/');
     } catch (error: any) {
-      console.error('Error al registrar usuario:', error);
-      
-      if (error.code === 'auth/email-already-in-use') {
-        setError('Este correo electrónico ya está registrado');
-      } else if (error.code === 'auth/invalid-email') {
-        setError('Correo electrónico inválido');
-      } else if (error.code === 'auth/weak-password') {
-        setError('La contraseña es muy débil');
-      } else {
-        setError('Error al registrar usuario. Intenta de nuevo.');
-      }
+      console.error('❌ Error al registrar:', error);
+      setError(error.message || 'Error al registrar usuario. Intenta de nuevo.');
     } finally {
       setLoading(false);
     }
   };
 
+  // REGISTRO CON GOOGLE
   const handleGoogleRegister = async () => {
+    setLoading(true);
+    setError('');
+
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
+      // Usar el servicio de autenticación
+      await authService.registerWithGoogle(auth, googleProvider);
 
-      const googleUser = {
-        id: user.uid,
-        username: user.email || '',
-        nombre: user.displayName?.split(' ')[0] || '',
-        apellido: user.displayName?.split(' ').slice(1).join(' ') || '',
-        email: user.email || '',
-        rol: 'estudiante',
-        loginMethod: 'google',
-        picture: user.photoURL || ''
-      };
-
-      localStorage.setItem('usuario', JSON.stringify(googleUser));
+      console.log('✅ Registro con Google exitoso');
+      
+      // Navegar a la página principal
       navigate('/');
     } catch (error: any) {
-      console.error('Error al registrarse con Google:', error);
-      setError('Error al registrarse con Google. Intenta de nuevo.');
+      console.error('❌ Error al registrarse con Google:', error);
+      setError(error.message || 'Error al registrarse con Google. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -457,7 +435,8 @@ export default function RegisterPage() {
             <button
               type="button"
               onClick={handleGoogleRegister}
-              className={`px-8 py-2.5 border rounded-md text-base font-medium flex items-center justify-center gap-2.5 transition-all duration-300 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${
+              disabled={loading}
+              className={`px-8 py-2.5 border rounded-md text-base font-medium flex items-center justify-center gap-2.5 transition-all duration-300 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
                 darkMode
                   ? 'bg-slate-800 text-gray-200 border-slate-700 hover:bg-slate-700'
                   : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
@@ -469,7 +448,7 @@ export default function RegisterPage() {
                 <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.007-2.332z" />
                 <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" />
               </svg>
-              Registrarse con Google
+              {loading ? 'Registrando...' : 'Registrarse con Google'}
             </button>
 
             <div className={`mt-8 text-center text-sm max-w-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
