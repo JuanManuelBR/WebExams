@@ -1,8 +1,15 @@
+// ============================================
+// 📁 BACKEND/src/dtos/Add-user.dto.ts
+// CÓDIGO COMPLETO
+// ============================================
+
 import {
   IsEmail,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
+  MinLength,
   ValidateIf,
 } from "class-validator";
 
@@ -21,9 +28,22 @@ export class AddUserDto {
 
   @IsNotEmpty({ message: "La contraseña es obligatoria" })
   @IsString({ message: "La contraseña debe ser un string" })
+  @MinLength(8, { message: "La contraseña debe tener al menos 8 caracteres" })
   contrasena!: string;
 
   @ValidateIf((o) => o.contrasena !== undefined)
   @IsString()
   confirmar_nueva_contrasena!: string;
+
+  @IsOptional()
+  @IsString()
+  firebase_uid?: string;
+
+  @IsOptional()
+  @IsEnum(["email", "google"])
+  login_method?: "email" | "google";
+
+  @IsOptional()
+  @IsString()
+  foto_perfil?: string;
 }

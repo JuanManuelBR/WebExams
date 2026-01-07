@@ -5,13 +5,15 @@ import logoUniversidad from '../../assets/logo-universidad.png';
 import logoUniversidadNoche from '../../assets/logo-universidad-noche.png';
 import fondoImagen from '../../assets/fondo.jpg';
 import ExamSearchBar from '../components/ExamSearchBar';
-import { authService } from '../services/Authservice'; // ← CAMBIAR ESTA RUTA según tu estructura
+import { authService } from '../services/Authservice';
 
 // Importa Firebase
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 
-// Configuración de Firebase
+// ============================================
+// CONFIGURACIÓN DE FIREBASE
+// ============================================
 const firebaseConfig = {
   apiKey: "AIzaSyBv1_xkK7oXRxxIXdvXTPsWOK3Joz6A2xo",
   authDomain: "universidad-tesis.firebaseapp.com",
@@ -21,12 +23,30 @@ const firebaseConfig = {
   appId: "1:184984434762:web:b747333b88718d7e5a4eb3"
 };
 
-// Inicializar Firebase
-const app = initializeApp(firebaseConfig);
+// Inicializar Firebase solo si no está inicializado
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 
+// Configurar el provider para forzar la selección de cuenta
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
+
+// ============================================
+// INTERFACES
+// ============================================
+interface PasswordStrength {
+  score: number;
+  label: string;
+  color: string;
+}
+
+// ============================================
+// COMPONENTE REGISTER
+// ============================================
 export default function RegisterPage() {
+  // Estados del formulario
   const [formData, setFormData] = useState({
     nombre: '',
     apellido: '',
@@ -36,11 +56,12 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [passwordStrength, setPasswordStrength] = useState({
+  const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>({
     score: 0,
     label: '',
     color: ''
   });
+  
   const navigate = useNavigate();
 
   // Estado para el modo oscuro - lee desde localStorage al iniciar
@@ -54,17 +75,31 @@ export default function RegisterPage() {
     localStorage.setItem('darkMode', JSON.stringify(darkMode));
   }, [darkMode]);
 
+  // Verificar si ya hay una sesión activa
+  useEffect(() => {
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      console.log('ℹ️ Usuario ya autenticado, redirigiendo...');
+      navigate('/');
+    }
+  }, [navigate]);
+
+  // ============================================
+  // FUNCIONES
+  // ============================================
+
   const toggleTheme = () => {
     setDarkMode(!darkMode);
   };
 
-  // Manejar búsqueda de examen - navega a /acceso-examen con el código
   const handleExamSearch = (examCode: string) => {
     navigate(`/acceso-examen?code=${examCode}`);
   };
 
-  // Función para calcular la fuerza de la contraseña
-  const calculatePasswordStrength = (password: string) => {
+  /**
+   * Calcular la fuerza de la contraseña
+   */
+  const calculatePasswordStrength = (password: string): PasswordStrength => {
     let score = 0;
     
     if (!password) {
@@ -102,6 +137,9 @@ export default function RegisterPage() {
     return { score, label, color };
   };
 
+  /**
+   * Manejar cambios en los inputs
+   */
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     
@@ -110,34 +148,44 @@ export default function RegisterPage() {
       [name]: value
     });
 
+    // Calcular fuerza de contraseña al cambiar
     if (name === 'password') {
       const strength = calculatePasswordStrength(value);
       setPasswordStrength(strength);
     }
   };
 
-  const validateForm = () => {
-    if (!formData.nombre || !formData.apellido || !formData.email || !formData.password || !formData.confirmPassword) {
+  /**
+   * Validar formulario antes de enviar
+   */
+  const validateForm = (): boolean => {
+    // Verificar campos vacíos
+    if (!formData.nombre || !formData.apellido || !formData.email || 
+        !formData.password || !formData.confirmPassword) {
       setError('Todos los campos son obligatorios');
       return false;
     }
 
+    // Validar email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       setError('Por favor ingresa un correo electrónico válido');
       return false;
     }
 
+    // Validar longitud de contraseña
     if (formData.password.length < 8) {
       setError('La contraseña debe tener al menos 8 caracteres');
       return false;
     }
 
+    // Validar fuerza de contraseña
     if (passwordStrength.score < 3) {
       setError('La contraseña debe ser al menos "Aceptable" (amarillo). Usa mayúsculas, minúsculas, números y caracteres especiales.');
       return false;
     }
 
+    // Validar que las contraseñas coincidan
     if (formData.password !== formData.confirmPassword) {
       setError('Las contraseñas no coinciden');
       return false;
@@ -146,11 +194,14 @@ export default function RegisterPage() {
     return true;
   };
 
-  // REGISTRO CON EMAIL/PASSWORD
+  /**
+   * REGISTRO CON EMAIL Y CONTRASEÑA
+   */
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
+    // Validar formulario
     if (!validateForm()) {
       return;
     }
@@ -158,6 +209,8 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
+      console.log('📝 Iniciando registro con email...');
+      
       // Usar el servicio de autenticación
       await authService.registerWithEmail(
         auth,
@@ -167,38 +220,55 @@ export default function RegisterPage() {
         formData.password
       );
 
-      console.log('✅ Registro exitoso');
+      console.log('✅ Registro exitoso, redirigiendo...');
       
       // Navegar a la página principal
       navigate('/');
+      
     } catch (error: any) {
       console.error('❌ Error al registrar:', error);
+      
+      // Mostrar mensaje de error amigable
       setError(error.message || 'Error al registrar usuario. Intenta de nuevo.');
     } finally {
       setLoading(false);
     }
   };
 
-  // REGISTRO CON GOOGLE
+  /**
+   * REGISTRO CON GOOGLE
+   */
   const handleGoogleRegister = async () => {
     setLoading(true);
     setError('');
 
     try {
+      console.log('📝 Iniciando registro con Google...');
+      
       // Usar el servicio de autenticación
       await authService.registerWithGoogle(auth, googleProvider);
 
-      console.log('✅ Registro con Google exitoso');
+      console.log('✅ Registro con Google exitoso, redirigiendo...');
       
       // Navegar a la página principal
       navigate('/');
+      
     } catch (error: any) {
       console.error('❌ Error al registrarse con Google:', error);
-      setError(error.message || 'Error al registrarse con Google. Intenta de nuevo.');
+      
+      // Mostrar mensaje de error amigable (si no fue cancelado)
+      if (!error.message.includes('cancelada') && 
+          !error.message.includes('cerrado')) {
+        setError(error.message || 'Error al registrarse con Google. Intenta de nuevo.');
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  // ============================================
+  // RENDER
+  // ============================================
 
   return (
     <div
@@ -226,14 +296,19 @@ export default function RegisterPage() {
         {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
       </button>
       
+      {/* Contenedor principal */}
       <div className={`rounded-xl shadow-2xl w-full max-w-7xl z-10 relative overflow-hidden transition-colors duration-300 ${
         darkMode ? 'bg-slate-900' : 'bg-white'
       }`}>
         <div className="grid md:grid-cols-2">
           
+          {/* ============================================ */}
+          {/* SECCIÓN IZQUIERDA - FORMULARIO */}
+          {/* ============================================ */}
           <div className={`px-7 py-9 border-r transition-colors duration-300 ${
             darkMode ? 'border-slate-700' : 'border-gray-200'
           }`}>
+            {/* Logo */}
             <div className="mb-3 flex items-center justify-center transition-all duration-300" style={{ height: '140px' }}>
               <img
                 src={darkMode ? logoUniversidadNoche : logoUniversidad}
@@ -242,13 +317,16 @@ export default function RegisterPage() {
               />
             </div>
 
+            {/* Título */}
             <h2 className={`text-2xl font-bold text-center mb-5 transition-all duration-300 ${
               darkMode ? 'text-blue-400' : 'text-[#003876]'
             }`}>
               Crear Cuenta
             </h2>
 
+            {/* Formulario */}
             <form onSubmit={handleRegister}>
+              {/* Nombre y Apellido */}
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div>
                   <input
@@ -258,7 +336,8 @@ export default function RegisterPage() {
                     onChange={handleChange}
                     placeholder="Nombre"
                     required
-                    className={`w-full px-4 py-3 border rounded-md text-base outline-none transition-all duration-300 ${
+                    disabled={loading}
+                    className={`w-full px-4 py-3 border rounded-md text-base outline-none transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
                       darkMode
                         ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-400 focus:border-blue-500'
                         : 'bg-gray-50 border-gray-300 text-gray-900 focus:border-[#003876] focus:bg-white'
@@ -274,7 +353,8 @@ export default function RegisterPage() {
                     onChange={handleChange}
                     placeholder="Apellido"
                     required
-                    className={`w-full px-4 py-3 border rounded-md text-base outline-none transition-all duration-300 ${
+                    disabled={loading}
+                    className={`w-full px-4 py-3 border rounded-md text-base outline-none transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
                       darkMode
                         ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-400 focus:border-blue-500'
                         : 'bg-gray-50 border-gray-300 text-gray-900 focus:border-[#003876] focus:bg-white'
@@ -283,6 +363,7 @@ export default function RegisterPage() {
                 </div>
               </div>
 
+              {/* Email */}
               <div className="mb-4">
                 <input
                   type="email"
@@ -291,7 +372,8 @@ export default function RegisterPage() {
                   onChange={handleChange}
                   placeholder="Correo electrónico"
                   required
-                  className={`w-full px-4 py-3 border rounded-md text-base outline-none transition-all duration-300 ${
+                  disabled={loading}
+                  className={`w-full px-4 py-3 border rounded-md text-base outline-none transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
                     darkMode
                       ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-400 focus:border-blue-500'
                       : 'bg-gray-50 border-gray-300 text-gray-900 focus:border-[#003876] focus:bg-white'
@@ -299,6 +381,7 @@ export default function RegisterPage() {
                 />
               </div>
 
+              {/* Contraseña */}
               <div className="mb-4">
                 <input
                   type="password"
@@ -307,7 +390,8 @@ export default function RegisterPage() {
                   onChange={handleChange}
                   placeholder="Contraseña"
                   required
-                  className={`w-full px-4 py-3 border rounded-md text-base outline-none transition-all duration-300 ${
+                  disabled={loading}
+                  className={`w-full px-4 py-3 border rounded-md text-base outline-none transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
                     darkMode
                       ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-400 focus:border-blue-500'
                       : 'bg-gray-50 border-gray-300 text-gray-900 focus:border-[#003876] focus:bg-white'
@@ -315,6 +399,7 @@ export default function RegisterPage() {
                 />
               </div>
 
+              {/* Confirmar Contraseña */}
               <div className="mb-4">
                 <input
                   type="password"
@@ -323,7 +408,8 @@ export default function RegisterPage() {
                   onChange={handleChange}
                   placeholder="Confirmar contraseña"
                   required
-                  className={`w-full px-4 py-3 border rounded-md text-base outline-none transition-all duration-300 ${
+                  disabled={loading}
+                  className={`w-full px-4 py-3 border rounded-md text-base outline-none transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
                     darkMode
                       ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-400 focus:border-blue-500'
                       : 'bg-gray-50 border-gray-300 text-gray-900 focus:border-[#003876] focus:bg-white'
@@ -331,7 +417,9 @@ export default function RegisterPage() {
                 />
               </div>
 
+              {/* Indicador de fuerza de contraseña */}
               <div className="mb-4">
+                {/* Barra de progreso */}
                 <div className={`w-full h-2 rounded-full overflow-hidden mb-2 ${
                   darkMode ? 'bg-slate-700' : 'bg-gray-200'
                 }`}>
@@ -344,6 +432,7 @@ export default function RegisterPage() {
                   />
                 </div>
                 
+                {/* Etiquetas */}
                 <div className="flex items-center justify-between mb-2">
                   <span
                     className="text-sm font-medium"
@@ -356,6 +445,7 @@ export default function RegisterPage() {
                   </span>
                 </div>
                 
+                {/* Requisitos */}
                 <div className={`text-xs space-y-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                   <div className="flex items-center gap-1">
                     <span className={formData.password.length >= 8 ? 'text-green-600' : (darkMode ? 'text-gray-500' : 'text-gray-400')}>
@@ -384,6 +474,7 @@ export default function RegisterPage() {
                 </div>
               </div>
 
+              {/* Mensaje de error */}
               {error && (
                 <div className={`px-3 py-2.5 rounded-md mb-4 text-center text-sm transition-colors duration-300 ${
                   darkMode 
@@ -394,6 +485,7 @@ export default function RegisterPage() {
                 </div>
               )}
 
+              {/* Botón Registrarse */}
               <button
                 type="submit"
                 disabled={loading}
@@ -406,6 +498,7 @@ export default function RegisterPage() {
                 {loading ? 'Registrando...' : 'Registrarse'}
               </button>
 
+              {/* Enlace a login */}
               <div className="text-center">
                 <span className={`text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                   ¿Ya tienes cuenta?{' '}
@@ -422,6 +515,9 @@ export default function RegisterPage() {
             </form>
           </div>
 
+          {/* ============================================ */}
+          {/* SECCIÓN DERECHA - REGISTRO CON GOOGLE */}
+          {/* ============================================ */}
           <div className="px-10 py-5 md:py-9 flex flex-col justify-center items-center">
             <div className="text-center mb-6">
               <h3 className={`text-xl font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>
@@ -432,6 +528,7 @@ export default function RegisterPage() {
               </p>
             </div>
 
+            {/* Botón Google */}
             <button
               type="button"
               onClick={handleGoogleRegister}
@@ -451,6 +548,7 @@ export default function RegisterPage() {
               {loading ? 'Registrando...' : 'Registrarse con Google'}
             </button>
 
+            {/* Términos y condiciones */}
             <div className={`mt-8 text-center text-sm max-w-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
               <p>
                 Al registrarte, aceptas nuestros términos de servicio y política de privacidad

@@ -1,3 +1,8 @@
+// ============================================
+// 📁 FRONTEND/src/services/Authservice.ts
+// CÓDIGO COMPLETO - Nombres corregidos
+// ============================================
+
 import { usersApi } from "./api";
 import { 
   getAuth, 
@@ -8,24 +13,33 @@ import {
   updateProfile
 } from 'firebase/auth';
 
-// Tipos
+// ============================================
+// TIPOS
+// ============================================
+
 export interface CreateUserPayload {
   nombres: string;
   apellidos: string;
   email: string;
   contrasena: string;
   confirmar_nueva_contrasena: string;
+  firebase_uid?: string;
+  login_method: 'email' | 'google';
+  foto_perfil?: string;
 }
 
 export interface BackendUser {
-  id: string;
-  primer_nombre: string;
-  primer_apellido: string;
+  id: number;
+  nombres: string;
+  apellidos: string;
   email: string;
+  firebase_uid?: string;
+  login_method: 'email' | 'google';
+  foto_perfil?: string;
 }
 
 export interface LocalUser {
-  id: string;
+  id: number;
   username: string;
   nombre: string;
   apellido: string;
@@ -33,25 +47,55 @@ export interface LocalUser {
   loginMethod: 'email' | 'google';
   picture: string;
   firebaseUid?: string;
-  backendId?: string;
+  backendId: number;
 }
 
-// Servicio de usuarios para el backend
+// ============================================
+// FUNCIÓN AUXILIAR: Dividir nombre completo MEJORADA
+// ============================================
+
+function splitFullName(fullName: string): { firstName: string, lastName: string } {
+  if (!fullName) return { firstName: '', lastName: '' };
+  
+  const parts = fullName.trim().split(' ').filter(part => part.length > 0);
+  
+  if (parts.length === 0) {
+    return { firstName: 'Usuario', lastName: 'Google' };
+  } else if (parts.length === 1) {
+    // Solo un nombre: "Miguel" -> firstName: "Miguel", lastName: ""
+    return { firstName: parts[0], lastName: '' };
+  } else if (parts.length === 2) {
+    // Dos palabras: "Miguel Angel" -> firstName: "Miguel Angel", lastName: ""
+    // O "Miguel Murillo" -> firstName: "Miguel", lastName: "Murillo"
+    // Asumimos que son 2 nombres si no hay indicador claro
+    return { firstName: parts[0], lastName: parts[1] };
+  } else if (parts.length === 3) {
+    // Tres palabras: "Miguel Angel Murillo" 
+    // -> firstName: "Miguel Angel", lastName: "Murillo"
+    return { 
+      firstName: `${parts[0]} ${parts[1]}`, 
+      lastName: parts[2] 
+    };
+  } else {
+    // Cuatro o más palabras: "Miguel Angel Murillo De Los Rios"
+    // -> firstName: primeras 2 palabras, lastName: resto
+    return { 
+      firstName: `${parts[0]} ${parts[1]}`, 
+      lastName: parts.slice(2).join(' ') 
+    };
+  }
+}
+
+// ============================================
+// SERVICIO DE BACKEND (API)
+// ============================================
+
 export const usersService = {
-  // Crear usuario en el backend
   createUser: async (payload: CreateUserPayload): Promise<BackendUser> => {
     try {
       const response = await usersApi.post("/", payload);
       return response.data;
     } catch (error: any) {
-      if (error.response) {
-        console.error("Error del servidor:", error.response.data);
-      } else if (error.request) {
-        console.error("No se recibió respuesta del servidor");
-      } else {
-        console.error("Error:", error.message);
-      }
-
       const backendMessage =
         error.response?.data?.message || 
         error.response?.data?.error ||
@@ -63,23 +107,18 @@ export const usersService = {
     }
   },
 
-  // Login con email y contraseña
-  loginUser: async (email: string, password: string): Promise<BackendUser> => {
+  loginUser: async (email: string, password: string): Promise<{ usuario: BackendUser, token: string }> => {
     try {
       const response = await usersApi.post("/login", {
         email: email,
         contrasena: password
       });
-      return response.data;
+      
+      return {
+        usuario: response.data.usuario,
+        token: response.data.token
+      };
     } catch (error: any) {
-      if (error.response) {
-        console.error("Error del servidor:", error.response.data);
-      } else if (error.request) {
-        console.error("No se recibió respuesta del servidor");
-      } else {
-        console.error("Error:", error.message);
-      }
-
       const backendMessage =
         error.response?.data?.message || 
         error.response?.data?.error ||
@@ -89,14 +128,72 @@ export const usersService = {
         backendMessage || error.message || "Error al iniciar sesión"
       );
     }
+  },
+
+  updateLastAccess: async (userId: number): Promise<void> => {
+    try {
+      await usersApi.patch(`/${userId}/update-access`);
+      console.log('✅ ultimo_acceso actualizado');
+    } catch (error) {
+      console.error('⚠️ Error actualizando ultimo_acceso:', error);
+    }
+  },
+
+  getUserByEmail: async (email: string): Promise<BackendUser> => {
+    try {
+      const response = await usersApi.get(`/email/${email}`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        throw new Error('Usuario no encontrado');
+      }
+      
+      const backendMessage =
+        error.response?.data?.message || 
+        error.response?.data?.error ||
+        error.response?.data?.detail;
+
+      throw new Error(
+        backendMessage || error.message || "Error al buscar usuario"
+      );
+    }
+  },
+
+  getUserByFirebaseUid: async (firebaseUid: string): Promise<BackendUser> => {
+    try {
+      const response = await usersApi.get(`/firebase/${firebaseUid}`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        throw new Error('Usuario no encontrado');
+      }
+      
+      throw new Error(error.message || "Error al buscar usuario");
+    }
+  },
+
+  findOrCreateUser: async (payload: CreateUserPayload): Promise<BackendUser> => {
+    try {
+      const existingUser = await usersService.getUserByEmail(payload.email);
+      console.log('✅ Usuario existente encontrado');
+      return existingUser;
+    } catch (error: any) {
+      if (error.message.includes('no encontrado')) {
+        console.log('ℹ️ Usuario no existe, creando nuevo...');
+        return await usersService.createUser(payload);
+      }
+      throw error;
+    }
   }
 };
 
-// Servicio de autenticación - SOLO REGISTRO
+// ============================================
+// SERVICIO DE AUTENTICACIÓN
+// ============================================
+
 export const authService = {
   /**
-   * Registrar usuario con email y contraseña
-   * Crea el usuario en Backend primero, luego en Firebase
+   * REGISTRO CON EMAIL
    */
   registerWithEmail: async (
     auth: ReturnType<typeof getAuth>,
@@ -105,39 +202,33 @@ export const authService = {
     email: string,
     password: string
   ): Promise<LocalUser> => {
-    try {
-      console.log('🔄 Iniciando registro con email...');
+    let firebaseUser = null;
 
-      // PASO 1: Crear usuario en el backend primero
+    try {
+      console.log('🔄 [REGISTRO EMAIL] Iniciando...');
+
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      firebaseUser = userCredential.user;
+
+      await updateProfile(firebaseUser, {
+        displayName: `${nombre} ${apellido}`
+      });
+
+      console.log('✅ [REGISTRO EMAIL] Usuario creado en Firebase');
+
       const backendPayload: CreateUserPayload = {
         nombres: nombre,
         apellidos: apellido,
         email: email,
         contrasena: password,
-        confirmar_nueva_contrasena: password
+        confirmar_nueva_contrasena: password,
+        firebase_uid: firebaseUser.uid,
+        login_method: 'email'
       };
 
-      console.log('📤 Enviando datos al backend...');
       const backendUser = await usersService.createUser(backendPayload);
-      console.log('✅ Usuario creado en backend:', backendUser.id);
+      console.log('✅ [REGISTRO EMAIL] Usuario creado en MySQL con ultimo_acceso');
 
-      // PASO 2: Crear usuario en Firebase
-      console.log('📤 Creando usuario en Firebase...');
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-      const firebaseUser = userCredential.user;
-      console.log('✅ Usuario creado en Firebase:', firebaseUser.uid);
-
-      // PASO 3: Actualizar perfil de Firebase con el nombre
-      await updateProfile(firebaseUser, {
-        displayName: `${nombre} ${apellido}`
-      });
-      console.log('✅ Perfil de Firebase actualizado');
-
-      // PASO 4: Crear objeto de usuario para localStorage
       const localUser: LocalUser = {
         id: backendUser.id,
         backendId: backendUser.id,
@@ -147,33 +238,33 @@ export const authService = {
         apellido: apellido,
         email: email,
         loginMethod: 'email',
-        picture: ''
+        picture: backendUser.foto_perfil || ''
       };
 
-      // PASO 5: Guardar en localStorage
       localStorage.setItem('usuario', JSON.stringify(localUser));
-      console.log('✅ Usuario guardado en localStorage');
       
       return localUser;
 
     } catch (error: any) {
-      console.error('❌ Error en registro con email:', error);
-      
-      // Manejo específico de errores
-      if (error.code === 'auth/operation-not-allowed') {
-        throw new Error('⚠️ Firebase no configurado: Ve a Firebase Console → Authentication → Settings → Authorized domains y agrega "localhost"');
-      } else if (error.message.includes('email-already-in-use') || 
-          error.message.includes('ya existe') || 
-          error.message.includes('already exists')) {
+      console.error('❌ [REGISTRO EMAIL] Error:', error);
+
+      if (firebaseUser && 
+          (error.message.includes('ya está en uso') || 
+           error.message.includes('ya existe'))) {
+        try {
+          await firebaseUser.delete();
+        } catch (deleteError) {
+          console.error('⚠️ Error en rollback:', deleteError);
+        }
+      }
+
+      if (error.message.includes('ya está en uso') || 
+          error.message.includes('ya existe')) {
         throw new Error('Este correo electrónico ya está registrado');
       } else if (error.code === 'auth/email-already-in-use') {
         throw new Error('Este correo electrónico ya está registrado');
-      } else if (error.code === 'auth/invalid-email') {
-        throw new Error('Correo electrónico inválido');
       } else if (error.code === 'auth/weak-password') {
-        throw new Error('La contraseña es muy débil');
-      } else if (error.code === 'auth/unauthorized-domain') {
-        throw new Error('⚠️ Dominio no autorizado: Agrega tu dominio en Firebase Console → Authentication → Authorized domains');
+        throw new Error('La contraseña es muy débil (mínimo 6 caracteres)');
       }
       
       throw error;
@@ -181,94 +272,71 @@ export const authService = {
   },
 
   /**
-   * Registrar usuario con Google
-   * Autentica con Google, luego crea en el backend
+   * REGISTRO CON GOOGLE - CORREGIDO
    */
   registerWithGoogle: async (
     auth: ReturnType<typeof getAuth>,
     googleProvider: GoogleAuthProvider
   ): Promise<LocalUser> => {
     try {
-      console.log('🔄 Iniciando registro con Google...');
+      console.log('🔄 [REGISTRO GOOGLE] Iniciando...');
 
-      // PASO 1: Autenticar con Google en Firebase
-      console.log('📤 Abriendo popup de Google...');
       const result = await signInWithPopup(auth, googleProvider);
       const firebaseUser = result.user;
-      console.log('✅ Usuario autenticado con Google:', firebaseUser.uid);
 
-      // PASO 2: Extraer información del perfil de Google
-      const nombres = firebaseUser.displayName?.split(' ') || ['', ''];
-      const primerNombre = nombres[0] || '';
-      const primerApellido = nombres.slice(1).join(' ') || '';
+      const fullName = firebaseUser.displayName || '';
+      const { firstName, lastName } = splitFullName(fullName);
       const email = firebaseUser.email || '';
 
-      // PASO 3: Intentar crear usuario en el backend
-      console.log('📤 Creando usuario en el backend...');
-      let backendUser: BackendUser | null = null;
-      
+      console.log('✅ [REGISTRO GOOGLE] Autenticado');
+      console.log(`   Nombre completo de Google: "${fullName}"`);
+      console.log(`   Dividido en -> Nombres: "${firstName}", Apellidos: "${lastName}"`);
+
       const backendPayload: CreateUserPayload = {
-        nombres: primerNombre,
-        apellidos: primerApellido,
+        nombres: firstName || 'Usuario',
+        apellidos: lastName || 'Google',
         email: email,
-        contrasena: `google-auth-${firebaseUser.uid}`, // Contraseña temporal
-        confirmar_nueva_contrasena: `google-auth-${firebaseUser.uid}`
+        contrasena: `google-oauth-${firebaseUser.uid}`,
+        confirmar_nueva_contrasena: `google-oauth-${firebaseUser.uid}`,
+        firebase_uid: firebaseUser.uid,
+        login_method: 'google',
+        foto_perfil: firebaseUser.photoURL || undefined
       };
 
+      const backendUser = await usersService.findOrCreateUser(backendPayload);
+      console.log('✅ [REGISTRO GOOGLE] Usuario en MySQL');
+
+      // Actualizar ultimo_acceso
       try {
-        backendUser = await usersService.createUser(backendPayload);
-        console.log('✅ Usuario creado en backend:', backendUser.id);
-      } catch (error: any) {
-        // Si el usuario ya existe, está bien
-        if (error.message.includes('ya existe') || 
-            error.message.includes('already exists') ||
-            error.message.includes('duplicate')) {
-          console.log('ℹ️ Usuario ya existe en backend, continuando...');
-          // Crear un objeto básico con el email
-          backendUser = {
-            id: firebaseUser.uid, // Usar Firebase UID como fallback
-            primer_nombre: primerNombre,
-            primer_apellido: primerApellido,
-            email: email
-          };
-        } else {
-          throw error; // Si es otro error, lanzarlo
-        }
+        await usersService.updateLastAccess(backendUser.id);
+        console.log('✅ [REGISTRO GOOGLE] ultimo_acceso actualizado');
+      } catch (error) {
+        console.warn('⚠️ No se pudo actualizar ultimo_acceso:', error);
       }
 
-      // PASO 4: Crear objeto de usuario local
       const localUser: LocalUser = {
-        id: backendUser?.id || firebaseUser.uid,
-        backendId: backendUser?.id,
+        id: backendUser.id,
+        backendId: backendUser.id,
         firebaseUid: firebaseUser.uid,
         username: email,
-        nombre: primerNombre,
-        apellido: primerApellido,
+        nombre: backendUser.nombres,
+        apellido: backendUser.apellidos,
         email: email,
         loginMethod: 'google',
-        picture: firebaseUser.photoURL || ''
+        picture: firebaseUser.photoURL || backendUser.foto_perfil || ''
       };
 
-      // PASO 5: Guardar en localStorage
       localStorage.setItem('usuario', JSON.stringify(localUser));
-      console.log('✅ Usuario guardado en localStorage');
       
       return localUser;
 
     } catch (error: any) {
-      console.error('❌ Error en registro con Google:', error);
+      console.error('❌ [REGISTRO GOOGLE] Error:', error);
       
-      // Manejo de errores específicos de Google
-      if (error.code === 'auth/operation-not-allowed') {
-        throw new Error('⚠️ Firebase no configurado: Ve a Firebase Console → Authentication → Sign-in method y habilita Google');
-      } else if (error.code === 'auth/unauthorized-domain') {
-        throw new Error('⚠️ Dominio no autorizado: Agrega tu dominio en Firebase Console → Authentication → Authorized domains');
-      } else if (error.code === 'auth/popup-closed-by-user') {
+      if (error.code === 'auth/popup-closed-by-user') {
         throw new Error('Autenticación cancelada');
       } else if (error.code === 'auth/popup-blocked') {
-        throw new Error('Popup bloqueado. Permite popups para este sitio.');
-      } else if (error.code === 'auth/cancelled-popup-request') {
-        throw new Error('Popup cerrado');
+        throw new Error('Popup bloqueado');
       }
       
       throw error;
@@ -276,22 +344,7 @@ export const authService = {
   },
 
   /**
-   * Obtener usuario actual desde localStorage
-   */
-  getCurrentUser: (): LocalUser | null => {
-    const userStr = localStorage.getItem('usuario');
-    if (!userStr) return null;
-    
-    try {
-      return JSON.parse(userStr) as LocalUser;
-    } catch {
-      return null;
-    }
-  },
-
-  /**
-   * Login con email y contraseña
-   * Autentica con el backend y Firebase
+   * LOGIN CON EMAIL
    */
   loginWithEmail: async (
     auth: ReturnType<typeof getAuth>,
@@ -299,72 +352,49 @@ export const authService = {
     password: string
   ): Promise<LocalUser> => {
     try {
-      console.log('🔄 Iniciando login con email...');
+      console.log('🔄 [LOGIN EMAIL] Iniciando...');
 
-      // PASO 1: Autenticar con el backend
-      console.log('📤 Autenticando en el backend...');
-      const backendUser = await usersService.loginUser(email, password);
-      console.log('✅ Autenticado en backend:', backendUser.id);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
 
-      // PASO 2: Autenticar con Firebase
-      console.log('📤 Autenticando en Firebase...');
+      console.log('✅ [LOGIN EMAIL] Autenticado en Firebase');
+
+      let backendUser: BackendUser;
+      
       try {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const firebaseUser = userCredential.user;
-        console.log('✅ Autenticado en Firebase:', firebaseUser.uid);
-
-        // PASO 3: Crear objeto de usuario local
-        const localUser: LocalUser = {
-          id: backendUser.id,
-          backendId: backendUser.id,
-          firebaseUid: firebaseUser.uid,
-          username: email,
-          nombre: backendUser.primer_nombre,
-          apellido: backendUser.primer_apellido,
-          email: email,
-          loginMethod: 'email',
-          picture: firebaseUser.photoURL || ''
-        };
-
-        // PASO 4: Guardar en localStorage
-        localStorage.setItem('usuario', JSON.stringify(localUser));
-        console.log('✅ Usuario guardado en localStorage');
+        const loginResponse = await usersService.loginUser(email, password);
+        backendUser = loginResponse.usuario;
+        console.log('✅ [LOGIN EMAIL] Login backend - ultimo_acceso actualizado');
+      } catch (backendError: any) {
+        console.warn('⚠️ Login backend falló, buscando usuario...');
         
-        return localUser;
-
-      } catch (firebaseError: any) {
-        // Si falla Firebase pero el backend autenticó correctamente
-        console.warn('⚠️ Firebase falló pero backend OK, continuando...');
-        
-        const localUser: LocalUser = {
-          id: backendUser.id,
-          backendId: backendUser.id,
-          username: email,
-          nombre: backendUser.primer_nombre,
-          apellido: backendUser.primer_apellido,
-          email: email,
-          loginMethod: 'email',
-          picture: ''
-        };
-
-        localStorage.setItem('usuario', JSON.stringify(localUser));
-        console.log('✅ Usuario guardado en localStorage (sin Firebase)');
-        
-        return localUser;
+        try {
+          backendUser = await usersService.getUserByFirebaseUid(firebaseUser.uid);
+        } catch (error) {
+          backendUser = await usersService.getUserByEmail(email);
+        }
       }
 
-    } catch (error: any) {
-      console.error('❌ Error en login:', error);
+      const localUser: LocalUser = {
+        id: backendUser.id,
+        backendId: backendUser.id,
+        firebaseUid: firebaseUser.uid,
+        username: email,
+        nombre: backendUser.nombres,
+        apellido: backendUser.apellidos,
+        email: email,
+        loginMethod: 'email',
+        picture: firebaseUser.photoURL || backendUser.foto_perfil || ''
+      };
+
+      localStorage.setItem('usuario', JSON.stringify(localUser));
       
-      // Manejo de errores específicos
-      if (error.message.includes('credenciales') || 
-          error.message.includes('incorrecta') ||
-          error.message.includes('invalid')) {
-        throw new Error('Email o contraseña incorrectos');
-      } else if (error.message.includes('no encontrado') ||
-                 error.message.includes('not found')) {
-        throw new Error('Usuario no encontrado');
-      } else if (error.code === 'auth/user-not-found') {
+      return localUser;
+
+    } catch (error: any) {
+      console.error('❌ [LOGIN EMAIL] Error:', error);
+      
+      if (error.code === 'auth/user-not-found') {
         throw new Error('Usuario no encontrado');
       } else if (error.code === 'auth/wrong-password') {
         throw new Error('Contraseña incorrecta');
@@ -377,90 +407,84 @@ export const authService = {
   },
 
   /**
-   * Login con Google
-   * Similar al registro, verifica si existe en backend
+   * LOGIN CON GOOGLE
    */
   loginWithGoogle: async (
     auth: ReturnType<typeof getAuth>,
     googleProvider: GoogleAuthProvider
   ): Promise<LocalUser> => {
     try {
-      console.log('🔄 Iniciando login con Google...');
+      console.log('🔄 [LOGIN GOOGLE] Iniciando...');
 
-      // PASO 1: Autenticar con Google en Firebase
-      console.log('📤 Abriendo popup de Google...');
       const result = await signInWithPopup(auth, googleProvider);
       const firebaseUser = result.user;
-      console.log('✅ Usuario autenticado con Google:', firebaseUser.uid);
 
-      // PASO 2: Extraer información del perfil
-      const nombres = firebaseUser.displayName?.split(' ') || ['', ''];
-      const primerNombre = nombres[0] || '';
-      const primerApellido = nombres.slice(1).join(' ') || '';
       const email = firebaseUser.email || '';
 
-      // PASO 3: Verificar si existe en el backend
-      // Usamos un email y una contraseña temporal para "autenticar"
-      // En realidad solo queremos verificar que el usuario existe
-      console.log('📤 Verificando usuario en el backend...');
-      
+      console.log('✅ [LOGIN GOOGLE] Autenticado');
+
       let backendUser: BackendUser;
+      
       try {
-        // Intentar login con contraseña de Google
-        backendUser = await usersService.loginUser(email, `google-auth-${firebaseUser.uid}`);
-        console.log('✅ Usuario encontrado en backend:', backendUser.id);
-      } catch (error: any) {
-        // Si falla el login, el usuario no está registrado
-        throw new Error('Usuario no registrado. Por favor regístrate primero.');
+        backendUser = await usersService.getUserByFirebaseUid(firebaseUser.uid);
+      } catch (error) {
+        try {
+          backendUser = await usersService.getUserByEmail(email);
+        } catch (emailError) {
+          await auth.signOut();
+          throw new Error('Usuario no registrado. Por favor regístrate primero');
+        }
       }
 
-      // PASO 4: Crear objeto de usuario local
+      console.log('✅ [LOGIN GOOGLE] Usuario encontrado');
+
+      // Actualizar ultimo_acceso
+      await usersService.updateLastAccess(backendUser.id);
+
       const localUser: LocalUser = {
         id: backendUser.id,
         backendId: backendUser.id,
         firebaseUid: firebaseUser.uid,
         username: email,
-        nombre: primerNombre,
-        apellido: primerApellido,
+        nombre: backendUser.nombres,
+        apellido: backendUser.apellidos,
         email: email,
         loginMethod: 'google',
-        picture: firebaseUser.photoURL || ''
+        picture: firebaseUser.photoURL || backendUser.foto_perfil || ''
       };
 
-      // PASO 5: Guardar en localStorage
       localStorage.setItem('usuario', JSON.stringify(localUser));
-      console.log('✅ Usuario guardado en localStorage');
       
       return localUser;
 
     } catch (error: any) {
-      console.error('❌ Error en login con Google:', error);
+      console.error('❌ [LOGIN GOOGLE] Error:', error);
       
-      // Manejo de errores específicos
       if (error.code === 'auth/popup-closed-by-user') {
         throw new Error('Autenticación cancelada');
-      } else if (error.code === 'auth/popup-blocked') {
-        throw new Error('Popup bloqueado. Permite popups para este sitio.');
-      } else if (error.code === 'auth/cancelled-popup-request') {
-        throw new Error('Popup cerrado');
       }
       
       throw error;
     }
   },
 
-  /**
-   * Logout
-   * Cierra sesión en Firebase y limpia localStorage
-   */
+  getCurrentUser: (): LocalUser | null => {
+    try {
+      const userStr = localStorage.getItem('usuario');
+      if (!userStr) return null;
+      
+      return JSON.parse(userStr) as LocalUser;
+    } catch (error) {
+      return null;
+    }
+  },
+
   logout: async (auth: ReturnType<typeof getAuth>): Promise<void> => {
     try {
       await auth.signOut();
       localStorage.removeItem('usuario');
-      console.log('✅ Sesión cerrada');
+      console.log('✅ [LOGOUT] Sesión cerrada');
     } catch (error) {
-      console.error('❌ Error al cerrar sesión:', error);
-      // Limpiar localStorage de todas formas
       localStorage.removeItem('usuario');
     }
   }

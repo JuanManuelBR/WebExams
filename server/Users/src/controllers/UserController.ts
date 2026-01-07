@@ -1,7 +1,10 @@
+// ============================================
+// 📁 BACKEND/src/controllers/UserController.ts
+// CÓDIGO COMPLETO
+// ============================================
+
 import { UserService } from "@src/services/UserService";
-
 import { throwHttpError } from "@src/utils/errors";
-
 import { NextFunction, Request, Response } from "express";
 
 const user_service = new UserService();
@@ -64,12 +67,12 @@ export class UserController {
       if (error.message.includes("No se encontró")) {
         return res
           .status(404)
-          .json({ message: "No se econtró al usuario con el id especificado" });
+          .json({ message: "No se encontró al usuario con el id especificado" });
       }
 
       return res
         .status(400)
-        .json({ message: "Ocurrio un error inesperado: " + error.message });
+        .json({ message: "Ocurrió un error inesperado: " + error.message });
     }
   }
 
@@ -113,13 +116,69 @@ export class UserController {
     try {
       res.clearCookie("token", {
         httpOnly: true,
-        secure: false, 
+        secure: false,
         sameSite: "lax",
       });
 
       return res.status(200).json({ message: "Logout exitoso" });
     } catch (error: any) {
       return res.status(500).json({ message: "Error al cerrar sesión" });
+    }
+  }
+
+  static async getUserByEmail(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email } = req.params;
+      const usuario = await user_service.getUserByEmail(email);
+
+      const { contrasena, ...usuarioSinPassword } = usuario;
+
+      return res.status(200).json(usuarioSinPassword);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getUserByFirebaseUid(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { firebaseUid } = req.params;
+      const usuario = await user_service.getUserByFirebaseUid(firebaseUid);
+
+      const { contrasena, ...usuarioSinPassword } = usuario;
+
+      return res.status(200).json(usuarioSinPassword);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async findOrCreateUser(req: Request, res: Response, next: NextFunction) {
+    try {
+      const usuario = await user_service.findOrCreateUser(req.body);
+
+      const { contrasena, ...usuarioSinPassword } = usuario;
+
+      return res.status(200).json(usuarioSinPassword);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updateLastAccess(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = Number(req.params.id);
+
+      if (isNaN(id)) {
+        throwHttpError("ID inválido", 400);
+      }
+
+      await user_service.updateLastAccessById(id);
+
+      return res.status(200).json({ 
+        message: "Último acceso actualizado correctamente" 
+      });
+    } catch (error) {
+      next(error);
     }
   }
 }
