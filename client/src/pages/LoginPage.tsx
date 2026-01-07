@@ -5,13 +5,15 @@ import logoUniversidad from '../../assets/logo-universidad.png';
 import logoUniversidadNoche from '../../assets/logo-universidad-noche.png';
 import fondoImagen from '../../assets/fondo.jpg';
 import ExamSearchBar from '../components/ExamSearchBar';
-import { authService } from '../services/Authservice'; // ← AJUSTAR según tu estructura
+import { authService } from '../services/Authservice';
 
 // Importa Firebase
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 
-// Configuración de Firebase
+// ============================================
+// CONFIGURACIÓN DE FIREBASE
+// ============================================
 const firebaseConfig = {
   apiKey: "AIzaSyBv1_xkK7oXRxxIXdvXTPsWOK3Joz6A2xo",
   authDomain: "universidad-tesis.firebaseapp.com",
@@ -31,11 +33,16 @@ googleProvider.setCustomParameters({
   prompt: 'select_account'
 });
 
+// ============================================
+// COMPONENTE LOGIN
+// ============================================
 export default function LoginPage() {
+  // Estados del formulario
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
   const navigate = useNavigate();
 
   // Estado para el modo oscuro - lee desde localStorage al iniciar
@@ -49,67 +56,107 @@ export default function LoginPage() {
     localStorage.setItem('darkMode', JSON.stringify(darkMode));
   }, [darkMode]);
 
+  // Verificar si ya hay una sesión activa
+  useEffect(() => {
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      console.log('ℹ️ Usuario ya autenticado, redirigiendo...');
+      navigate('/');
+    }
+  }, [navigate]);
+
+  // ============================================
+  // FUNCIONES
+  // ============================================
+
   const toggleTheme = () => {
     setDarkMode(!darkMode);
   };
 
-  // Manejar búsqueda de examen - navega a /acceso-examen con el código
   const handleExamSearch = (examCode: string) => {
     navigate(`/acceso-examen?code=${examCode}`);
   };
 
-  // LOGIN CON EMAIL/PASSWORD
+  /**
+   * LOGIN CON EMAIL Y CONTRASEÑA
+   */
   const handleLogin = async () => {
     setError('');
 
+    // Validaciones básicas
     if (!email || !password) {
       setError('Por favor completa todos los campos');
+      return;
+    }
+
+    if (!email.includes('@')) {
+      setError('Por favor ingresa un correo electrónico válido');
       return;
     }
 
     setLoading(true);
 
     try {
+      console.log('🔐 Iniciando login con email...');
+      
       // Usar el servicio de autenticación
       await authService.loginWithEmail(auth, email, password);
 
-      console.log('✅ Login exitoso');
+      console.log('✅ Login exitoso, redirigiendo...');
       
       // Navegar a la página principal
       navigate('/');
+      
     } catch (error: any) {
       console.error('❌ Error al iniciar sesión:', error);
-      setError(error.message || 'Error al iniciar sesión. Verifica tus credenciales.');
+      
+      // Mostrar mensaje de error amigable
+      if (error.message.includes('no registrado') || 
+          error.message.includes('not found')) {
+        setError('noRegistrado');
+      } else {
+        setError(error.message || 'Error al iniciar sesión. Verifica tus credenciales.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !loading) {
       handleLogin();
     }
   };
 
-  // LOGIN CON GOOGLE
+  /**
+   * LOGIN CON GOOGLE
+   */
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError('');
 
     try {
+      console.log('🔐 Iniciando login con Google...');
+      
       // Usar el servicio de autenticación
       await authService.loginWithGoogle(auth, googleProvider);
 
-      console.log('✅ Login con Google exitoso');
+      console.log('✅ Login con Google exitoso, redirigiendo...');
       
       // Navegar a la página principal
       navigate('/');
+      
     } catch (error: any) {
       console.error('❌ Error al iniciar sesión con Google:', error);
       
-      // Si el usuario no está registrado, mostrar opción de registro
-      if (error.message.includes('no registrado') || error.message.includes('not found')) {
+      // Mostrar mensaje de error amigable
+      if (error.message.includes('no registrado') || 
+          error.message.includes('not found')) {
         setError('noRegistradoGoogle');
+      } else if (error.message.includes('cancelada') || 
+                 error.message.includes('cerrado')) {
+        // No mostrar error si el usuario canceló
+        setError('');
       } else {
         setError(error.message || 'Error al iniciar sesión con Google. Intenta de nuevo.');
       }
@@ -117,6 +164,10 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  // ============================================
+  // RENDER
+  // ============================================
 
   return (
     <div
@@ -128,7 +179,7 @@ export default function LoginPage() {
         darkMode ? 'bg-black/75' : 'bg-black/45'
       }`}></div>
 
-      {/* Botón de tema en la esquina INFERIOR derecha */}
+      {/* Botón de tema en la esquina inferior derecha */}
       <button
         onClick={toggleTheme}
         className={`fixed bottom-6 right-6 z-20 p-3 rounded-full shadow-lg transition-all duration-300 ${
@@ -144,14 +195,19 @@ export default function LoginPage() {
       {/* Barra de búsqueda */}
       <ExamSearchBar onSearch={handleExamSearch} darkMode={darkMode} />
       
+      {/* Contenedor principal */}
       <div className={`rounded-xl shadow-2xl w-full max-w-7xl z-10 relative overflow-hidden transition-colors duration-300 ${
         darkMode ? 'bg-slate-900' : 'bg-white'
       }`}>
         <div className="grid md:grid-cols-2">
           
+          {/* ============================================ */}
+          {/* SECCIÓN IZQUIERDA - FORMULARIO */}
+          {/* ============================================ */}
           <div className={`px-7 py-9 border-r transition-colors duration-300 ${
             darkMode ? 'border-slate-700' : 'border-gray-200'
           }`}>
+            {/* Logo */}
             <div className="mb-0 flex items-center justify-center" style={{ height: '190px' }}>
               <img
                 src={darkMode ? logoUniversidadNoche : logoUniversidad}
@@ -160,7 +216,9 @@ export default function LoginPage() {
               />
             </div>
 
+            {/* Formulario */}
             <div>
+              {/* Campo Email */}
               <div className="mb-4">
                 <input
                   type="email"
@@ -177,6 +235,7 @@ export default function LoginPage() {
                 />
               </div>
 
+              {/* Campo Contraseña */}
               <div className="mb-5">
                 <input
                   type="password"
@@ -193,6 +252,7 @@ export default function LoginPage() {
                 />
               </div>
 
+              {/* Mensaje de error */}
               {error && (
                 <div className={`px-3 py-2.5 rounded-md mb-4 text-center text-sm transition-colors duration-300 ${
                   darkMode 
@@ -200,15 +260,32 @@ export default function LoginPage() {
                     : 'bg-red-50 text-red-600'
                 }`}>
                   {error === 'noRegistrado' ? (
-                    <span>Este correo no está registrado. <Link to="/teacher-registration" className="font-semibold underline hover:text-red-300">Crea una cuenta aquí</Link></span>
+                    <span>
+                      Este correo no está registrado.{' '}
+                      <Link 
+                        to="/teacher-registration" 
+                        className="font-semibold underline hover:text-red-300"
+                      >
+                        Crea una cuenta aquí
+                      </Link>
+                    </span>
                   ) : error === 'noRegistradoGoogle' ? (
-                    <span>Esta cuenta de Google no está registrada. <Link to="/teacher-registration" className="font-semibold underline hover:text-red-300">Regístrate primero</Link></span>
+                    <span>
+                      Esta cuenta de Google no está registrada.{' '}
+                      <Link 
+                        to="/teacher-registration" 
+                        className="font-semibold underline hover:text-red-300"
+                      >
+                        Regístrate primero
+                      </Link>
+                    </span>
                   ) : (
                     error
                   )}
                 </div>
               )}
 
+              {/* Botón Acceder */}
               <button
                 type="button"
                 onClick={handleLogin}
@@ -222,6 +299,7 @@ export default function LoginPage() {
                 {loading ? 'Iniciando sesión...' : 'Acceder'}
               </button>
 
+              {/* Recuperar contraseña */}
               <div className="text-center mb-3">
                 <Link 
                   to="/recuperar-password" 
@@ -233,10 +311,13 @@ export default function LoginPage() {
                 </Link>
               </div>
 
+              {/* Enlace a registro */}
               <div className="text-center">
                 <span className={`text-base transition-colors duration-300 ${
                   darkMode ? 'text-gray-400' : 'text-gray-600'
-                }`}>¿No tienes cuenta? </span>
+                }`}>
+                  ¿No tienes cuenta?{' '}
+                </span>
                 <Link 
                   to="/teacher-registration" 
                   className={`text-base font-medium no-underline hover:underline transition-colors duration-300 ${
@@ -249,13 +330,19 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {/* ============================================ */}
+          {/* SECCIÓN DERECHA - LOGIN CON GOOGLE */}
+          {/* ============================================ */}
           <div className="px-10 py-5 md:py-9 flex flex-col justify-center items-center">
             <div className="text-center mb-4">
               <span className={`text-base font-medium transition-colors duration-300 ${
                 darkMode ? 'text-gray-300' : 'text-gray-600'
-              }`}>Ingresar con</span>
+              }`}>
+                Ingresar con
+              </span>
             </div>
 
+            {/* Botón Google */}
             <button
               type="button"
               onClick={handleGoogleLogin}
