@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Camera, Mail, Phone, BookOpen, Save, X, FileEdit } from 'lucide-react';
+import { User, Camera, Mail, Save, X, FileEdit, Lock } from 'lucide-react';
 
 interface MiPerfilProps {
   darkMode: boolean;
@@ -13,10 +13,56 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
   const [profileImage, setProfileImage] = useState(usuarioData?.foto || '');
   const [formData, setFormData] = useState({
     nombre: usuarioData?.nombre || '',
+    apellido: usuarioData?.apellido || '',
     email: usuarioData?.email || '',
-    telefono: usuarioData?.telefono || '',
-    departamento: usuarioData?.departamento || ''
+    contrasenaActual: '',
+    contrasenaNueva: '',
+    contrasenaConfirmar: ''
   });
+  const [passwordStrength, setPasswordStrength] = useState({
+    score: 0,
+    label: '',
+    color: ''
+  });
+
+  // Función para calcular la fuerza de la contraseña
+  const calculatePasswordStrength = (password: string) => {
+    let score = 0;
+    
+    if (!password) {
+      return { score: 0, label: '', color: '' };
+    }
+
+    // Criterios de evaluación
+    if (password.length >= 8) score++;
+    if (password.length >= 12) score++;
+    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
+    if (/\d/.test(password)) score++;
+    if (/[^a-zA-Z0-9]/.test(password)) score++;
+
+    // Determinar nivel
+    let label = '';
+    let color = '';
+
+    if (score <= 1) {
+      label = 'Muy débil';
+      color = '#ef4444';
+    } else if (score === 2) {
+      label = 'Débil';
+      color = '#f97316';
+    } else if (score === 3) {
+      label = 'Aceptable';
+      color = '#eab308';
+    } else if (score === 4) {
+      label = 'Fuerte';
+      color = '#84cc16';
+    } else {
+      label = 'Muy fuerte';
+      color = '#22c55e';
+    }
+
+    return { score, label, color };
+  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -30,19 +76,65 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
+
+    if (name === 'contrasenaNueva') {
+      const strength = calculatePasswordStrength(value);
+      setPasswordStrength(strength);
+    }
   };
 
   const handleSave = () => {
+    // Validar contraseñas si se están cambiando
+    if (formData.contrasenaNueva || formData.contrasenaConfirmar) {
+      if (!formData.contrasenaActual) {
+        alert('Debes ingresar tu contraseña actual');
+        return;
+      }
+      if (formData.contrasenaNueva !== formData.contrasenaConfirmar) {
+        alert('Las contraseñas nuevas no coinciden');
+        return;
+      }
+      if (formData.contrasenaNueva.length < 8) {
+        alert('La contraseña debe tener al menos 8 caracteres');
+        return;
+      }
+      if (passwordStrength.score < 3) {
+        alert('La contraseña debe ser al menos "Aceptable" (amarillo). Usa mayúsculas, minúsculas, números y caracteres especiales.');
+        return;
+      }
+    }
+
     const updatedUser = {
       ...usuarioData,
-      ...formData,
+      nombre: formData.nombre,
+      apellido: formData.apellido,
+      email: formData.email,
       foto: profileImage
     };
+
+    // Si hay nueva contraseña, actualizarla
+    if (formData.contrasenaNueva) {
+      updatedUser.password = formData.contrasenaNueva;
+    }
+
     localStorage.setItem('usuario', JSON.stringify(updatedUser));
+    
+    // Limpiar campos de contraseña
+    setFormData({
+      ...formData,
+      contrasenaActual: '',
+      contrasenaNueva: '',
+      contrasenaConfirmar: ''
+    });
+    
+    setPasswordStrength({ score: 0, label: '', color: '' });
+    
     setIsEditing(false);
     alert('Cambios guardados exitosamente');
   };
@@ -50,9 +142,11 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
   const handleCancel = () => {
     setFormData({
       nombre: usuarioData?.nombre || '',
+      apellido: usuarioData?.apellido || '',
       email: usuarioData?.email || '',
-      telefono: usuarioData?.telefono || '',
-      departamento: usuarioData?.departamento || ''
+      contrasenaActual: '',
+      contrasenaNueva: '',
+      contrasenaConfirmar: ''
     });
     setProfileImage(usuarioData?.foto || '');
     setIsEditing(false);
@@ -94,12 +188,9 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
               )}
             </div>
 
-            <h2 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'} mb-2`}>
-              {formData.nombre || 'Nombre Completo'}
+            <h2 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'} mb-6`}>
+              {formData.nombre && formData.apellido ? `${formData.nombre} ${formData.apellido}` : 'Nombre Completo'}
             </h2>
-            <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${darkMode ? 'bg-slate-800 text-white' : 'bg-slate-700 text-white'} mb-6`}>
-              {formData.departamento || 'Departamento'}
-            </span>
 
             {/* Información de Contacto */}
             <div className="space-y-3 text-left mt-6">
@@ -107,18 +198,6 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
                 <Mail className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
                 <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                   {formData.email || 'email@ejemplo.com'}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Phone className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
-                <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {formData.telefono || 'Sin teléfono'}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <BookOpen className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
-                <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {formData.departamento || 'Sin departamento'}
                 </span>
               </div>
             </div>
@@ -139,24 +218,47 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
           </div>
 
           <form className="space-y-6">
-            {/* Nombre Completo */}
-            <div>
-              <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Nombre Completo
-              </label>
-              <input
-                type="text"
-                name="nombre"
-                value={formData.nombre}
-                onChange={handleInputChange}
-                disabled={!isEditing}
-                className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                  darkMode 
-                    ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-500 disabled:bg-slate-800/50' 
-                    : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 disabled:bg-gray-100'
-                } ${isEditing ? 'focus:outline-none focus:ring-2 focus:ring-teal-500' : ''}`}
-                placeholder="Prof. Carlos Pérez"
-              />
+            {/* Nombre y Apellido en fila */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Nombre */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Nombre
+                </label>
+                <input
+                  type="text"
+                  name="nombre"
+                  value={formData.nombre}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className={`w-full px-4 py-3 rounded-lg border transition-colors ${
+                    darkMode 
+                      ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-500 disabled:bg-slate-800/50' 
+                      : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 disabled:bg-gray-100'
+                  } ${isEditing ? 'focus:outline-none focus:ring-2 focus:ring-teal-500' : ''}`}
+                  placeholder="Carlos"
+                />
+              </div>
+
+              {/* Apellido */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Apellido
+                </label>
+                <input
+                  type="text"
+                  name="apellido"
+                  value={formData.apellido}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className={`w-full px-4 py-3 rounded-lg border transition-colors ${
+                    darkMode 
+                      ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-500 disabled:bg-slate-800/50' 
+                      : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 disabled:bg-gray-100'
+                  } ${isEditing ? 'focus:outline-none focus:ring-2 focus:ring-teal-500' : ''}`}
+                  placeholder="Pérez"
+                />
+              </div>
             </div>
 
             {/* Correo Electrónico */}
@@ -179,45 +281,140 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
               />
             </div>
 
-            {/* Teléfono */}
-            <div>
-              <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Teléfono
-              </label>
-              <input
-                type="tel"
-                name="telefono"
-                value={formData.telefono}
-                onChange={handleInputChange}
-                disabled={!isEditing}
-                className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                  darkMode 
-                    ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-500 disabled:bg-slate-800/50' 
-                    : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 disabled:bg-gray-100'
-                } ${isEditing ? 'focus:outline-none focus:ring-2 focus:ring-teal-500' : ''}`}
-                placeholder="+57 311 234 5678"
-              />
-            </div>
+            {/* Sección de Cambio de Contraseña */}
+            {isEditing && (
+              <div className={`pt-4 border-t ${darkMode ? 'border-slate-800' : 'border-gray-200'}`}>
+                <h3 className={`text-sm font-semibold mb-4 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Cambiar Contraseña (opcional)
+                </h3>
+                
+                <div className="space-y-4">
+                  {/* Contraseña Actual */}
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      Contraseña Actual
+                    </label>
+                    <div className="relative">
+                      <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                      <input
+                        type="password"
+                        name="contrasenaActual"
+                        value={formData.contrasenaActual}
+                        onChange={handleInputChange}
+                        className={`w-full pl-10 pr-4 py-3 rounded-lg border transition-colors ${
+                          darkMode 
+                            ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-500' 
+                            : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
+                        } focus:outline-none focus:ring-2 focus:ring-teal-500`}
+                        placeholder="Ingresa tu contraseña actual"
+                      />
+                    </div>
+                  </div>
 
-            {/* Departamento/Facultad */}
-            <div>
-              <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Departamento / Facultad
-              </label>
-              <input
-                type="text"
-                name="departamento"
-                value={formData.departamento}
-                onChange={handleInputChange}
-                disabled={!isEditing}
-                className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                  darkMode 
-                    ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-500 disabled:bg-slate-800/50' 
-                    : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 disabled:bg-gray-100'
-                } ${isEditing ? 'focus:outline-none focus:ring-2 focus:ring-teal-500' : ''}`}
-                placeholder="Matemáticas"
-              />
-            </div>
+                  {/* Nueva Contraseña */}
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      Nueva Contraseña
+                    </label>
+                    <div className="relative">
+                      <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                      <input
+                        type="password"
+                        name="contrasenaNueva"
+                        value={formData.contrasenaNueva}
+                        onChange={handleInputChange}
+                        className={`w-full pl-10 pr-4 py-3 rounded-lg border transition-colors ${
+                          darkMode 
+                            ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-500' 
+                            : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
+                        } focus:outline-none focus:ring-2 focus:ring-teal-500`}
+                        placeholder="Mínimo 8 caracteres"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Confirmar Nueva Contraseña */}
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      Confirmar Nueva Contraseña
+                    </label>
+                    <div className="relative">
+                      <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                      <input
+                        type="password"
+                        name="contrasenaConfirmar"
+                        value={formData.contrasenaConfirmar}
+                        onChange={handleInputChange}
+                        className={`w-full pl-10 pr-4 py-3 rounded-lg border transition-colors ${
+                          darkMode 
+                            ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-500' 
+                            : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
+                        } focus:outline-none focus:ring-2 focus:ring-teal-500`}
+                        placeholder="Repite la nueva contraseña"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Medidor de Seguridad - Debajo de Confirmar Contraseña */}
+                  <div className={`transition-all duration-300 ${
+                    formData.contrasenaNueva 
+                      ? 'opacity-100 max-h-48' 
+                      : 'opacity-40 max-h-48'
+                  }`}>
+                    <div className={`w-full h-2 rounded-full overflow-hidden mb-2 ${
+                      darkMode ? 'bg-slate-700' : 'bg-gray-200'
+                    }`}>
+                      <div
+                        className="h-full transition-all duration-500 ease-out"
+                        style={{
+                          width: formData.contrasenaNueva ? `${(passwordStrength.score / 5) * 100}%` : '0%',
+                          backgroundColor: formData.contrasenaNueva ? passwordStrength.color : (darkMode ? '#475569' : '#d1d5db')
+                        }}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between mb-2">
+                      <span
+                        className="text-sm font-medium transition-colors duration-300"
+                        style={{ color: formData.contrasenaNueva ? passwordStrength.color : (darkMode ? '#9ca3af' : '#9ca3af') }}
+                      >
+                        {formData.contrasenaNueva ? passwordStrength.label : 'Sin contraseña'}
+                      </span>
+                      <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Mínimo: Aceptable
+                      </span>
+                    </div>
+                    
+                    <div className={`text-xs space-y-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <div className="flex items-center gap-1">
+                        <span className={`transition-colors duration-200 ${formData.contrasenaNueva.length >= 8 ? 'text-green-600' : (darkMode ? 'text-gray-500' : 'text-gray-400')}`}>
+                          {formData.contrasenaNueva.length >= 8 ? '✓' : '○'}
+                        </span>
+                        <span>Mínimo 8 caracteres</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className={`transition-colors duration-200 ${/[a-z]/.test(formData.contrasenaNueva) && /[A-Z]/.test(formData.contrasenaNueva) ? 'text-green-600' : (darkMode ? 'text-gray-500' : 'text-gray-400')}`}>
+                          {/[a-z]/.test(formData.contrasenaNueva) && /[A-Z]/.test(formData.contrasenaNueva) ? '✓' : '○'}
+                        </span>
+                        <span>Mayúsculas y minúsculas</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className={`transition-colors duration-200 ${/\d/.test(formData.contrasenaNueva) ? 'text-green-600' : (darkMode ? 'text-gray-500' : 'text-gray-400')}`}>
+                          {/\d/.test(formData.contrasenaNueva) ? '✓' : '○'}
+                        </span>
+                        <span>Al menos un número</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className={`transition-colors duration-200 ${/[^a-zA-Z0-9]/.test(formData.contrasenaNueva) ? 'text-green-600' : (darkMode ? 'text-gray-500' : 'text-gray-400')}`}>
+                          {/[^a-zA-Z0-9]/.test(formData.contrasenaNueva) ? '✓' : '○'}
+                        </span>
+                        <span>Caracteres especiales (!@#$%)</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Botones de Acción */}
             <div className="flex gap-3 pt-4">
@@ -237,8 +434,13 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
                   <button
                     type="button"
                     onClick={handleSave}
+                    disabled={!!(formData.contrasenaNueva && passwordStrength.score < 3)}
                     className={`flex-1 text-white px-6 py-3 rounded-lg transition-colors font-medium flex items-center justify-center gap-2 ${
-                      darkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-700 hover:bg-slate-600'
+                      (formData.contrasenaNueva && passwordStrength.score < 3)
+                        ? 'bg-slate-400 cursor-not-allowed opacity-50'
+                        : darkMode 
+                          ? 'bg-slate-700 hover:bg-slate-600' 
+                          : 'bg-slate-700 hover:bg-slate-600'
                     }`}
                   >
                     <Save className="w-4 h-4" />
