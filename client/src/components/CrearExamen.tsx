@@ -304,7 +304,6 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
     { value: 'debe-enviarse', label: 'Los intentos deben enviarse antes de que se agote el tiempo, o no serán contados' }
   ];
 
-  // Colores dinámicos según darkMode
   const bgNumero = darkMode ? 'bg-teal-500' : 'bg-slate-700';
   const textCheck = darkMode ? 'text-teal-500' : 'text-slate-700';
   const borderActivo = darkMode ? 'border-teal-500' : 'border-slate-700';
@@ -344,14 +343,8 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
             scrollbar-color: #475569 #1e293b;
           }
           
-          /* Mejorar visibilidad de inputs de fecha en modo oscuro */
-          input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-            filter: invert(1);
-            cursor: pointer;
-          }
-          
           input[type="datetime-local"] {
-            color-scheme: dark;
+            color-scheme: light !important;
           }
         ` : `
           ::-webkit-scrollbar {
@@ -388,7 +381,7 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
             <div className={`flex items-center justify-center w-8 h-8 rounded-full ${bgNumero} text-white font-semibold text-sm`}>1</div>
             <div className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Información básica</div>
           </div>
-          {seccion1Abierta ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          {seccion1Abierta ? <ChevronUp className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} /> : <ChevronDown className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} />}
         </button>
         {seccion1Abierta && (
           <div className="px-6 pb-6 space-y-4">
@@ -412,7 +405,7 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
             <div className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Preguntas del examen</div>
             {tipoPregunta && <Check className={`w-5 h-5 ${textCheck}`} />}
           </div>
-          {seccion2Abierta ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          {seccion2Abierta ? <ChevronUp className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} /> : <ChevronDown className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} />}
         </button>
         {seccion2Abierta && (
           <div className="px-6 pb-6 space-y-4">
@@ -477,7 +470,7 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
             <div className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Datos del estudiante</div>
             {camposEstudiante.some(c => c.activo) && <Check className={`w-5 h-5 ${textCheck}`} />}
           </div>
-          {seccion3Abierta ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          {seccion3Abierta ? <ChevronUp className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} /> : <ChevronDown className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} />}
         </button>
         {seccion3Abierta && (
           <div className="px-6 pb-6 space-y-3">
@@ -501,7 +494,7 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
             <div className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Tiempo</div>
             {(fechaInicioHabilitada || fechaCierreHabilitada || limiteHabilitado) && <Check className={`w-5 h-5 ${textCheck}`} />}
           </div>
-          {seccion4Abierta ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          {seccion4Abierta ? <ChevronUp className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} /> : <ChevronDown className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} />}
         </button>
         {seccion4Abierta && (
           <div className="px-6 pb-6 space-y-6">
@@ -592,7 +585,7 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
             <div className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Herramientas</div>
             {Object.values(herramientasActivas).some(v => v) && <Check className={`w-5 h-5 ${textCheck}`} />}
           </div>
-          {seccion5Abierta ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          {seccion5Abierta ? <ChevronUp className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} /> : <ChevronDown className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} />}
         </button>
         {seccion5Abierta && (
           <SeccionHerramientas 
@@ -611,7 +604,7 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
             <div className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Seguridad</div>
             {consecuenciaAbandono && <Check className={`w-5 h-5 ${textCheck}`} />}
           </div>
-          {seccion6Abierta ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          {seccion6Abierta ? <ChevronUp className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} /> : <ChevronDown className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} />}
         </button>
         {seccion6Abierta && (
           <SeccionSeguridad 

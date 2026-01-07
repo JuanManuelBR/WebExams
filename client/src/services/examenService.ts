@@ -127,6 +127,9 @@ export async function crearExamen(datosExamen: DatosExamen): Promise<{
     examenes.push(examenGuardado);
     localStorage.setItem('examenes', JSON.stringify(examenes));
 
+    console.log('Examen guardado:', examenGuardado);
+    console.log('Total de exámenes:', examenes.length);
+
     // Generar URL con codificación correcta
     const baseUrl = window.location.origin;
     const url = `${baseUrl}/acceso-examen?code=${encodeURIComponent(codigoExamen)}`;
@@ -155,7 +158,9 @@ export async function crearExamen(datosExamen: DatosExamen): Promise<{
 export function obtenerTodosLosExamenes(): ExamenGuardado[] {
   try {
     const examenes = localStorage.getItem('examenes');
-    return examenes ? JSON.parse(examenes) : [];
+    const resultado = examenes ? JSON.parse(examenes) : [];
+    console.log('Exámenes recuperados del localStorage:', resultado);
+    return resultado;
   } catch (error) {
     console.error('Error al obtener exámenes:', error);
     return [];
@@ -175,10 +180,23 @@ export function obtenerExamenPorCodigo(codigo: string): ExamenGuardado | null {
  */
 export function obtenerMisExamenes(): ExamenGuardado[] {
   const usuarioActual = obtenerUsuarioActual();
-  if (!usuarioActual) return [];
+  console.log('Usuario actual:', usuarioActual);
   
-  const examenes = obtenerTodosLosExamenes();
-  return examenes.filter(e => e.profesorId === usuarioActual.id);
+  if (!usuarioActual) {
+    console.warn('No hay usuario actual');
+    return [];
+  }
+  
+  const todosLosExamenes = obtenerTodosLosExamenes();
+  console.log('Todos los exámenes:', todosLosExamenes);
+  
+  const misExamenes = todosLosExamenes.filter(e => {
+    console.log(`Comparando: ${e.profesorId} === ${usuarioActual.id}`, e.profesorId === usuarioActual.id);
+    return e.profesorId === usuarioActual.id;
+  });
+  
+  console.log('Mis exámenes filtrados:', misExamenes);
+  return misExamenes;
 }
 
 /**
@@ -189,6 +207,7 @@ export function eliminarExamen(codigo: string): boolean {
     const examenes = obtenerTodosLosExamenes();
     const nuevosExamenes = examenes.filter(e => e.codigoExamen !== codigo);
     localStorage.setItem('examenes', JSON.stringify(nuevosExamenes));
+    console.log('Examen eliminado. Total restante:', nuevosExamenes.length);
     return true;
   } catch (error) {
     console.error('Error al eliminar examen:', error);
@@ -307,12 +326,14 @@ export function obtenerEstadisticas(): EstadisticasExamen {
 
 export function inicializarUsuarioDemo(): void {
   if (!obtenerUsuarioActual()) {
-    establecerUsuario({
+    const usuarioDemo = {
       id: 'demo_user',
       nombre: 'Profesor Demo',
       email: 'demo@ejemplo.com',
-      rol: 'profesor'
-    });
+      rol: 'profesor' as const
+    };
+    establecerUsuario(usuarioDemo);
+    console.log('Usuario demo inicializado:', usuarioDemo);
   }
 }
 

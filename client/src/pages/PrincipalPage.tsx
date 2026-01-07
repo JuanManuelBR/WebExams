@@ -1,9 +1,10 @@
 // Importar componentes reutilizables
-import ListaExamenes from '../components/ListaExamen'; // Cambiado de ExamCard a ListaExamenes
+import ListaExamenes from '../components/ListaExamen';
 import StudentMonitor from '../components/StudentMonitor';
 import NotificationItem from '../components/NotificationItem';
 import MiPerfil from '../components/MiPerfil';
 import CrearExamen from '../components/CrearExamen';
+import HomeContent from '../components/Homecontent';
 import logoUniversidad from '../../assets/logo-universidad.png';
 import logoUniversidadNoche from '../../assets/logo-universidad-noche.png';
 
@@ -14,6 +15,48 @@ export default function LMSDashboard() {
   const [activeMenu, setActiveMenu] = useState('home');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  // Estado para notificaciones
+  const [notificaciones, setNotificaciones] = useState([
+    { 
+      id: 1, 
+      type: 'exam_completed' as const, 
+      read: false,
+      studentName: "Juan Pérez",
+      examName: "Matemáticas",
+      score: 85,
+      time: "Hace 5 min"
+    },
+    { 
+      id: 2, 
+      type: 'exam_blocked' as const, 
+      read: false,
+      studentName: "María González",
+      examName: "Física",
+      reason: "Salir de pantalla completa",
+      time: "Hace 15 min"
+    },
+    { 
+      id: 3, 
+      type: 'exam_shared' as const, 
+      read: false,
+      professorName: "Dr. Carlos Rodríguez",
+      examName: "Cálculo Diferencial - Parcial 2",
+      examId: "exam_123",
+      time: "Hace 1 hora"
+    },
+    { 
+      id: 4, 
+      type: 'exam_completed' as const, 
+      read: true,
+      studentName: "Ana Martínez",
+      examName: "Química",
+      score: 92,
+      time: "Hace 2 horas"
+    },
+  ]);
+  
+  const unreadCount = notificaciones.filter(n => !n.read).length;
   
   // Estado para el modo oscuro - lee desde localStorage al iniciar
   const [darkMode, setDarkMode] = useState(() => {
@@ -58,6 +101,27 @@ export default function LMSDashboard() {
   const handleMenuItemClick = (menu: string) => {
     setActiveMenu(menu);
     setShowProfileMenu(false);
+  };
+
+  // Handlers para notificaciones
+  const handleMarkAsRead = (id: number) => {
+    setNotificaciones(notificaciones.map(item => 
+      item.id === id ? { ...item, read: true } : item
+    ));
+  };
+
+  const handleDeleteNotification = (id: number) => {
+    setNotificaciones(notificaciones.filter(item => item.id !== id));
+  };
+
+  const handleClearAllNotifications = () => {
+    setNotificaciones([]);
+  };
+
+  const handleAcceptExam = (id: number, examId: string) => {
+    console.log(`Aceptando examen compartido: ${examId}`);
+    alert('Examen aceptado y agregado a tu lista');
+    handleDeleteNotification(id);
   };
 
   return (
@@ -119,7 +183,7 @@ export default function LMSDashboard() {
 
         <nav className="flex-1 p-4 space-y-1">
           <NavItem icon={Home} label="Inicio" collapsed={sidebarCollapsed} darkMode={darkMode} active={activeMenu === 'home'} onClick={() => setActiveMenu('home')} />
-          <NavItem icon={Bell} label="Notifications" collapsed={sidebarCollapsed} darkMode={darkMode} active={activeMenu === 'notifications'} onClick={() => setActiveMenu('notifications')} />
+          <NavItem icon={Bell} label="Notificaciones" collapsed={sidebarCollapsed} darkMode={darkMode} active={activeMenu === 'notifications'} onClick={() => setActiveMenu('notifications')} badge={unreadCount} />
           
           <div className="pt-4 pb-2">
             <div className="space-y-1">
@@ -152,7 +216,7 @@ export default function LMSDashboard() {
                     Hey, {nombreCorto} 👋
                   </h1>
                   <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
-                    {getSubtitleByMenu(activeMenu)}
+                    Crea, supervisa y evalúa exámenes con total seguridad
                   </p>
                 </>
               )}
@@ -169,7 +233,16 @@ export default function LMSDashboard() {
 
         <main className="flex-1 overflow-auto p-8">
           {activeMenu === 'home' && <HomeContent darkMode={darkMode} />}
-          {activeMenu === 'notifications' && <NotificationsContent darkMode={darkMode} />}
+          {activeMenu === 'notifications' && (
+            <NotificationsContent 
+              darkMode={darkMode} 
+              notificaciones={notificaciones}
+              onMarkAsRead={handleMarkAsRead}
+              onDelete={handleDeleteNotification}
+              onClearAll={handleClearAllNotifications}
+              onAcceptExam={handleAcceptExam}
+            />
+          )}
           {activeMenu === 'nuevo-examen' && <NuevoExamenContent darkMode={darkMode} />}
           {activeMenu === 'lista-examenes' && <ListaExamenesContent darkMode={darkMode} onCrearExamen={() => setActiveMenu('nuevo-examen')} />}
           {activeMenu === 'vigilancia-resultados' && <VigilanciaContent darkMode={darkMode} />}
@@ -180,21 +253,11 @@ export default function LMSDashboard() {
   );
 }
 
-function getSubtitleByMenu(menu: string): string {
-  const subtitles: { [key: string]: string } = {
-    'home': 'Crea, supervisa y evalúa exámenes con total seguridad',
-    'notifications': 'Revisa tus notificaciones',
-    'nuevo-examen': 'Gestiona tus exámenes y resultados',
-    'lista-examenes': 'Todos tus exámenes',
-    'vigilancia-resultados': 'Monitorea y revisa resultados',
-    'mi-perfil': 'Administra tu información personal'
-  };
-  return subtitles[menu] || 'Gestiona tus exámenes y resultados';
-}
-
-function NavItem({ icon: Icon, label, active = false, collapsed = false, darkMode = false, onClick }: { 
-  icon: any; label: string; active?: boolean; collapsed?: boolean; darkMode?: boolean; onClick: () => void;
+function NavItem({ icon: Icon, label, active = false, collapsed = false, darkMode = false, onClick, badge }: { 
+  icon: any; label: string; active?: boolean; collapsed?: boolean; darkMode?: boolean; onClick: () => void; badge?: number;
 }) {
+  const showBadge = badge !== undefined && badge > 0;
+  
   return (
     <button
       onClick={onClick}
@@ -207,7 +270,12 @@ function NavItem({ icon: Icon, label, active = false, collapsed = false, darkMod
       }`}
       title={collapsed ? label : ''}
     >
-      <Icon className="w-5 h-5 flex-shrink-0" />
+      <div className="relative flex-shrink-0">
+        <Icon className="w-5 h-5" />
+        {showBadge && (
+          <span className="absolute -top-0.5 -right-0.5 bg-white rounded-full w-2 h-2 border-2 border-slate-900"></span>
+        )}
+      </div>
       <span className={`whitespace-nowrap transition-all duration-200 ease-in-out overflow-hidden ${
         collapsed ? 'opacity-0 w-0' : 'opacity-100 delay-100'
       }`}>
@@ -219,58 +287,62 @@ function NavItem({ icon: Icon, label, active = false, collapsed = false, darkMod
 
 // ========== SECCIONES ==========
 
-function HomeContent({ darkMode }: { darkMode: boolean }) {
-  return (
-    <div className="max-w-7xl mx-auto">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <StatCard title="Total Exámenes" value="12" icon={FileEdit} color="bg-blue-500" darkMode={darkMode} />
-        <StatCard title="Estudiantes Activos" value="245" icon={User} color="bg-green-500" darkMode={darkMode} />
-        <StatCard title="Pendientes" value="5" icon={Bell} color="bg-orange-500" darkMode={darkMode} />
-      </div>
-      <div className={`${darkMode ? 'bg-slate-900' : 'bg-white'} rounded-lg p-6 shadow-sm transition-colors duration-300`}>
-        <h2 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Actividad Reciente</h2>
-        <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Aquí se mostrará la actividad reciente...</p>
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ title, value, icon: Icon, color, darkMode }: any) {
-  return (
-    <div className={`${darkMode ? 'bg-slate-900' : 'bg-white'} rounded-lg p-6 shadow-sm transition-colors duration-300`}>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{title}</p>
-          <p className={`text-2xl font-bold mt-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{value}</p>
-        </div>
-        <div className={`${color} w-12 h-12 rounded-lg flex items-center justify-center`}>
-          <Icon className="w-6 h-6 text-white" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function NotificationsContent({ darkMode }: { darkMode: boolean }) {
-  const [notificaciones, setNotificaciones] = useState([
-    { id: 1, title: "Nuevo examen completado", message: "Juan Pérez completó Matemáticas", time: "Hace 5 min", type: 'success' as const, read: false },
-    { id: 2, title: "Recordatorio", message: "Examen de Física vence mañana", time: "Hace 1 hora", type: 'warning' as const, read: false },
-    { id: 3, title: "Actualización", message: "Nuevas funcionalidades disponibles", time: "Hace 2 horas", type: 'info' as const, read: true },
-  ]);
-
-  const handleMarkAsRead = (id: number) => setNotificaciones(n => n.map(item => item.id === id ? { ...item, read: true } : item));
-  const handleClick = (id: number) => handleMarkAsRead(id);
+function NotificationsContent({ 
+  darkMode, 
+  notificaciones,
+  onMarkAsRead,
+  onDelete,
+  onClearAll,
+  onAcceptExam
+}: { 
+  darkMode: boolean; 
+  notificaciones: any[];
+  onMarkAsRead: (id: number) => void;
+  onDelete: (id: number) => void;
+  onClearAll: () => void;
+  onAcceptExam: (id: number, examId: string) => void;
+}) {
   const unreadCount = notificaciones.filter(n => !n.read).length;
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className={`${darkMode ? 'bg-slate-900' : 'bg-white'} rounded-lg shadow-sm transition-colors duration-300`}>
-        <div className={`p-6 border-b flex items-center justify-between ${darkMode ? 'border-slate-700' : 'border-gray-200'}`}>
-          <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Notificaciones</h2>
-          {unreadCount > 0 && <span className="px-3 py-1 text-xs font-semibold rounded-full bg-teal-100 text-teal-800">{unreadCount} sin leer</span>}
+      <div className={`${darkMode ? 'bg-slate-900' : 'bg-white'} rounded-lg shadow-sm transition-colors duration-300 overflow-hidden`}>
+        <div className={`p-6 flex items-center justify-between ${darkMode ? 'bg-slate-800' : 'bg-[#1e293b]'}`}>
+          <h2 className="text-lg font-semibold text-white">Notificaciones</h2>
+          <div className="flex items-center gap-3">
+            {unreadCount > 0 && (
+              <span className={`px-3 py-1 text-xs font-semibold rounded-full ${darkMode ? 'bg-teal-900/40 text-teal-400' : 'bg-teal-100 text-teal-700'}`}>
+                {unreadCount} sin leer
+              </span>
+            )}
+            {notificaciones.length > 0 && (
+              <button
+                onClick={onClearAll}
+                className="px-3 py-1 text-xs font-semibold rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors"
+                title="Limpiar todas las notificaciones"
+              >
+                Limpiar todo
+              </button>
+            )}
+          </div>
         </div>
-        <div className="p-6">
-          {notificaciones.map(n => <NotificationItem key={n.id} {...n} darkMode={darkMode} onMarkAsRead={handleMarkAsRead} onClick={handleClick} />)}
+        <div className="p-6 space-y-0">
+          {notificaciones.length > 0 ? (
+            notificaciones.map(n => (
+              <NotificationItem 
+                key={n.id} 
+                notification={n}
+                darkMode={darkMode} 
+                onMarkAsRead={onMarkAsRead} 
+                onDelete={onDelete}
+                onAcceptExam={onAcceptExam}
+              />
+            ))
+          ) : (
+            <p className={`text-center py-8 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              No tienes notificaciones
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -281,7 +353,6 @@ function NuevoExamenContent({ darkMode }: { darkMode: boolean }) {
   return <CrearExamen darkMode={darkMode} />;
 }
 
-// ESTE ES EL CAMBIO IMPORTANTE - Usar el componente ListaExamenes real
 function ListaExamenesContent({ darkMode, onCrearExamen }: { darkMode: boolean; onCrearExamen: () => void }) {
   return (
     <div className="max-w-7xl mx-auto">
