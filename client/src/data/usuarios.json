@@ -1,0 +1,32 @@
+{
+  "usuarios": [
+    {
+      "id": 1,
+      "nombre": "Juan",
+      "apellido": "Pérez",
+      "email": "estudiante1@universidad.edu.co",
+      "password": "est123"
+    },
+    {
+      "id": 2,
+      "nombre": "María",
+      "apellido": "García",
+      "email": "estudiante2@universidad.edu.co",
+      "password": "est456"
+    },
+    {
+      "id": 3,
+      "nombre": "Carlos",
+      "apellido": "López",
+      "email": "profesor1@universidad.edu.co",
+      "password": "profe123"
+    },
+    {
+      "id": 4,
+      "nombre": "Admin",
+      "apellido": "Sistema",
+      "email": "admin@universidad.edu.co",
+      "password": "admin2024"
+    }
+  ]
+}

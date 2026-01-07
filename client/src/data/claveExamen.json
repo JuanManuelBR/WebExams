@@ -1,0 +1,24 @@
+{
+  "claves": [
+    {
+      "code": "123456",
+      "createdAt": "2024-01-05T10:00:00Z"
+    },
+    {
+      "code": "ABC123",
+      "createdAt": "2024-01-05T11:00:00Z"
+    },
+    {
+      "code": "EXAM-2024",
+      "createdAt": "2024-01-05T12:00:00Z"
+    },
+    {
+      "code": "Test@123",
+      "createdAt": "2024-01-05T13:00:00Z"
+    },
+    {
+      "code": "MiExamen!",
+      "createdAt": "2024-01-05T14:00:00Z"
+    }
+  ]
+}

@@ -1,0 +1,319 @@
+// Importar componentes reutilizables
+import ListaExamenes from '../components/ListaExamen'; // Cambiado de ExamCard a ListaExamenes
+import StudentMonitor from '../components/StudentMonitor';
+import NotificationItem from '../components/NotificationItem';
+import MiPerfil from '../components/MiPerfil';
+import CrearExamen from '../components/CrearExamen';
+import logoUniversidad from '../../assets/logo-universidad.png';
+import logoUniversidadNoche from '../../assets/logo-universidad-noche.png';
+
+import { useState, useEffect } from 'react';
+import { Home, Bell, FileEdit, List, Monitor, ChevronDown, User, Moon, Sun, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+
+export default function LMSDashboard() {
+  const [activeMenu, setActiveMenu] = useState('home');
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  // Estado para el modo oscuro - lee desde localStorage al iniciar
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode');
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  // Guardar preferencia de modo oscuro cuando cambie
+  useEffect(() => {
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
+  }, [darkMode]);
+
+  // Obtener datos del usuario desde localStorage
+  const usuarioStorage = localStorage.getItem('usuario');
+  const usuarioData = usuarioStorage ? JSON.parse(usuarioStorage) : null;
+  
+  // Extraer primer nombre y primer apellido del nombre completo
+  const nombreCompleto: string = usuarioData?.nombre || 'Usuario';
+  const partesNombre: string[] = nombreCompleto.trim().split(' ').filter((parte: string) => parte.length > 0);
+  const primerNombre: string = partesNombre[0] || 'Usuario';
+  
+  let primerApellido = '';
+  if (partesNombre.length > 2) {
+    const posiblesApellidos: string[] = partesNombre.slice(2);
+    primerApellido = posiblesApellidos.find((parte: string) => parte.length > 2) || partesNombre[partesNombre.length - 1];
+  } else {
+    primerApellido = partesNombre[partesNombre.length - 1] || '';
+  }
+  
+  const nombreCorto: string = primerApellido ? `${primerNombre} ${primerApellido}` : primerNombre;
+
+  const toggleTheme = () => {
+    setDarkMode(!darkMode);
+    setShowProfileMenu(false);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('usuario');
+    window.location.href = '/login';
+  };
+
+  const handleMenuItemClick = (menu: string) => {
+    setActiveMenu(menu);
+    setShowProfileMenu(false);
+  };
+
+  return (
+    <div className={`flex h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
+      {/* Sidebar */}
+      <div className={`${darkMode ? 'bg-slate-900 border-slate-900' : 'bg-white border-white'} border-r flex flex-col transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'w-16' : 'w-64'}`}>
+        <div className={`p-4 border-b ${darkMode ? 'border-slate-900' : 'border-white'} relative`}>
+          <button 
+            onClick={() => setShowProfileMenu(!showProfileMenu)}
+            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-2'} ${darkMode ? 'hover:bg-slate-800' : 'hover:bg-gray-50'} rounded-lg p-1 transition-colors`}
+          >
+            <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-blue-400 to-purple-500">
+              {usuarioData?.foto ? (
+                <img src={usuarioData.foto} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-6 h-6 text-white" />
+              )}
+            </div>
+            <div className={`flex-1 text-left min-w-0 transition-all duration-200 ease-in-out overflow-hidden ${
+              sidebarCollapsed ? 'opacity-0 scale-95 w-0' : 'opacity-100 scale-100 delay-100'
+            }`}>
+              <div className={`font-semibold text-sm truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                {nombreCorto}
+              </div>
+              <div className={`text-xs truncate ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Docente</div>
+            </div>
+            {!sidebarCollapsed && (
+              <ChevronDown className={`w-4 h-4 ${darkMode ? 'text-gray-400' : 'text-gray-400'} transition-transform flex-shrink-0 ${showProfileMenu ? 'rotate-180' : ''}`} />
+            )}
+          </button>
+
+          {showProfileMenu && !sidebarCollapsed && (
+            <div className={`absolute left-4 top-16 right-4 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'} border rounded-lg shadow-lg z-50 py-1`}>
+              <button 
+                onClick={() => handleMenuItemClick('mi-perfil')}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-sm ${darkMode ? 'text-gray-200 hover:bg-slate-700' : 'text-gray-700 hover:bg-gray-50'} transition-colors`}
+              >
+                <User className="w-4 h-4" />
+                <span>Mi Perfil</span>
+              </button>
+              <button 
+                onClick={toggleTheme}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-sm ${darkMode ? 'text-gray-200 hover:bg-slate-700' : 'text-gray-700 hover:bg-gray-50'} transition-colors`}
+              >
+                {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                <span>Cambiar Tema</span>
+              </button>
+              <div className={`border-t ${darkMode ? 'border-slate-700' : 'border-gray-100'} my-1`}></div>
+              <button 
+                onClick={handleLogout}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-sm ${darkMode ? 'text-red-400 hover:bg-red-900/20' : 'text-red-600 hover:bg-red-50'} transition-colors`}
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Salir</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        <nav className="flex-1 p-4 space-y-1">
+          <NavItem icon={Home} label="Inicio" collapsed={sidebarCollapsed} darkMode={darkMode} active={activeMenu === 'home'} onClick={() => setActiveMenu('home')} />
+          <NavItem icon={Bell} label="Notifications" collapsed={sidebarCollapsed} darkMode={darkMode} active={activeMenu === 'notifications'} onClick={() => setActiveMenu('notifications')} />
+          
+          <div className="pt-4 pb-2">
+            <div className="space-y-1">
+              <NavItem icon={FileEdit} label="Nuevo Examen" collapsed={sidebarCollapsed} darkMode={darkMode} active={activeMenu === 'nuevo-examen'} onClick={() => setActiveMenu('nuevo-examen')} />
+              <NavItem icon={List} label="Lista de Exámenes" collapsed={sidebarCollapsed} darkMode={darkMode} active={activeMenu === 'lista-examenes'} onClick={() => setActiveMenu('lista-examenes')} />
+              <NavItem icon={Monitor} label="Vigilancia/Resultados" collapsed={sidebarCollapsed} darkMode={darkMode} active={activeMenu === 'vigilancia-resultados'} onClick={() => setActiveMenu('vigilancia-resultados')} />
+            </div>
+          </div>
+        </nav>
+
+        <div className={`p-3 border-t ${darkMode ? 'border-slate-900' : 'border-white'} flex justify-end`}>
+          <button 
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className={`p-2 ${darkMode ? 'hover:bg-slate-800' : 'hover:bg-gray-100'} rounded-lg transition-colors`}
+            title={sidebarCollapsed ? "Expandir menú" : "Contraer menú"}
+          >
+            {sidebarCollapsed ? <ChevronRight className={`w-4 h-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} /> : <ChevronLeft className={`w-4 h-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />}
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className={`${darkMode ? 'bg-gray-950 border-gray-950' : 'bg-gray-50 border-gray-50'} border-b px-8 py-4 transition-colors duration-300`}>
+          <div className="flex items-center justify-between">
+            <div>
+              {activeMenu === 'home' && (
+                <>
+                  <h1 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'} flex items-center gap-2`}>
+                    Hey, {nombreCorto} 👋
+                  </h1>
+                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
+                    {getSubtitleByMenu(activeMenu)}
+                  </p>
+                </>
+              )}
+            </div>
+            <div className="flex items-center">
+              <img 
+                src={darkMode ? logoUniversidadNoche : logoUniversidad}
+                alt="Logo Universidad" 
+                className="h-13 w-auto object-contain transition-opacity duration-300"
+              />
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-auto p-8">
+          {activeMenu === 'home' && <HomeContent darkMode={darkMode} />}
+          {activeMenu === 'notifications' && <NotificationsContent darkMode={darkMode} />}
+          {activeMenu === 'nuevo-examen' && <NuevoExamenContent darkMode={darkMode} />}
+          {activeMenu === 'lista-examenes' && <ListaExamenesContent darkMode={darkMode} onCrearExamen={() => setActiveMenu('nuevo-examen')} />}
+          {activeMenu === 'vigilancia-resultados' && <VigilanciaContent darkMode={darkMode} />}
+          {activeMenu === 'mi-perfil' && <MiPerfil darkMode={darkMode} />}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function getSubtitleByMenu(menu: string): string {
+  const subtitles: { [key: string]: string } = {
+    'home': 'Crea, supervisa y evalúa exámenes con total seguridad',
+    'notifications': 'Revisa tus notificaciones',
+    'nuevo-examen': 'Gestiona tus exámenes y resultados',
+    'lista-examenes': 'Todos tus exámenes',
+    'vigilancia-resultados': 'Monitorea y revisa resultados',
+    'mi-perfil': 'Administra tu información personal'
+  };
+  return subtitles[menu] || 'Gestiona tus exámenes y resultados';
+}
+
+function NavItem({ icon: Icon, label, active = false, collapsed = false, darkMode = false, onClick }: { 
+  icon: any; label: string; active?: boolean; collapsed?: boolean; darkMode?: boolean; onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center rounded-lg text-sm transition-colors ${
+        collapsed ? 'justify-center px-2 py-2' : 'px-3 py-2 gap-3'
+      } ${
+        active
+          ? darkMode ? 'bg-slate-800 text-white font-medium' : 'bg-slate-700 text-white font-medium'
+          : darkMode ? 'text-gray-300 hover:bg-slate-800' : 'text-gray-700 hover:bg-gray-50'
+      }`}
+      title={collapsed ? label : ''}
+    >
+      <Icon className="w-5 h-5 flex-shrink-0" />
+      <span className={`whitespace-nowrap transition-all duration-200 ease-in-out overflow-hidden ${
+        collapsed ? 'opacity-0 w-0' : 'opacity-100 delay-100'
+      }`}>
+        {label}
+      </span>
+    </button>
+  );
+}
+
+// ========== SECCIONES ==========
+
+function HomeContent({ darkMode }: { darkMode: boolean }) {
+  return (
+    <div className="max-w-7xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <StatCard title="Total Exámenes" value="12" icon={FileEdit} color="bg-blue-500" darkMode={darkMode} />
+        <StatCard title="Estudiantes Activos" value="245" icon={User} color="bg-green-500" darkMode={darkMode} />
+        <StatCard title="Pendientes" value="5" icon={Bell} color="bg-orange-500" darkMode={darkMode} />
+      </div>
+      <div className={`${darkMode ? 'bg-slate-900' : 'bg-white'} rounded-lg p-6 shadow-sm transition-colors duration-300`}>
+        <h2 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Actividad Reciente</h2>
+        <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Aquí se mostrará la actividad reciente...</p>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ title, value, icon: Icon, color, darkMode }: any) {
+  return (
+    <div className={`${darkMode ? 'bg-slate-900' : 'bg-white'} rounded-lg p-6 shadow-sm transition-colors duration-300`}>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{title}</p>
+          <p className={`text-2xl font-bold mt-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{value}</p>
+        </div>
+        <div className={`${color} w-12 h-12 rounded-lg flex items-center justify-center`}>
+          <Icon className="w-6 h-6 text-white" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NotificationsContent({ darkMode }: { darkMode: boolean }) {
+  const [notificaciones, setNotificaciones] = useState([
+    { id: 1, title: "Nuevo examen completado", message: "Juan Pérez completó Matemáticas", time: "Hace 5 min", type: 'success' as const, read: false },
+    { id: 2, title: "Recordatorio", message: "Examen de Física vence mañana", time: "Hace 1 hora", type: 'warning' as const, read: false },
+    { id: 3, title: "Actualización", message: "Nuevas funcionalidades disponibles", time: "Hace 2 horas", type: 'info' as const, read: true },
+  ]);
+
+  const handleMarkAsRead = (id: number) => setNotificaciones(n => n.map(item => item.id === id ? { ...item, read: true } : item));
+  const handleClick = (id: number) => handleMarkAsRead(id);
+  const unreadCount = notificaciones.filter(n => !n.read).length;
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className={`${darkMode ? 'bg-slate-900' : 'bg-white'} rounded-lg shadow-sm transition-colors duration-300`}>
+        <div className={`p-6 border-b flex items-center justify-between ${darkMode ? 'border-slate-700' : 'border-gray-200'}`}>
+          <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Notificaciones</h2>
+          {unreadCount > 0 && <span className="px-3 py-1 text-xs font-semibold rounded-full bg-teal-100 text-teal-800">{unreadCount} sin leer</span>}
+        </div>
+        <div className="p-6">
+          {notificaciones.map(n => <NotificationItem key={n.id} {...n} darkMode={darkMode} onMarkAsRead={handleMarkAsRead} onClick={handleClick} />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NuevoExamenContent({ darkMode }: { darkMode: boolean }) {
+  return <CrearExamen darkMode={darkMode} />;
+}
+
+// ESTE ES EL CAMBIO IMPORTANTE - Usar el componente ListaExamenes real
+function ListaExamenesContent({ darkMode, onCrearExamen }: { darkMode: boolean; onCrearExamen: () => void }) {
+  return (
+    <div className="max-w-7xl mx-auto">
+      <ListaExamenes 
+        darkMode={darkMode} 
+        onCrearExamen={onCrearExamen}
+      />
+    </div>
+  );
+}
+
+function VigilanciaContent({ darkMode }: { darkMode: boolean }) {
+  const estudiantes = [
+    { id: 1, nombre: 'Juan Pérez', email: 'juan@universidad.edu', examen: 'Matemáticas', estado: 'Activo' as const, tiempoTranscurrido: '45 min', progreso: 75, alertas: 0 },
+    { id: 2, nombre: 'María González', email: 'maria@universidad.edu', examen: 'Física', estado: 'Activo' as const, tiempoTranscurrido: '32 min', progreso: 60, alertas: 1 },
+    { id: 3, nombre: 'Carlos Rodríguez', email: 'carlos@universidad.edu', examen: 'Matemáticas', estado: 'Desconectado' as const, tiempoTranscurrido: '28 min', progreso: 45, alertas: 0 },
+  ];
+
+  return (
+    <div className="max-w-7xl mx-auto">
+      <div className={`${darkMode ? 'bg-slate-900' : 'bg-white'} rounded-lg shadow-sm p-6 mb-6 transition-colors duration-300`}>
+        <h2 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Vigilancia en Tiempo Real</h2>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {estudiantes.map(e => (
+          <StudentMonitor 
+            key={e.id} {...e} darkMode={darkMode} 
+            onRestablecerAcceso={(id) => alert(`Acceso restablecido: ${id}`)}
+            onVerDetalles={(id) => console.log(id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
