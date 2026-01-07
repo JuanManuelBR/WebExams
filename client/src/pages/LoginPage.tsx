@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Moon, Sun } from 'lucide-react';
-import usuariosData from '../data/usuarios.json';
 import logoUniversidad from '../../assets/logo-universidad.png';
 import logoUniversidadNoche from '../../assets/logo-universidad-noche.png';
 import fondoImagen from '../../assets/fondo.jpg';
 import ExamSearchBar from '../components/ExamSearchBar';
+import { authService } from '../services/Authservice'; // ← AJUSTAR según tu estructura
 
 // Importa Firebase
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 
 // Configuración de Firebase
 const firebaseConfig = {
@@ -58,7 +58,8 @@ export default function LoginPage() {
     navigate(`/acceso-examen?code=${examCode}`);
   };
 
-  const handleLogin = () => {
+  // LOGIN CON EMAIL/PASSWORD
+  const handleLogin = async () => {
     setError('');
 
     if (!email || !password) {
@@ -66,31 +67,21 @@ export default function LoginPage() {
       return;
     }
 
-    // Buscar si el usuario existe por EMAIL
-    const usuarioExiste = usuariosData.usuarios.find(u => u.email === email);
+    setLoading(true);
 
-    if (!usuarioExiste) {
-      setError('noRegistrado');
-      return;
-    }
+    try {
+      // Usar el servicio de autenticación
+      await authService.loginWithEmail(auth, email, password);
 
-    // Si el usuario existe, verificar la contraseña
-    const usuario = usuariosData.usuarios.find(
-      u => u.email === email && u.password === password
-    );
-
-    if (usuario) {
-      const usuarioFormateado = {
-        id: usuario.id,
-        nombre: usuario.nombre,
-        apellido: usuario.apellido,
-        email: usuario.email,
-        loginMethod: 'email'
-      };
-      localStorage.setItem('usuario', JSON.stringify(usuarioFormateado));
+      console.log('✅ Login exitoso');
+      
+      // Navegar a la página principal
       navigate('/');
-    } else {
-      setError('Contraseña incorrecta');
+    } catch (error: any) {
+      console.error('❌ Error al iniciar sesión:', error);
+      setError(error.message || 'Error al iniciar sesión. Verifica tus credenciales.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -100,60 +91,30 @@ export default function LoginPage() {
     }
   };
 
+  // LOGIN CON GOOGLE
   const handleGoogleLogin = async () => {
+    setLoading(true);
+    setError('');
+
     try {
-      setLoading(true);
-      setError('');
+      // Usar el servicio de autenticación
+      await authService.loginWithGoogle(auth, googleProvider);
+
+      console.log('✅ Login con Google exitoso');
       
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-
-      const usuarioRegistrado = usuariosData.usuarios.find(
-        u => u.email?.toLowerCase() === user.email?.toLowerCase()
-      );
-
-      if (!usuarioRegistrado) {
-        setError('noRegistradoGoogle');
-        await auth.signOut();
-        setLoading(false);
-        return;
-      }
-
-      const googleUser = {
-        id: usuarioRegistrado.id,
-        nombre: usuarioRegistrado.nombre,
-        apellido: usuarioRegistrado.apellido,
-        email: user.email || '',
-        loginMethod: 'google',
-        picture: user.photoURL || ''
-      };
-
-      localStorage.setItem('usuario', JSON.stringify(googleUser));
+      // Navegar a la página principal
       navigate('/');
     } catch (error: any) {
+      console.error('❌ Error al iniciar sesión con Google:', error);
+      
+      // Si el usuario no está registrado, mostrar opción de registro
+      if (error.message.includes('no registrado') || error.message.includes('not found')) {
+        setError('noRegistradoGoogle');
+      } else {
+        setError(error.message || 'Error al iniciar sesión con Google. Intenta de nuevo.');
+      }
+    } finally {
       setLoading(false);
-      
-      if (error.code === 'auth/popup-closed-by-user' || 
-          error.code === 'auth/cancelled-popup-request') {
-        return;
-      }
-      
-      if (error.code === 'auth/popup-blocked') {
-        setError('El navegador bloqueó la ventana emergente. Por favor, permite ventanas emergentes para este sitio.');
-        return;
-      }
-      
-      if (error.code === 'auth/network-request-failed') {
-        setError('Error de conexión. Verifica tu conexión a internet.');
-        return;
-      }
-      
-      if (error.code === 'auth/unauthorized-domain') {
-        setError('Este dominio no está autorizado para login con Google. Contacta al administrador.');
-        return;
-      }
-      
-      setError('Error al iniciar sesión con Google. Intenta de nuevo.');
     }
   };
 
@@ -207,7 +168,8 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Correo electrónico"
-                  className={`w-full px-4 py-3 border rounded-md text-base outline-none transition-all duration-300 ${
+                  disabled={loading}
+                  className={`w-full px-4 py-3 border rounded-md text-base outline-none transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
                     darkMode
                       ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-400 focus:border-blue-500'
                       : 'bg-gray-50 border-gray-300 text-gray-900 focus:border-[#003876] focus:bg-white'
@@ -222,7 +184,8 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Contraseña"
-                  className={`w-full px-4 py-3 border rounded-md text-base outline-none transition-all duration-300 ${
+                  disabled={loading}
+                  className={`w-full px-4 py-3 border rounded-md text-base outline-none transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
                     darkMode
                       ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-400 focus:border-blue-500'
                       : 'bg-gray-50 border-gray-300 text-gray-900 focus:border-[#003876] focus:bg-white'
@@ -249,30 +212,37 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={handleLogin}
-                className={`w-full py-3.5 rounded-md text-base font-semibold transition-colors duration-300 mb-4 ${
+                disabled={loading}
+                className={`w-full py-3.5 rounded-md text-base font-semibold transition-all duration-300 mb-4 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
                   darkMode
                     ? 'bg-blue-600 text-white hover:bg-blue-700'
                     : 'bg-[#003876] text-white hover:bg-[#00508f]'
                 }`}
               >
-                Acceder
+                {loading ? 'Iniciando sesión...' : 'Acceder'}
               </button>
 
               <div className="text-center mb-3">
-                <a href="#" className={`text-base no-underline hover:underline transition-colors duration-300 ${
-                  darkMode ? 'text-blue-400' : 'text-[#003876]'
-                }`}>
+                <Link 
+                  to="/recuperar-password" 
+                  className={`text-base no-underline hover:underline transition-colors duration-300 ${
+                    darkMode ? 'text-blue-400' : 'text-[#003876]'
+                  }`}
+                >
                   ¿Olvidó su contraseña?
-                </a>
+                </Link>
               </div>
 
               <div className="text-center">
                 <span className={`text-base transition-colors duration-300 ${
                   darkMode ? 'text-gray-400' : 'text-gray-600'
                 }`}>¿No tienes cuenta? </span>
-                <Link to="/teacher-registration" className={`text-base font-medium no-underline hover:underline transition-colors duration-300 ${
-                  darkMode ? 'text-blue-400' : 'text-[#003876]'
-                }`}>
+                <Link 
+                  to="/teacher-registration" 
+                  className={`text-base font-medium no-underline hover:underline transition-colors duration-300 ${
+                    darkMode ? 'text-blue-400' : 'text-[#003876]'
+                  }`}
+                >
                   Regístrate aquí
                 </Link>
               </div>
@@ -290,7 +260,7 @@ export default function LoginPage() {
               type="button"
               onClick={handleGoogleLogin}
               disabled={loading}
-              className={`px-8 py-2.5 border rounded-md text-base font-medium flex items-center justify-center gap-2.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+              className={`px-8 py-2.5 border rounded-md text-base font-medium flex items-center justify-center gap-2.5 transition-all duration-300 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
                 darkMode
                   ? 'bg-slate-800 text-gray-200 border-slate-700 hover:bg-slate-700'
                   : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:shadow-md'
