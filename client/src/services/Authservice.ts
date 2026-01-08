@@ -1,6 +1,6 @@
 // ============================================
 // 📁 FRONTEND/src/services/Authservice.ts
-// CÓDIGO COMPLETO - Nombres corregidos
+// CÓDIGO COMPLETO CON LOGIN DE GOOGLE MEJORADO
 // ============================================
 
 import { usersApi } from "./api";
@@ -51,7 +51,7 @@ export interface LocalUser {
 }
 
 // ============================================
-// FUNCIÓN AUXILIAR: Dividir nombre completo MEJORADA
+// FUNCIÓN AUXILIAR: Dividir nombre completo
 // ============================================
 
 function splitFullName(fullName: string): { firstName: string, lastName: string } {
@@ -62,23 +62,15 @@ function splitFullName(fullName: string): { firstName: string, lastName: string 
   if (parts.length === 0) {
     return { firstName: 'Usuario', lastName: 'Google' };
   } else if (parts.length === 1) {
-    // Solo un nombre: "Miguel" -> firstName: "Miguel", lastName: ""
     return { firstName: parts[0], lastName: '' };
   } else if (parts.length === 2) {
-    // Dos palabras: "Miguel Angel" -> firstName: "Miguel Angel", lastName: ""
-    // O "Miguel Murillo" -> firstName: "Miguel", lastName: "Murillo"
-    // Asumimos que son 2 nombres si no hay indicador claro
     return { firstName: parts[0], lastName: parts[1] };
   } else if (parts.length === 3) {
-    // Tres palabras: "Miguel Angel Murillo" 
-    // -> firstName: "Miguel Angel", lastName: "Murillo"
     return { 
       firstName: `${parts[0]} ${parts[1]}`, 
       lastName: parts[2] 
     };
   } else {
-    // Cuatro o más palabras: "Miguel Angel Murillo De Los Rios"
-    // -> firstName: primeras 2 palabras, lastName: resto
     return { 
       firstName: `${parts[0]} ${parts[1]}`, 
       lastName: parts.slice(2).join(' ') 
@@ -227,7 +219,7 @@ export const authService = {
       };
 
       const backendUser = await usersService.createUser(backendPayload);
-      console.log('✅ [REGISTRO EMAIL] Usuario creado en MySQL con ultimo_acceso');
+      console.log('✅ [REGISTRO EMAIL] Usuario creado en MySQL');
 
       const localUser: LocalUser = {
         id: backendUser.id,
@@ -272,7 +264,7 @@ export const authService = {
   },
 
   /**
-   * REGISTRO CON GOOGLE - CORREGIDO
+   * REGISTRO CON GOOGLE
    */
   registerWithGoogle: async (
     auth: ReturnType<typeof getAuth>,
@@ -289,8 +281,6 @@ export const authService = {
       const email = firebaseUser.email || '';
 
       console.log('✅ [REGISTRO GOOGLE] Autenticado');
-      console.log(`   Nombre completo de Google: "${fullName}"`);
-      console.log(`   Dividido en -> Nombres: "${firstName}", Apellidos: "${lastName}"`);
 
       const backendPayload: CreateUserPayload = {
         nombres: firstName || 'Usuario',
@@ -309,7 +299,6 @@ export const authService = {
       // Actualizar ultimo_acceso
       try {
         await usersService.updateLastAccess(backendUser.id);
-        console.log('✅ [REGISTRO GOOGLE] ultimo_acceso actualizado');
       } catch (error) {
         console.warn('⚠️ No se pudo actualizar ultimo_acceso:', error);
       }
@@ -364,7 +353,7 @@ export const authService = {
       try {
         const loginResponse = await usersService.loginUser(email, password);
         backendUser = loginResponse.usuario;
-        console.log('✅ [LOGIN EMAIL] Login backend - ultimo_acceso actualizado');
+        console.log('✅ [LOGIN EMAIL] Login backend - Cookie obtenida');
       } catch (backendError: any) {
         console.warn('⚠️ Login backend falló, buscando usuario...');
         
@@ -407,7 +396,7 @@ export const authService = {
   },
 
   /**
-   * LOGIN CON GOOGLE
+   * LOGIN CON GOOGLE - ACTUALIZADO CON COOKIE
    */
   loginWithGoogle: async (
     auth: ReturnType<typeof getAuth>,
@@ -438,8 +427,15 @@ export const authService = {
 
       console.log('✅ [LOGIN GOOGLE] Usuario encontrado');
 
-      // Actualizar ultimo_acceso
-      await usersService.updateLastAccess(backendUser.id);
+      // ✅ NUEVO: Hacer login en el backend para obtener la cookie
+      try {
+        const tempPassword = `google-oauth-${firebaseUser.uid}`;
+        await usersService.loginUser(email, tempPassword);
+        console.log('✅ [LOGIN GOOGLE] Cookie obtenida del backend');
+      } catch (loginError) {
+        console.warn('⚠️ No se pudo hacer login en backend, actualizando último acceso manualmente');
+        await usersService.updateLastAccess(backendUser.id);
+      }
 
       const localUser: LocalUser = {
         id: backendUser.id,

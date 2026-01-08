@@ -25,4 +25,8 @@ export class EditUserDto {
   @ValidateIf((o) => o.contrasena !== undefined)
   @IsString()
   confirmar_nueva_contrasena?: string;
+
+  @IsOptional()
+  @IsString()
+  foto_perfil?: string;
 }

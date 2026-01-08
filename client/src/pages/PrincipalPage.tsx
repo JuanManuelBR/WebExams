@@ -1,6 +1,6 @@
 // ============================================
 // LMSDashboard.tsx - CÓDIGO COMPLETO
-// Nombres capitalizados correctamente
+// Con actualización automática del perfil
 // ============================================
 
 // Importar componentes reutilizables
@@ -75,11 +75,32 @@ export default function LMSDashboard() {
   }, [darkMode]);
 
   // ============================================
-  // OBTENER DATOS DEL USUARIO - CORREGIDO
+  // OBTENER DATOS DEL USUARIO - CON REACTIVIDAD
   // ============================================
   
-  const usuarioStorage = localStorage.getItem('usuario');
-  const usuarioData = usuarioStorage ? JSON.parse(usuarioStorage) : null;
+  const [usuarioData, setUsuarioData] = useState(() => {
+    const usuarioStorage = localStorage.getItem('usuario');
+    return usuarioStorage ? JSON.parse(usuarioStorage) : null;
+  });
+
+  // Escuchar cambios en localStorage
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const usuarioStorage = localStorage.getItem('usuario');
+      setUsuarioData(usuarioStorage ? JSON.parse(usuarioStorage) : null);
+    };
+
+    // Escuchar evento de storage (para otros tabs)
+    window.addEventListener('storage', handleStorageChange);
+
+    // Escuchar evento personalizado (para el mismo tab)
+    window.addEventListener('usuarioActualizado', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('usuarioActualizado', handleStorageChange);
+    };
+  }, []);
   
   // Función auxiliar para capitalizar (Primera letra mayúscula, resto minúscula)
   const capitalizeWord = (word: string): string => {
@@ -164,8 +185,8 @@ export default function LMSDashboard() {
             className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-2'} ${darkMode ? 'hover:bg-slate-800' : 'hover:bg-gray-50'} rounded-lg p-1 transition-colors`}
           >
             <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-blue-400 to-purple-500">
-              {usuarioData?.picture ? (
-                <img src={usuarioData.picture} alt="Profile" className="w-full h-full object-cover" />
+              {usuarioData?.picture || usuarioData?.foto_perfil ? (
+                <img src={usuarioData.picture || usuarioData.foto_perfil} alt="Profile" className="w-full h-full object-cover" />
               ) : (
                 <User className="w-6 h-6 text-white" />
               )}

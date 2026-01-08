@@ -1,6 +1,6 @@
 // ============================================
 // 📁 BACKEND/src/controllers/UserController.ts
-// CÓDIGO COMPLETO
+// CÓDIGO COMPLETO - COOKIES CORREGIDAS
 // ============================================
 
 import { UserService } from "@src/services/UserService";
@@ -95,12 +95,12 @@ export class UserController {
         data.contrasena
       );
 
+      // ✅ COOKIE CORREGIDA - SIN DOMAIN
       res.cookie("token", token, {
         httpOnly: true,
         secure: false,
         sameSite: "lax",
         maxAge: 3600000,
-        domain: "localhost",
       });
 
       return res.status(200).json({
@@ -114,6 +114,7 @@ export class UserController {
 
   static async logout(req: Request, res: Response) {
     try {
+      // ✅ COOKIE CORREGIDA - SIN DOMAIN
       res.clearCookie("token", {
         httpOnly: true,
         secure: false,

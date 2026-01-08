@@ -1,6 +1,6 @@
 // ============================================
 // 📁 BACKEND/src/services/UserService.ts
-// CÓDIGO COMPLETO FINAL
+// CÓDIGO COMPLETO CON LOGIN DE GOOGLE
 // ============================================
 
 import { AppDataSource } from "@src/data-source/AppDataSource";
@@ -32,6 +32,34 @@ export class UserService {
       throw new Error("No se encontró un usuario con ese correo");
     }
 
+    // ✅ NUEVO: Si es usuario de Google, no validar contraseña
+    if (usuario.login_method === 'google') {
+      console.log('ℹ️ Usuario de Google, omitiendo validación de contraseña');
+      
+      if (!JWT_SECRET) {
+        throw new Error("JWT_SECRET no está configurado");
+      }
+
+      const payload = {
+        id: usuario.id,
+        email: usuario.email,
+        nombres: usuario.nombres,
+        apellidos: usuario.apellidos
+      };
+
+      const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "1h" });
+
+      // Actualizar último acceso
+      await this.updateLastAccess(usuario.id);
+
+      return {
+        message: "Login exitoso",
+        token,
+        usuario: payload,
+      };
+    }
+
+    // Para usuarios de email, validar contraseña
     if (!usuario.contrasena) {
       throw new Error("Este usuario debe iniciar sesión con Google");
     }
@@ -111,7 +139,7 @@ export class UserService {
       foto_perfil: data.foto_perfil || null,
       email_verificado: data.login_method === "google",
       activo: true,
-      ultimo_acceso: new Date(), // ← NUEVO: Establecer ultimo_acceso en el registro
+      ultimo_acceso: new Date(),
     });
 
     const usuario_nuevo = await this.user_repository.save(user);
@@ -180,6 +208,7 @@ export class UserService {
       nombres: data.nombres ?? usuario.nombres,
       apellidos: data.apellidos ?? usuario.apellidos,
       email: data.email ?? usuario.email,
+      foto_perfil: data.foto_perfil ?? usuario.foto_perfil,
     });
 
     return await this.user_repository.save(usuario);
