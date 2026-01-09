@@ -88,11 +88,10 @@ export class QuestionValidator {
                 const keyword = new OpenQuestionKeyword();
 
                 if (
-                  !kwDto?.texto ||
-                  typeof kwDto?.esObligatoria !== "boolean"
+                  !kwDto?.texto
                 ) {
                   throwHttpError(
-                    `Palabra clave inválida en pregunta ${index}, posición ${kwIndex}. Debe tener 'texto' y 'esObligatoria'.`,
+                    `Palabra clave inválida en pregunta ${index}, posición ${kwIndex}. Debe tener 'texto'`,
                     400
                   );
                 }
