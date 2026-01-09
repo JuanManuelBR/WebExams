@@ -12,7 +12,7 @@ interface CrearExamenProps {
   darkMode: boolean;
 }
 
-type TipoPregunta = 'no-digital' | 'pdf' | 'escribir' | 'automatico';
+type TipoPregunta = 'pdf' | 'automatico';
 type OpcionTiempoAgotado = 'envio-automatico' | 'debe-enviarse' | '';
 
 interface CampoEstudiante {
@@ -28,29 +28,27 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
   const [archivoPDF, setArchivoPDF] = useState<File | null>(null);
   const [preguntasEscritas, setPreguntasEscritas] = useState('');
   const [preguntasTemp, setPreguntasTemp] = useState('');
-  
+
   const [preguntasAutomaticas, setPreguntasAutomaticas] = useState<Pregunta[]>([]);
   const [preguntasAutomaticasTemp, setPreguntasAutomaticasTemp] = useState<Pregunta[]>([]);
-  
+
   const [mostrarModalPreguntas, setMostrarModalPreguntas] = useState(false);
   const [mostrarModalPreguntasAutomaticas, setMostrarModalPreguntasAutomaticas] = useState(false);
   const [mostrarVistaPreviaPDF, setMostrarVistaPreviaPDF] = useState(false);
   const [pdfCargando, setPdfCargando] = useState(false);
   const [pdfURL, setPdfURL] = useState<string | null>(null);
   const [tienePreguntasAutomaticas, setTienePreguntasAutomaticas] = useState(false);
-  
+
   const [guardando, setGuardando] = useState(false);
   const [examenCreado, setExamenCreado] = useState<{
     codigo: string;
     url: string;
   } | null>(null);
-  
+
   const [camposEstudiante, setCamposEstudiante] = useState<CampoEstudiante[]>([
-    { id: 'nombre', nombre: 'Nombre', activo: false },
+    { id: 'nombre', nombre: 'Nombre completo', activo: false },
     { id: 'apellido', nombre: 'Apellido', activo: false },
     { id: 'correo', nombre: 'Correo electrónico', activo: false },
-    { id: 'nombreProfesor', nombre: 'Nombre del profesor', activo: false },
-    { id: 'numeroTelefono', nombre: 'Numero de telefono', activo: false },
     { id: 'codigoEstudiante', nombre: 'Código estudiante', activo: false },
   ]);
 
@@ -60,10 +58,10 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
   const [fechaCierreHabilitada, setFechaCierreHabilitada] = useState(false);
   const [limiteHabilitado, setLimiteHabilitado] = useState(false);
   const [limiteTiempo, setLimiteTiempo] = useState(30);
-  const [unidadTiempo, setUnidadTiempo] = useState<'minutos' | 'horas'>('minutos');
   const [opcionTiempoAgotado, setOpcionTiempoAgotado] = useState<OpcionTiempoAgotado>('');
 
   const [contraseñaExamen, setContraseñaExamen] = useState('');
+  const [contraseñaHabilitada, setContraseñaHabilitada] = useState(false);
   const [consecuenciaAbandono, setConsecuenciaAbandono] = useState('');
 
   const [seccion1Abierta, setSeccion1Abierta] = useState(true);
@@ -76,10 +74,9 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
   const [herramientasActivas, setHerramientasActivas] = useState({
     dibujo: false,
     calculadora: false,
+    excel: false,
     javascript: false,
-    python: false,
-    sqlite: false,
-    excel: false
+    python: false
   });
 
   useEffect(() => {
@@ -187,14 +184,14 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
     setFechaCierreHabilitada(false);
     setLimiteHabilitado(false);
     setContraseñaExamen('');
+    setContraseñaHabilitada(false);
     setConsecuenciaAbandono('');
     setHerramientasActivas({
       dibujo: false,
       calculadora: false,
+      excel: false,
       javascript: false,
-      python: false,
-      sqlite: false,
-      excel: false
+      python: false
     });
     setSeccion1Abierta(true);
     setSeccion2Abierta(false);
@@ -209,78 +206,71 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
       alert('Por favor, ingrese el nombre del examen');
       return;
     }
-    
+
     if (!tipoPregunta) {
       alert('Por favor, seleccione un tipo de pregunta');
       return;
     }
-    
+
     if (!consecuenciaAbandono) {
       alert('Por favor, seleccione una consecuencia de abandono');
       return;
     }
-    
+
     if (tipoPregunta === 'pdf' && !archivoPDF) {
       alert('Por favor, seleccione un archivo PDF');
       return;
     }
-    
-    if (tipoPregunta === 'escribir' && !preguntasEscritas.trim()) {
-      alert('Por favor, escriba las preguntas del examen');
-      return;
-    }
-    
+
     if (tipoPregunta === 'automatico' && preguntasAutomaticas.length === 0) {
       alert('Por favor, agregue al menos una pregunta');
       return;
     }
-    
-    setGuardando(true);
-    
-    try {
-      let contraseñaFinal = contraseñaExamen;
-      if (contraseñaExamen === '') {
-        const mayusculas = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        const minusculas = 'abcdefghijklmnopqrstuvwxyz';
-        const numeros = '0123456789';
-        const simbolos = '!@#$%&*';
-        const todos = mayusculas + minusculas + numeros + simbolos;
-        let temp = '';
-        temp += mayusculas[Math.floor(Math.random() * mayusculas.length)];
-        temp += minusculas[Math.floor(Math.random() * minusculas.length)];
-        temp += numeros[Math.floor(Math.random() * numeros.length)];
-        temp += simbolos[Math.floor(Math.random() * simbolos.length)];
-        for (let i = 4; i < 6; i++) {
-          temp += todos[Math.floor(Math.random() * todos.length)];
-        }
-        contraseñaFinal = temp.split('').sort(() => Math.random() - 0.5).join('');
-        setContraseñaExamen(contraseñaFinal);
+
+    // Validar contraseña si está habilitada
+    if (contraseñaHabilitada && contraseñaExamen) {
+      const tieneMayuscula = /[A-Z]/.test(contraseñaExamen);
+      const tieneMinuscula = /[a-z]/.test(contraseñaExamen);
+      const tieneNumero = /[0-9]/.test(contraseñaExamen);
+      const tieneSimbolo = /[!@#$%&*]/.test(contraseñaExamen);
+      const longitudValida = contraseñaExamen.length >= 6;
+
+      if (!tieneMayuscula || !tieneMinuscula || !tieneNumero || !tieneSimbolo || !longitudValida) {
+        alert('La contraseña debe tener al menos 6 caracteres, incluyendo mayúsculas, minúsculas, números y símbolos (!@#$%&*)');
+        return;
       }
-      
+    }
+
+    setGuardando(true);
+
+    try {
+      // Solo usar la contraseña si está habilitada
+      const contraseñaFinal = contraseñaHabilitada ? contraseñaExamen : '';
+
       const datosExamen = {
         nombreExamen,
         descripcionExamen,
         tipoPregunta,
         archivoPDF,
         nombreArchivoPDF: archivoPDF?.name,
-        preguntasEscritas: tipoPregunta === 'escribir' ? preguntasEscritas : undefined,
+        preguntasEscritas: undefined,
         preguntasAutomaticas: tipoPregunta === 'automatico' ? preguntasAutomaticas : undefined,
         camposActivos: camposEstudiante.filter(c => c.activo),
         fechaInicio: fechaInicioHabilitada ? fechaInicio : null,
         fechaCierre: fechaCierreHabilitada ? fechaCierre : null,
-        limiteTiempo: limiteHabilitado ? { valor: limiteTiempo, unidad: unidadTiempo } : null,
+        limiteTiempo: limiteHabilitado ? { valor: limiteTiempo, unidad: 'minutos' as const } : null,
         opcionTiempoAgotado: limiteHabilitado ? opcionTiempoAgotado : '',
-        seguridad: { 
-          contraseña: contraseñaFinal, 
-          consecuenciaAbandono 
+        seguridad: {
+          contraseña: contraseñaFinal,
+          consecuenciaAbandono
         },
         herramientasActivas: Object.entries(herramientasActivas)
           .filter(([_, activo]) => activo)
           .map(([herramienta, _]) => herramienta)
       };
-      
+
       const resultado = await crearExamen(datosExamen);
-      
+
       if (resultado.success) {
         setExamenCreado({
           codigo: resultado.codigoExamen,
@@ -289,7 +279,7 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
       } else {
         throw new Error(resultado.error || 'Error al crear el examen');
       }
-      
+
     } catch (error: any) {
       console.error('Error al crear examen:', error);
       alert(`Error al crear el examen: ${error.message || 'Error desconocido'}`);
@@ -410,11 +400,9 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
         {seccion2Abierta && (
           <div className="px-6 pb-6 space-y-4">
             {[
-              { tipo: 'no-digital', titulo: 'No hay preguntas de examen digital', desc: 'Las preguntas se dan fuera del sistema.' },
               { tipo: 'pdf', titulo: 'Usar un archivo PDF', desc: 'Añada o cambie el archivo PDF que quiera.' },
-              { tipo: 'escribir', titulo: 'Escribir preguntas', desc: 'Escriba o pegue sus preguntas aquí.' },
               { tipo: 'automatico', titulo: 'Calificados automáticamente', desc: 'Cree exámenes con diferentes tipos de preguntas.' }
-            ].map(({tipo, titulo, desc}) => (
+            ].map(({ tipo, titulo, desc }) => (
               <div key={tipo} onClick={() => setTipoPregunta(tipo as TipoPregunta)} className={`p-5 rounded-lg border-2 cursor-pointer transition-all ${tipoPregunta === tipo ? `${borderActivo} ${bgActivoLight}` : 'border-gray-200 hover:border-gray-300'}`}>
                 <div className="flex items-start gap-3">
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${tipoPregunta === tipo ? `${borderRadio} ${bgRadio}` : 'border-gray-300'}`}>
@@ -430,16 +418,6 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
                           <span className="text-sm font-medium">{archivoPDF ? archivoPDF.name : 'Seleccionar PDF'}</span>
                           <input type="file" accept=".pdf" className="hidden" onChange={(e) => e.target.files?.[0] && handlePDFSelection(e.target.files[0])} />
                         </label>
-                      </div>
-                    )}
-                    {tipoPregunta === 'escribir' && tipo === 'escribir' && (
-                      <div className="mt-4">
-                        <button onClick={(e) => { e.stopPropagation(); abrirModalPreguntas(); }} className={`px-4 py-2 rounded-lg ${bgBoton} text-white ${bgBotonHover} transition-colors font-medium`}>
-                          {preguntasEscritas ? 'Editar preguntas' : 'Escribir preguntas'}
-                        </button>
-                        {preguntasEscritas && (
-                          <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>✓ Preguntas agregadas</p>
-                        )}
                       </div>
                     )}
                     {tipoPregunta === 'automatico' && tipo === 'automatico' && (
@@ -474,6 +452,9 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
         </button>
         {seccion3Abierta && (
           <div className="px-6 pb-6 space-y-3">
+            <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'} mb-4`}>
+              Seleccione qué información deberá proporcionar el estudiante antes de iniciar el examen.
+            </p>
             {camposEstudiante.map(campo => (
               <div key={campo.id} onClick={() => toggleCampo(campo.id)} className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition-all ${campo.activo ? `${borderActivo} ${bgActivoLight}` : 'border-gray-200 hover:border-gray-300'}`}>
                 <span className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{campo.nombre}</span>
@@ -510,15 +491,14 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
                 </div>
               </div>
               {fechaInicioHabilitada && (
-                <input 
-                  type="datetime-local" 
-                  value={fechaInicio} 
-                  onChange={(e) => setFechaInicio(e.target.value)} 
-                  className={`w-full px-4 py-2.5 rounded-lg border ${
-                    darkMode 
-                      ? 'bg-slate-700 border-slate-600 text-white' 
+                <input
+                  type="datetime-local"
+                  value={fechaInicio}
+                  onChange={(e) => setFechaInicio(e.target.value)}
+                  className={`w-full px-4 py-2.5 rounded-lg border ${darkMode
+                      ? 'bg-slate-700 border-slate-600 text-white'
                       : 'bg-white border-gray-300'
-                  }`} 
+                    }`}
                 />
               )}
             </div>
@@ -535,15 +515,14 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
                 </div>
               </div>
               {fechaCierreHabilitada && (
-                <input 
-                  type="datetime-local" 
-                  value={fechaCierre} 
-                  onChange={(e) => setFechaCierre(e.target.value)} 
-                  className={`w-full px-4 py-2.5 rounded-lg border ${
-                    darkMode 
-                      ? 'bg-slate-700 border-slate-600 text-white' 
+                <input
+                  type="datetime-local"
+                  value={fechaCierre}
+                  onChange={(e) => setFechaCierre(e.target.value)}
+                  className={`w-full px-4 py-2.5 rounded-lg border ${darkMode
+                      ? 'bg-slate-700 border-slate-600 text-white'
                       : 'bg-white border-gray-300'
-                  }`} 
+                    }`}
                 />
               )}
             </div>
@@ -558,11 +537,13 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
               </div>
               {limiteHabilitado && (
                 <div className="flex gap-3 items-center">
-                  <input type="number" value={limiteTiempo} onChange={(e) => setLimiteTiempo(Number(e.target.value))} className={`w-28 px-4 py-2.5 rounded-lg border ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-gray-300'}`} />
-                  <select value={unidadTiempo} onChange={(e) => setUnidadTiempo(e.target.value as 'minutos' | 'horas')} className={`px-4 py-2.5 rounded-lg border ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-gray-300'}`}>
-                    <option value="minutos">minutos</option>
-                    <option value="horas">horas</option>
-                  </select>
+                  <input
+                    type="number"
+                    value={limiteTiempo}
+                    onChange={(e) => setLimiteTiempo(Number(e.target.value))}
+                    className={`w-28 px-4 py-2.5 rounded-lg border ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-gray-300'}`}
+                  />
+                  <span className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>minutos</span>
                 </div>
               )}
             </div>
@@ -588,7 +569,7 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
           {seccion5Abierta ? <ChevronUp className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} /> : <ChevronDown className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} />}
         </button>
         {seccion5Abierta && (
-          <SeccionHerramientas 
+          <SeccionHerramientas
             darkMode={darkMode}
             herramientasActivas={herramientasActivas}
             onToggleHerramienta={toggleHerramienta}
@@ -607,19 +588,21 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
           {seccion6Abierta ? <ChevronUp className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} /> : <ChevronDown className={`w-5 h-5 ${darkMode ? 'text-white' : 'text-gray-900'}`} />}
         </button>
         {seccion6Abierta && (
-          <SeccionSeguridad 
+          <SeccionSeguridad
             darkMode={darkMode}
             onContraseñaChange={setContraseñaExamen}
             onConsecuenciaChange={setConsecuenciaAbandono}
+            onContraseñaHabilitadaChange={setContraseñaHabilitada}
             contraseñaInicial={contraseñaExamen}
             consecuenciaInicial={consecuenciaAbandono}
+            contraseñaHabilitadaInicial={contraseñaHabilitada}
           />
         )}
       </div>
 
       {/* Botones Finales */}
       <div className="flex justify-end gap-3 pt-4">
-        <button 
+        <button
           className="px-6 py-3 rounded-lg font-medium bg-gray-100 text-gray-900 hover:bg-gray-200 transition-colors"
           onClick={() => {
             if (window.confirm('¿Está seguro que desea cancelar? Se perderán todos los datos.')) {
@@ -630,8 +613,8 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
         >
           Cancelar
         </button>
-        <button 
-          onClick={handleCrearExamen} 
+        <button
+          onClick={handleCrearExamen}
           disabled={!nombreExamen.trim() || !tipoPregunta || !consecuenciaAbandono || guardando}
           className={`px-6 py-3 rounded-lg font-medium ${bgBoton} text-white disabled:opacity-50 disabled:cursor-not-allowed ${bgBotonHover} transition-colors flex items-center gap-2`}
         >
@@ -648,36 +631,6 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
           )}
         </button>
       </div>
-
-      {/* Modal Preguntas */}
-      {mostrarModalPreguntas && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className={`${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'} rounded-lg border shadow-2xl w-full max-w-4xl h-[95vh] flex flex-col`}>
-            <div className={`flex items-center justify-between p-6 border-b ${darkMode ? 'border-slate-700' : 'border-gray-200'}`}>
-              <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                Escribir preguntas del examen
-              </h3>
-              <button onClick={cancelarPreguntas} className={`p-2 rounded-lg transition-colors ${darkMode ? 'text-gray-400 hover:text-white hover:bg-slate-800' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}>
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="flex-1 p-6 overflow-auto">
-              <style>{`.modal-editor-full .ProseMirror { min-height: calc(95vh - 280px) !important; }`}</style>
-              <div className="modal-editor-full">
-                <EditorTexto value={preguntasTemp} onChange={setPreguntasTemp} darkMode={darkMode} placeholder="Escriba o pegue las preguntas del examen aquí..." />
-              </div>
-            </div>
-            <div className={`flex justify-end gap-3 p-6 border-t ${darkMode ? 'border-slate-700' : 'border-gray-200'}`}>
-              <button onClick={cancelarPreguntas} className={`px-6 py-3 rounded-lg font-medium transition-colors ${darkMode ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'}`}>
-                Cancelar y cerrar
-              </button>
-              <button onClick={guardarPreguntas} className={`px-6 py-3 rounded-lg font-medium ${bgBoton} text-white ${bgBotonHover} transition-colors`}>
-                Ok
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Modal Preguntas Automáticas */}
       {mostrarModalPreguntasAutomaticas && (
@@ -733,7 +686,7 @@ export default function CrearExamen({ darkMode }: CrearExamenProps) {
       )}
 
       {/* Visor PDF */}
-      <VisorPDF 
+      <VisorPDF
         mostrar={mostrarVistaPreviaPDF}
         pdfURL={pdfURL}
         pdfCargando={pdfCargando}

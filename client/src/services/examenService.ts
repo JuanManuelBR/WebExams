@@ -13,7 +13,7 @@ export interface DatosExamen {
   camposActivos: Array<{ id: string; nombre: string }>;
   fechaInicio: string | null;
   fechaCierre: string | null;
-  limiteTiempo: { valor: number; unidad: 'minutos' | 'horas' } | null;
+  limiteTiempo: { valor: number; unidad: 'minutos' } | null;
   opcionTiempoAgotado: string;
   seguridad: {
     contraseña: string; // Contraseña de 6 caracteres
@@ -36,19 +36,19 @@ function generarCodigoExamen(): string {
   const numeros = '0123456789';
   const simbolos = '!@#$%&*';
   const todos = mayusculas + minusculas + numeros + simbolos;
-  
+
   let codigo = '';
   // Asegurar al menos un carácter de cada tipo
   codigo += mayusculas[Math.floor(Math.random() * mayusculas.length)];
   codigo += minusculas[Math.floor(Math.random() * minusculas.length)];
   codigo += numeros[Math.floor(Math.random() * numeros.length)];
   codigo += simbolos[Math.floor(Math.random() * simbolos.length)];
-  
+
   // Completar hasta 6 caracteres
   for (let i = 4; i < 6; i++) {
     codigo += todos[Math.floor(Math.random() * todos.length)];
   }
-  
+
   // Mezclar los caracteres
   return codigo.split('').sort(() => Math.random() - 0.5).join('');
 }
@@ -181,20 +181,20 @@ export function obtenerExamenPorCodigo(codigo: string): ExamenGuardado | null {
 export function obtenerMisExamenes(): ExamenGuardado[] {
   const usuarioActual = obtenerUsuarioActual();
   console.log('Usuario actual:', usuarioActual);
-  
+
   if (!usuarioActual) {
     console.warn('No hay usuario actual');
     return [];
   }
-  
+
   const todosLosExamenes = obtenerTodosLosExamenes();
   console.log('Todos los exámenes:', todosLosExamenes);
-  
+
   const misExamenes = todosLosExamenes.filter(e => {
     console.log(`Comparando: ${e.profesorId} === ${usuarioActual.id}`, e.profesorId === usuarioActual.id);
     return e.profesorId === usuarioActual.id;
   });
-  
+
   console.log('Mis exámenes filtrados:', misExamenes);
   return misExamenes;
 }
@@ -222,7 +222,7 @@ export async function actualizarExamen(codigo: string, datosActualizados: Partia
   try {
     const examenes = obtenerTodosLosExamenes();
     const index = examenes.findIndex(e => e.codigoExamen === codigo);
-    
+
     if (index === -1) return false;
 
     // Convertir PDF a base64 si hay uno nuevo
@@ -263,7 +263,7 @@ export function actualizarCodigoExamen(codigoActual: string, nuevoCodigo: string
 
     const examenes = obtenerTodosLosExamenes();
     const index = examenes.findIndex(e => e.codigoExamen === codigoActual);
-    
+
     if (index === -1) return false;
 
     examenes[index].codigoExamen = nuevoCodigo;
@@ -313,7 +313,7 @@ export interface EstadisticasExamen {
 
 export function obtenerEstadisticas(): EstadisticasExamen {
   const examenes = obtenerMisExamenes();
-  
+
   return {
     totalExamenes: examenes.length,
     examenesActivos: examenes.length,

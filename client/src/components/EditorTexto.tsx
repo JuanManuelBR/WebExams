@@ -3,7 +3,6 @@ import { useEffect } from 'react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
-import Image from '@tiptap/extension-image';
 import TextAlign from '@tiptap/extension-text-align';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
@@ -16,7 +15,6 @@ import {
   Strikethrough,
   List,
   ListOrdered,
-  Image as ImageIcon,
   Link2,
   AlignLeft,
   AlignCenter,
@@ -89,7 +87,6 @@ interface EditorTextoProps {
   onChange: (html: string) => void;
   darkMode?: boolean;
   placeholder?: string;
-  showImageButton?: boolean;
   minHeight?: string;
 }
 
@@ -98,7 +95,6 @@ export default function EditorTexto({
   onChange,
   darkMode = false,
   placeholder = 'Escribe aquí...',
-  showImageButton = true,
   minHeight = '200px',
 }: EditorTextoProps) {
   const editor = useEditor({
@@ -119,13 +115,6 @@ export default function EditorTexto({
         openOnClick: false,
         HTMLAttributes: {
           class: 'text-blue-500 underline cursor-pointer',
-        },
-      }),
-      Image.configure({
-        inline: true,
-        allowBase64: true,
-        HTMLAttributes: {
-          class: 'editor-image',
         },
       }),
       TextAlign.configure({
@@ -156,58 +145,6 @@ export default function EditorTexto({
   if (!editor) {
     return null;
   }
-
-  const addImage = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-
-      if (!file.type.startsWith('image/')) {
-        alert('Por favor selecciona un archivo de imagen válido.');
-        return;
-      }
-
-      if (file.size > 5 * 1024 * 1024) {
-        alert('La imagen es demasiado grande. Máximo 5MB.');
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const imgElement = document.createElement('img') as HTMLImageElement;
-        imgElement.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = imgElement.width;
-          let height = imgElement.height;
-          
-          // Limitar el ancho máximo a 800px manteniendo la proporción
-          const maxWidth = 800;
-          if (width > maxWidth) {
-            height = (height * maxWidth) / width;
-            width = maxWidth;
-          }
-          
-          canvas.width = width;
-          canvas.height = height;
-          
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(imgElement, 0, 0, width, height);
-            
-            // Convertir a base64 con calidad optimizada
-            const optimizedUrl = canvas.toDataURL('image/jpeg', 0.85);
-            editor.chain().focus().setImage({ src: optimizedUrl }).run();
-          }
-        };
-        imgElement.src = event.target?.result as string;
-      };
-      reader.readAsDataURL(file);
-    };
-    input.click();
-  };
 
   const alignText = (alignment: 'left' | 'center' | 'right' | 'justify') => {
     editor.chain().focus().setTextAlign(alignment).run();
@@ -439,12 +376,6 @@ export default function EditorTexto({
         >
           <Link2 className="w-4 h-4" />
         </ToolbarButton>
-        
-        {showImageButton && (
-          <ToolbarButton onClick={addImage} title="Insertar imagen">
-            <ImageIcon className="w-4 h-4" />
-          </ToolbarButton>
-        )}
       </div>
 
       {/* Editor */}
@@ -472,21 +403,6 @@ export default function EditorTexto({
           float: left;
         }
         
-        .ProseMirror img,
-        .ProseMirror .editor-image {
-          max-width: 100%;
-          max-height: 600px;
-          width: auto;
-          height: auto;
-          object-fit: contain;
-          border-radius: 8px;
-          margin: 12px 0;
-          cursor: pointer;
-          transition: transform 0.2s;
-          display: inline-block;
-          vertical-align: middle;
-        }
-        
         .ProseMirror p {
           margin: 0;
         }
@@ -497,24 +413,10 @@ export default function EditorTexto({
           text-align: left !important;
         }
         
-        .ProseMirror p[style*="text-align: left"] img,
-        .ProseMirror div[style*="text-align: left"] img {
-          display: inline-block;
-          margin-left: 0;
-          margin-right: auto;
-        }
-        
         /* Alineación centrada */
         .ProseMirror p[style*="text-align: center"],
         .ProseMirror div[style*="text-align: center"] {
           text-align: center !important;
-        }
-
-        .ProseMirror p[style*="text-align: center"] img,
-        .ProseMirror div[style*="text-align: center"] img {
-          display: inline-block;
-          margin-left: auto;
-          margin-right: auto;
         }
         
         /* Alineación derecha */
@@ -522,35 +424,11 @@ export default function EditorTexto({
         .ProseMirror div[style*="text-align: right"] {
           text-align: right !important;
         }
-
-        .ProseMirror p[style*="text-align: right"] img,
-        .ProseMirror div[style*="text-align: right"] img {
-          display: inline-block;
-          margin-left: auto;
-          margin-right: 0;
-        }
         
         /* Alineación justificada */
         .ProseMirror p[style*="text-align: justify"],
         .ProseMirror div[style*="text-align: justify"] {
           text-align: justify !important;
-        }
-        
-        .ProseMirror p[style*="text-align: justify"] img,
-        .ProseMirror div[style*="text-align: justify"] img {
-          display: inline-block;
-          margin-left: 0;
-          margin-right: auto;
-        }
-
-        
-        .ProseMirror img:hover {
-          transform: scale(1.02);
-        }
-        
-        .ProseMirror img.ProseMirror-selectednode {
-          outline: 3px solid #14b8a6;
-          outline-offset: 2px;
         }
 
         .ProseMirror a {
