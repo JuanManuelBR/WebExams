@@ -9,4 +9,7 @@ export class MatchQuestion extends Question {
     onDelete: "CASCADE",
   })
   pares!: MatchPair[];
+
+  @Column({type: "text"})
+  nombreImagen ?: string;
 }

@@ -42,6 +42,7 @@ export class QuestionValidator {
           return {
             ...preguntaBase,
             shuffleOptions: questionDto.shuffleOptions ?? false,
+            nombreImagen: questionDto.nombreImagen ?? null,
             options:
               questionDto.options?.map((opt: any, optIndex: number) => {
                 if (!opt?.texto || typeof opt.esCorrecta !== "boolean") {
@@ -57,11 +58,13 @@ export class QuestionValidator {
                 };
               }) || [],
           } as Question;
+
         case "open":
           const openQ = new OpenQuestion();
           Object.assign(openQ, preguntaBaseData);
 
-          // 1. VALIDACIÓN DE EXCLUSIVIDAD (Prioridad)
+          openQ.nombreImagen = questionDto.nombreImagen ?? null;
+
           const tieneTexto =
             questionDto.textoRespuesta &&
             questionDto.textoRespuesta.trim() !== "";
@@ -77,16 +80,13 @@ export class QuestionValidator {
             );
           }
 
-          // 2. ASIGNACIÓN DE TEXTO RESPUESTA
           openQ.textoRespuesta = questionDto.textoRespuesta ?? null;
 
-          // 3. VALIDACIÓN Y ASIGNACIÓN DE KEYWORDS
           if (tieneKeywords) {
             openQ.keywords = questionDto.palabrasClave.map(
               (kwDto: any, kwIndex: number) => {
                 const keyword = new OpenQuestionKeyword();
 
-                // Verificamos que los campos existan antes de usarlos
                 if (
                   !kwDto?.texto ||
                   typeof kwDto?.esObligatoria !== "boolean"
@@ -112,7 +112,8 @@ export class QuestionValidator {
           const fillQ = new FillBlankQuestion();
           Object.assign(fillQ, preguntaBaseData);
 
-          // Validar campos requeridos
+          fillQ.nombreImagen = questionDto.nombreImagen ?? null;
+
           if (!questionDto.textoCorrecto) {
             throwHttpError(
               `La pregunta ${index} (Rellenar) requiere el texto base.`,
@@ -157,12 +158,10 @@ export class QuestionValidator {
 
         case "matching":
           const matchQ = new MatchQuestion();
-
-          // 1. Asignar metadatos base (enunciado, puntaje, examen, etc.)
-          // Usamos la estructura que ya definiste en tu código anterior
           Object.assign(matchQ, preguntaBaseData);
 
-          // 2. Validar que existan pares en el DTO
+          matchQ.nombreImagen = questionDto.nombreImagen ?? null;
+
           if (
             !questionDto.pares ||
             !Array.isArray(questionDto.pares) ||
@@ -174,10 +173,8 @@ export class QuestionValidator {
             );
           }
 
-          // 3. Mapear los pares e ítems
           matchQ.pares = questionDto.pares.map(
             (pairDto: any, pairIndex: number) => {
-              // Validación interna del par
               if (!pairDto.itemA || !pairDto.itemB) {
                 throwHttpError(
                   `Error en pregunta ${index}, par ${pairIndex}: Ambos elementos (itemA e itemB) son obligatorios.`,
@@ -185,27 +182,23 @@ export class QuestionValidator {
                 );
               }
 
-              // Crear la entidad del ítem de la columna A
               const itemA = new MatchItemA();
               itemA.text = pairDto.itemA;
-              // No necesita referencia a 'question' según tu diseño optimizado
 
-              // Crear la entidad del ítem de la columna B
               const itemB = new MatchItemB();
               itemB.text = pairDto.itemB;
-              // No necesita referencia a 'question' según tu diseño optimizado
 
-              // Crear el par que une ambos ítems
               const pair = new MatchPair();
               pair.itemA = itemA;
               pair.itemB = itemB;
-              pair.question = matchQ; // El par es el que mantiene la relación con la pregunta
+              pair.question = matchQ;
 
               return pair;
             }
           );
 
           return matchQ;
+
         default:
           throwHttpError(
             `Tipo de pregunta no soportado: ${questionDto.type}`,

@@ -1,4 +1,11 @@
-import { IsArray, IsNotEmpty, IsString, ValidateNested, IsEnum } from "class-validator";
+import {
+  IsArray,
+  IsNotEmpty,
+  IsString,
+  ValidateNested,
+  IsEnum,
+  IsOptional,
+} from "class-validator";
 import { Type } from "class-transformer";
 import { FillBlankAnswerDto } from "./add-fill-blank-answer.dto";
 import { BaseQuestionDto } from "./base-question.dto";
@@ -12,6 +19,10 @@ export class FillBlankQuestionDto extends BaseQuestionDto {
   @IsString({ message: "El texto de la pregunta es obligatorio." })
   @IsNotEmpty()
   textoCorrecto!: string;
+
+  @IsString({ message: "El nombre de la imagen debe ser una cadena de texto" })
+  @IsOptional()
+  nombreImagen?: string;
 
   @IsArray({ message: "Las respuestas deben ser un arreglo." })
   @ValidateNested({ each: true })

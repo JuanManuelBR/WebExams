@@ -9,7 +9,6 @@ export class OpenQuestionKeywordDto {
   @IsString({ message: "Palabra clave debe ser un string" })
   texto!: string;
 
-
   @IsOptional()
   @IsNumber({}, { message: "El questionId debe ser numérico." })
   questionId?: number;

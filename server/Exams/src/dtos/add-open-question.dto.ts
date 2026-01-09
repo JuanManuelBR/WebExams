@@ -24,4 +24,8 @@ export class OpenQuestionDto extends BaseQuestionDto {
   @Type(() => OpenQuestionKeywordDto)
   @ValidateIf((o) => !o.textoRespuesta)
   palabrasClave?: string;
+
+  @IsString({ message: "El nombre de la imagen debe ser una cadena de texto" })
+  @IsOptional()
+  nombreImagen?: string;
 }

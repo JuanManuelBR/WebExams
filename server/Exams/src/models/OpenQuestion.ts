@@ -16,5 +16,8 @@ export class OpenQuestion extends Question {
     eager: true,
     onDelete: "CASCADE",
   })
-  keywords!: OpenQuestionKeyword[];
+  keywords?: OpenQuestionKeyword[];
+
+  @Column({type: "text"})
+  nombreImagen ?: string;
 }
