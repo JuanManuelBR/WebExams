@@ -3,6 +3,7 @@ import { Exam } from "../models/Exam";
 
 import { CommonValidator } from "@src/validators/common";
 
+import { generateExamCode } from "@src/utils/generetaExamCode";
 import { add_exam_dto } from "@src/dtos/add-exam.dto";
 import { Question } from "@src/models/Question";
 
@@ -27,6 +28,29 @@ export class ExamService {
     await examenValidator.verificarExamenDuplicado(data.nombre, id_profesor);
 
     return await AppDataSource.transaction(async (manager) => {
+      let codigoExamen: string;
+      let codigoExiste = true;
+      let intentos = 0;
+      const MAX_INTENTOS = 10;
+
+      while (codigoExiste && intentos < MAX_INTENTOS) {
+        codigoExamen = generateExamCode();
+
+        const examenConCodigo = await manager.findOne(Exam, {
+          where: { codigoExamen },
+        });
+
+        codigoExiste = !!examenConCodigo;
+        intentos++;
+      }
+
+      if (codigoExiste) {
+        throwHttpError(
+          "No se pudo generar un código único para el examen",
+          500
+        );
+      }
+
       const nuevo_examen = manager.create(Exam, {
         nombre: data.nombre,
         contrasena: data.contrasena,
@@ -46,7 +70,8 @@ export class ExamService {
         horaCierre: data.horaCierre,
         limiteTiempo: data.limiteTiempo,
         limiteTiempoCumplido: data.limiteTiempoCumplido,
-        consecuencia: data.consecuencia
+        consecuencia: data.consecuencia,
+        codigoExamen: codigoExamen!,
       });
 
       const examen_guardado = await manager.save(Exam, nuevo_examen);
@@ -60,7 +85,6 @@ export class ExamService {
         const preguntas_guardadas = await manager.save(Question, preguntas);
 
         examen_guardado.questions = preguntas_guardadas.map((q: any) => {
-          // 1. Quitamos la referencia al examen (lo que ya tenías)
           delete q.exam;
           if (q.type === "matching" && q.pares) {
             q.pares.forEach((p: any) => {

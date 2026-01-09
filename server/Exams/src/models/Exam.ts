@@ -19,6 +19,9 @@ export class Exam {
   @Column({ type: "text" })
   descripcion?: string;
 
+  @Column({ type: "text" })
+  codigoExamen?: string;
+
   @Column({ type: "varchar", length: 255 })
   contrasena?: string | null;
 
@@ -72,6 +75,8 @@ export class Exam {
 
   @Column({ type: "enum", enum: Consecuencia })
   consecuencia!: Consecuencia;
+
+
 
   @OneToMany(() => Question, (question) => question.exam, {
     onDelete: "CASCADE",

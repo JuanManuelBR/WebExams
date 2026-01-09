@@ -28,6 +28,7 @@ export class add_exam_dto {
   @IsOptional()
   descripcion?: string;
 
+
   @IsString({ message: "La clave debe ser string" })
   @IsOptional()
   contrasena?: string;
