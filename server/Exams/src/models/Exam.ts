@@ -6,7 +6,7 @@ import {
   OneToMany,
 } from "typeorm";
 
-import { ExamenState } from "../types/Exam";
+import { Consecuencia, ExamenState, TiempoAgotado } from "../types/Exam";
 import { Question } from "./Question";
 @Entity("examenes")
 export class Exam {
@@ -16,8 +16,11 @@ export class Exam {
   @Column({ type: "varchar", length: 255 })
   nombre!: string;
 
+  @Column({ type: "text" })
+  descripcion?: string;
+
   @Column({ type: "varchar", length: 255 })
-  clave!: string;
+  contrasena?: string | null;
 
   @CreateDateColumn()
   fecha_creacion!: Date;
@@ -28,6 +31,51 @@ export class Exam {
   @Column()
   id_profesor!: number;
 
-  @OneToMany(() => Question, (question) => question.exam, { onDelete: "CASCADE", eager: true})
+  @Column({ type: "boolean" })
+  necesitaNombreCompleto!: boolean;
+
+  @Column({ type: "boolean" })
+  necesitaCorreoElectrónico!: boolean;
+
+  @Column({ type: "boolean" })
+  necesitaCodigoEstudiantil!: boolean;
+
+  @Column({ type: "boolean" })
+  incluirHerramientaDibujo!: boolean;
+
+  @Column({ type: "boolean" })
+  incluirCalculadoraCientifica!: boolean;
+
+  @Column({ type: "boolean" })
+  incluirHojaExcel!: boolean;
+
+  @Column({ type: "boolean" })
+  incluirJavascript!: boolean;
+
+  @Column({ type: "boolean" })
+  incluirPython!: boolean;
+
+  @Column({ type: "datetime" })
+  horaApertura!: Date;
+
+  @Column({ type: "datetime" })
+  horaCierre!: Date;
+
+  @Column({ type: "int" })
+  limiteTiempo!: number;
+
+  @Column({ type: "enum", enum: TiempoAgotado })
+  limiteTiempoCumplido!: TiempoAgotado;
+
+  @Column({ type: "boolean" })
+  necesitaContrasena!: boolean;
+
+  @Column({ type: "enum", enum: Consecuencia })
+  consecuencia!: Consecuencia;
+
+  @OneToMany(() => Question, (question) => question.exam, {
+    onDelete: "CASCADE",
+    eager: true,
+  })
   questions!: Question[];
 }

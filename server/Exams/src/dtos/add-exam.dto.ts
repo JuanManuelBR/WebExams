@@ -1,7 +1,10 @@
-import { ExamenState } from "@src/types/Exam";
+import { Consecuencia, ExamenState, TiempoAgotado } from "@src/types/Exam";
 import { Type } from "class-transformer";
 import {
   IsArray,
+  IsBoolean,
+  IsDate,
+  IsEmail,
   IsIn,
   IsNotEmpty,
   IsNumber,
@@ -11,7 +14,6 @@ import {
 } from "class-validator";
 
 import { BaseQuestionDto } from "./base-question.dto";
-import { QUESTION_DTO_MAP } from "./question-dto-map";
 import { TestQuestionDto } from "./add-test-question.dto";
 import { OpenQuestionDto } from "./add-open-question.dto";
 import { FillBlankQuestionDto } from "./add-blank-question.dto";
@@ -22,9 +24,13 @@ export class add_exam_dto {
   @IsNotEmpty({ message: "Nombre no puede ser nulo" })
   nombre!: string;
 
+  @IsString({ message: "La descripción debe ser una cadena de texto" })
+  @IsOptional()
+  descripcion?: string;
+
   @IsString({ message: "La clave debe ser string" })
-  @IsNotEmpty({ message: "La clave del examen es obligatoria" })
-  clave!: string;
+  @IsOptional()
+  contrasena?: string;
 
   @Type(() => Date)
   @IsNotEmpty({ message: "La fecha de creación es obligatoria" })
@@ -46,6 +52,72 @@ export class add_exam_dto {
       "Es obligatorio proporcionar el id de un profesor al crear un examen",
   })
   id_profesor!: number;
+
+  @IsNotEmpty({ message: "Falta especificar necesitaNombreCompleto" })
+  @IsBoolean({ message: "necesitaCodigoEstudiantil debe ser true o false" })
+  necesitaNombreCompleto!: boolean;
+
+  @IsNotEmpty({ message: "Falta especificar necesitaCorreoElectronico" })
+  @IsBoolean({ message: "necesitaCodigoEstudiantil debe ser true o false" })
+  necesitaCorreoElectrónico!: boolean;
+
+  @IsNotEmpty({ message: "Falta especificar necesitaCodigoEstudiantil" })
+  @IsBoolean({ message: "necesitaCodigoEstudiantil debe ser true o false" })
+  necesitaCodigoEstudiantil!: boolean;
+
+  @IsNotEmpty({ message: "Falta especificar incluirHerramientaDibujo" })
+  @IsBoolean({ message: "incluirHerramientaDibujo debe ser true o false" })
+  incluirHerramientaDibujo!: boolean;
+
+  @IsNotEmpty({ message: "Falta especificar incluirCalculadoraCientifica" })
+  @IsBoolean({ message: "incluirCalculadoraCientifica debe ser true o false" })
+  incluirCalculadoraCientifica!: boolean;
+
+  @IsNotEmpty({ message: "Falta especificar incluirHojaExcel" })
+  @IsBoolean({ message: "incluirHojaExcel debe ser true o false" })
+  incluirHojaExcel!: boolean;
+
+  @IsNotEmpty({ message: "Falta especificar incluirJavascript" })
+  @IsBoolean({ message: "incluirJavascript debe ser true o false" })
+  incluirJavascript!: boolean;
+
+  @IsNotEmpty({ message: "Falta especificar incluirPython" })
+  @IsBoolean({ message: "incluirPython debe ser true o false" })
+  incluirPython!: boolean;
+
+  @IsNotEmpty({ message: "Falta especificar si el examen necesita contraseña" })
+  @IsBoolean({ message: "necesita contraseña debe ser true o false" })
+  necesitaContrasena!: boolean;
+
+  @Type(() => Date)
+  @IsDate({ message: "La hora de apertura debe ser una fecha válida" })
+  @IsNotEmpty({ message: "La fecha de creación es obligatoria" })
+  horaApertura!: Date;
+
+  @Type(() => Date)
+  @IsDate({ message: "La hora de cierre debe ser una fecha válida" })
+  @IsNotEmpty({ message: "La hora de cierre es obligatoria" })
+  horaCierre!: Date;
+
+  @IsNotEmpty({ message: "Falta especificar limite de tiempo" })
+  @IsNumber({}, { message: "Limite de tiempo debe ser un número" })
+  limiteTiempo!: number;
+
+  @IsNotEmpty({ message: "Falta especificar limiteTiempoCumplido" })
+  @IsIn(Object.values(TiempoAgotado), {
+    message: "limiteTiempoCumplido inválido",
+  })
+  limiteTiempoCumplido!: TiempoAgotado;
+
+  @IsNotEmpty({
+    message: "Falta especificar la consecuencia al salir del examen",
+  })
+  @IsIn(Object.values(Consecuencia), {
+    message: "Consecuencia invalida",
+  })
+  consecuencia!: Consecuencia;
+
+  
 
   @IsNotEmpty()
   @IsArray({ message: "Las preguntas deben ser un array" })

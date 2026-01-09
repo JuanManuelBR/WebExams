@@ -4,6 +4,8 @@ import {
   IsBoolean,
   IsArray,
   IsNotEmpty,
+  IsString,
+  IsOptional,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { BaseQuestionDto } from "./base-question.dto";
@@ -25,4 +27,8 @@ export class TestQuestionDto extends BaseQuestionDto {
   @Type(() => TestOptionDto)
   @IsNotEmpty({ message: "Debe proporcionar al menos una opción" })
   options!: TestOptionDto[];
+
+  @IsString({ message: "El nombre de la imagen debe ser una cadena de texto" })
+  @IsOptional()
+  nombreImagen?: string;
 }

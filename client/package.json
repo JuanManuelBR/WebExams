@@ -24,6 +24,7 @@
     "@tiptap/extension-underline": "^3.14.0",
     "@tiptap/react": "^3.14.0",
     "@tiptap/starter-kit": "^3.14.0",
+    "axios": "^1.13.2",
     "firebase": "^12.7.0",
     "lexical": "^0.39.0",
     "lucide-react": "^0.562.0",

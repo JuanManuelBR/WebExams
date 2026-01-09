@@ -14,4 +14,7 @@ export class TestQuestion extends Question {
     cascade: true
   })
   options!: TestOption[];
+
+  @Column({type: "text"})
+  nombreImagen ?: string;
 }

@@ -29,10 +29,24 @@ export class ExamService {
     return await AppDataSource.transaction(async (manager) => {
       const nuevo_examen = manager.create(Exam, {
         nombre: data.nombre,
-        clave: data.clave,
+        contrasena: data.contrasena,
         estado: data.estado,
         id_profesor,
         fecha_creacion: new Date(data.fecha_creacion),
+        necesitaNombreCompleto: data.necesitaNombreCompleto,
+        necesitaCodigoEstudiantil: data.necesitaCodigoEstudiantil,
+        necesitaCorreoElectrónico: data.necesitaCorreoElectrónico,
+        descripcion: data.descripcion,
+        incluirHerramientaDibujo: data.incluirHerramientaDibujo,
+        incluirCalculadoraCientifica: data.incluirCalculadoraCientifica,
+        incluirHojaExcel: data.incluirHojaExcel,
+        incluirJavascript: data.incluirJavascript,
+        incluirPython: data.incluirPython,
+        horaApertura: data.horaApertura,
+        horaCierre: data.horaCierre,
+        limiteTiempo: data.limiteTiempo,
+        limiteTiempoCumplido: data.limiteTiempoCumplido,
+        consecuencia: data.consecuencia
       });
 
       const examen_guardado = await manager.save(Exam, nuevo_examen);

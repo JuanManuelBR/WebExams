@@ -13,4 +13,7 @@ export class FillBlankQuestion extends Question {
     eager: true,
   })
   respuestas!: BlankAnswer[];
+
+  @Column({type: "text"})
+  nombreImagen ?: string;
 }

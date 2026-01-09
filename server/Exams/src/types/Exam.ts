@@ -1,4 +1,3 @@
-import { Question } from "@src/models/Question";
 
 export enum ExamenState {
   OPEN = "open",
@@ -6,11 +5,14 @@ export enum ExamenState {
 }
 
 
-export interface add_exam_dto {
-  nombre: string;
-  clave: string;
-  fecha_creacion: Date;
-  estado: ExamenState;
-  id_profesor: number;
-  questions: Question[];
+export enum TiempoAgotado {
+  ENVIAR = "enviar",
+  DESCARTAR = "descartar",
+}
+
+
+export enum Consecuencia {
+  NOTIFICAR = "notificar",
+  BLOQUEAR = "bloquear",
+  NINGUNA = "ninguna"
 }
