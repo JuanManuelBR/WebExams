@@ -24,7 +24,6 @@ export class Exam {
   @Column({ type: "text" })
   codigoExamen?: string;
 
-  // ✅ CORREGIDO: Agregado nullable: true
   @Column({ type: "varchar", length: 255, nullable: true })
   contrasena?: string | null;
 
@@ -61,11 +60,11 @@ export class Exam {
   @Column({ type: "boolean" })
   incluirPython!: boolean;
 
-  @Column({ type: "datetime" })
-  horaApertura!: Date;
+  @Column({ type: "datetime", nullable: true })
+  horaApertura?: Date | null;
 
-  @Column({ type: "datetime" })
-  horaCierre!: Date;
+  @Column({ type: "datetime", nullable: true })
+  horaCierre?: Date | null;
 
   @Column({ type: "int" })
   limiteTiempo!: number;
@@ -79,9 +78,11 @@ export class Exam {
   @Column({ type: "enum", enum: Consecuencia })
   consecuencia!: Consecuencia;
 
-  // ⭐ CAMPO NUEVO PARA PDF
   @Column({ type: "varchar", length: 255, nullable: true })
   archivoPDF?: string | null;
+
+  @Column({ type: "boolean", default: false })
+  cambioEstadoAutomatico!: boolean;
 
   @OneToMany(() => Question, (question) => question.exam, {
     onDelete: "CASCADE",

@@ -50,4 +50,6 @@ export const AppDataSource = new DataSource({
     MatchPair,
     OpenQuestionKeyword,
   ],
+  migrations: ["src/migrations/*.ts"],
+  migrationsTableName: "migrations",
 });

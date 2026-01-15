@@ -52,11 +52,11 @@ export class ExamsController {
       for (const fileName of uploadedImages) {
         await imageService.deleteImage(fileName);
       }
-      
+
       if (uploadedPDF) {
         await pdfService.deletePDF(uploadedPDF);
       }
-      
+
       next(error);
     }
   }
@@ -66,6 +66,21 @@ export class ExamsController {
       const examenes = await exam_service.listExams();
 
       return res.status(200).json(examenes);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getExamByCodigo(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const codigo = req.params.codigoExamen;
+      const examen = await exam_service.getExamByCodigo(codigo);
+
+      return res.status(200).json(examen);
     } catch (error) {
       next(error);
     }

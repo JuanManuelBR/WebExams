@@ -1,5 +1,5 @@
 {
-  "name": "Exams",
+  "name": "exams",
   "version": "0.0.0",
   "scripts": {
     "build": "ts-node ./scripts/build.ts",
@@ -9,7 +9,10 @@
     "lint": "eslint .",
     "start": "NODE_ENV=production node -r ./config.js ./dist",
     "test": "NODE_ENV=test vitest",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/data-source/AppDataSource.ts",
+    "migration:run": "typeorm-ts-node-commonjs migration:run -d src/data-source/AppDataSource.ts",
+    "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/data-source/AppDataSource.ts"
   },
   "engines": {
     "node": ">=16.0.0"

@@ -91,13 +91,13 @@ export class add_exam_dto {
 
   @Type(() => Date)
   @IsDate({ message: "La hora de apertura debe ser una fecha válida" })
-  @IsNotEmpty({ message: "La fecha de creación es obligatoria" })
-  horaApertura!: Date;
+  @IsOptional()
+  horaApertura?: Date;
 
   @Type(() => Date)
   @IsDate({ message: "La hora de cierre debe ser una fecha válida" })
-  @IsNotEmpty({ message: "La hora de cierre es obligatoria" })
-  horaCierre!: Date;
+  @IsOptional()
+  horaCierre?: Date;
 
   @IsNotEmpty({ message: "Falta especificar limite de tiempo" })
   @IsNumber({}, { message: "Limite de tiempo debe ser un número" })
@@ -117,10 +117,15 @@ export class add_exam_dto {
   })
   consecuencia!: Consecuencia;
 
-  // ⭐ CAMPO NUEVO PARA PDF
-  @IsString({ message: "El nombre del archivo PDF debe ser una cadena de texto" })
+  @IsString({
+    message: "El nombre del archivo PDF debe ser una cadena de texto",
+  })
   @IsOptional()
   archivoPDF?: string;
+
+  @IsBoolean({ message: "cambioEstadoAutomatico debe ser true o false" })
+  @IsOptional()
+  cambioEstadoAutomatico?: boolean;
 
   @IsNotEmpty()
   @IsArray({ message: "Las preguntas deben ser un array" })

@@ -8,6 +8,7 @@ import PDFRoutes from "./routes/PDFRoutes";
 //import UserRoutes from "./routes/UserRoutes";
 import cookieParser from "cookie-parser";
 import { errorHandler } from "./middlewares/errorHandler";
+import { iniciarSchedulerExamenes } from "./scheduler/examScheduler";
 
 // Llamar express
 const app = express();
@@ -25,7 +26,10 @@ app.use("/api/pdfs", PDFRoutes);
 app.use(errorHandler);
 
 AppDataSource.initialize()
-  .then(() => console.log("Base de datos conectada correctamente"))
+  .then(async () => {
+    console.log("Base de datos conectada correctamente");
+    await iniciarSchedulerExamenes();
+  })
   .catch((err: unknown) => console.error("No se pudo conectar a la Bd", err));
 
 export default app;

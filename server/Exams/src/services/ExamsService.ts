@@ -1,17 +1,14 @@
 // src/services/ExamsService.ts
 import { AppDataSource } from "../data-source/AppDataSource";
 import { Exam } from "../models/Exam";
-
 import { CommonValidator } from "@src/validators/common";
-
 import { generateExamCode } from "@src/utils/generetaExamCode";
 import { add_exam_dto } from "@src/dtos/add-exam.dto";
 import { Question } from "@src/models/Question";
-
 import { examenValidator } from "@src/validators/examen-validator";
-
 import { QuestionValidator } from "@src/validators/question-validator";
 import { throwHttpError } from "@src/utils/errors";
+import { schedulerService } from "@src/scheduler/examScheduler";
 
 export class ExamService {
   private examRepo = AppDataSource.getRepository(Exam);
@@ -28,6 +25,17 @@ export class ExamService {
     await examenValidator.verificarProfesor(id_profesor, cookies);
     await examenValidator.verificarExamenDuplicado(data.nombre, id_profesor);
 
+    const cambioEstadoAutomatico = !!(data.horaApertura && data.horaCierre);
+
+    if (data.horaApertura && data.horaCierre) {
+      if (data.horaApertura >= data.horaCierre) {
+        throwHttpError(
+          "La hora de apertura debe ser anterior a la hora de cierre",
+          400
+        );
+      }
+    }
+
     return await AppDataSource.transaction(async (manager) => {
       let codigoExamen: string;
       let codigoExiste = true;
@@ -36,11 +44,9 @@ export class ExamService {
 
       while (codigoExiste && intentos < MAX_INTENTOS) {
         codigoExamen = generateExamCode();
-
         const examenConCodigo = await manager.findOne(Exam, {
           where: { codigoExamen },
         });
-
         codigoExiste = !!examenConCodigo;
         intentos++;
       }
@@ -67,13 +73,14 @@ export class ExamService {
         incluirHojaExcel: data.incluirHojaExcel,
         incluirJavascript: data.incluirJavascript,
         incluirPython: data.incluirPython,
-        horaApertura: data.horaApertura,
-        horaCierre: data.horaCierre,
+        horaApertura: data.horaApertura || null,
+        horaCierre: data.horaCierre || null,
         limiteTiempo: data.limiteTiempo,
         limiteTiempoCumplido: data.limiteTiempoCumplido,
         consecuencia: data.consecuencia,
         codigoExamen: codigoExamen!,
-        archivoPDF: data.archivoPDF || null, // ⭐ CAMPO NUEVO
+        archivoPDF: data.archivoPDF || null,
+        cambioEstadoAutomatico,
       });
 
       const examen_guardado = await manager.save(Exam, nuevo_examen);
@@ -83,9 +90,7 @@ export class ExamService {
           data.questions,
           examen_guardado
         );
-
         const preguntas_guardadas = await manager.save(Question, preguntas);
-
         examen_guardado.questions = preguntas_guardadas.map((q: any) => {
           delete q.exam;
           if (q.type === "matching" && q.pares) {
@@ -97,6 +102,10 @@ export class ExamService {
         });
       }
 
+      if (cambioEstadoAutomatico) {
+        schedulerService.programarCambioEstado(examen_guardado);
+      }
+
       return examen_guardado;
     });
   }
@@ -105,13 +114,11 @@ export class ExamService {
     const examenes = await this.examRepo.find({
       relations: ["questions"],
     });
-
     return examenes;
   }
 
   async getExamsByUser(userId: number, cookies?: string) {
     await examenValidator.verificarProfesor(userId, cookies);
-
     return await this.examRepo.find({
       where: { id_profesor: userId },
       relations: ["questions"],
@@ -120,9 +127,19 @@ export class ExamService {
 
   async deleteExamsByUser(userId: number, cookies?: string) {
     await examenValidator.verificarProfesor(userId, cookies);
-
     await this.examRepo.delete({
       id_profesor: userId,
     });
+  }
+
+  async getExamByCodigo(codigoExamen: string) {
+    const examen = await this.examRepo.find({
+      where: { codigoExamen: codigoExamen },
+      relations: ["questions"],
+    });
+    if (!examen) {
+      throwHttpError("Examen no encontrado", 404);
+    }
+    return examen;
   }
 }

@@ -5,12 +5,15 @@ import { upload } from "@src/middlewares/upload";
 
 const router = Router();
 
+router.get("/getForStudent/:codigoExamen", ExamsController.getExamByCodigo);
+
 router.use(authMiddleware);
 router.post("/", upload.any(), ExamsController.addExam);
 router.get("/", ExamsController.listExams);
 
 router.get("/", ExamsController.listExams);
-router.get("/by-user/:id", ExamsController.getExamsByUser);
-router.delete("/by-user/:id", ExamsController.deleteExamsByUser);
+router.get("/:id", ExamsController.getExamsByUser);
+
+router.delete("/:id", ExamsController.deleteExamsByUser);
 
 export default router;
