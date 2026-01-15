@@ -206,7 +206,7 @@ export const examsService = {
         descripcion: datosExamen.descripcionExamen || '',
         contrasena: datosExamen.seguridad.contraseña || '',
         fecha_creacion: new Date().toISOString(),
-        estado: 'open',
+        estado: 'closed',
         id_profesor: usuarioId,
         
         necesitaNombreCompleto: datosExamen.camposActivos.some(c => c.id === 'nombre'),
