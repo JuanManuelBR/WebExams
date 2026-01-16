@@ -34,7 +34,7 @@ export const AppDataSource = new DataSource({
   password: DB_PASS,
   port: DB_PORT,
   username: DB_USER,
-  synchronize: false,
+  synchronize: true,
   logging: false,
   entities: [
     Exam,

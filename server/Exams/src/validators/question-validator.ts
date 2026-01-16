@@ -87,9 +87,7 @@ export class QuestionValidator {
               (kwDto: any, kwIndex: number) => {
                 const keyword = new OpenQuestionKeyword();
 
-                if (
-                  !kwDto?.texto
-                ) {
+                if (!kwDto?.texto) {
                   throwHttpError(
                     `Palabra clave inválida en pregunta ${index}, posición ${kwIndex}. Debe tener 'texto'`,
                     400
@@ -139,10 +137,11 @@ export class QuestionValidator {
                 return answer;
               }
             );
-            const matches = fillQ.textoCorrecto.match(/\[\d+\]/g) || [];
+            const matches = fillQ.textoCorrecto.match(/___/g) || [];
+
             if (matches.length !== fillQ.respuestas.length) {
               throwHttpError(
-                `Pregunta ${index}: El número de espacios [x] no coincide con las respuestas enviadas.`,
+                `Pregunta ${index}: El número de espacios en blanco (___) no coincide con las respuestas enviadas.`,
                 400
               );
             }

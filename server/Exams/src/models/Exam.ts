@@ -72,7 +72,7 @@ export class Exam {
   @Column({ type: "enum", enum: TiempoAgotado })
   limiteTiempoCumplido!: TiempoAgotado;
 
-  @Column({ type: "boolean" })
+  @Column({ type: "boolean", default: false })
   necesitaContrasena!: boolean;
 
   @Column({ type: "enum", enum: Consecuencia })
