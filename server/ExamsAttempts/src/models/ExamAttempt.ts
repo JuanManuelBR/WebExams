@@ -14,7 +14,6 @@ export enum AttemptState {
 }
 
 @Entity("exam_attempts")
-@Index(["exam_id"])
 export class ExamAttempt {
   @PrimaryGeneratedColumn()
   id!: number;
