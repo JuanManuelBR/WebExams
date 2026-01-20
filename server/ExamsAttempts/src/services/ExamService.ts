@@ -195,53 +195,55 @@ export class ExamService {
   }
 
   static async createEvent(data: CreateExamEventDto, io: Server) {
-  console.log(`\n🎯 Evento recibido: ${data.tipo_evento} para intento ${data.intento_id}`);
-  
-  const eventRepo = AppDataSource.getRepository(ExamEvent);
-  const progressRepo = AppDataSource.getRepository(ExamInProgress);
-  const attemptRepo = AppDataSource.getRepository(ExamAttempt);
 
-  const examInProgress = await progressRepo.findOne({
-    where: { intento_id: data.intento_id },
-  });
+    const eventRepo = AppDataSource.getRepository(ExamEvent);
+    const progressRepo = AppDataSource.getRepository(ExamInProgress);
+    const attemptRepo = AppDataSource.getRepository(ExamAttempt);
 
-  if (!examInProgress) {
-    throwHttpError("Intento no encontrado", 404);
+    const examInProgress = await progressRepo.findOne({
+      where: { intento_id: data.intento_id },
+    });
+
+    if (!examInProgress) {
+      throwHttpError("Intento no encontrado", 404);
+    }
+
+    const attempt = await attemptRepo.findOne({
+      where: { id: data.intento_id },
+    });
+
+    if (!attempt) {
+      throwHttpError("Intento no encontrado", 404);
+    }
+
+    // Guardar evento
+    const event = new ExamEvent();
+    event.tipo_evento = data.tipo_evento;
+    event.fecha_envio = data.fecha_envio;
+    event.intento_id = data.intento_id;
+
+    await eventRepo.save(event);
+
+    // ✅ Solo notificar y aplicar consecuencias si NO es "ninguna"
+    if (attempt.consecuencia !== "ninguna") {
+      // Notificar al estudiante
+      io.to(`attempt_${data.intento_id}`).emit("fraud_detected", {
+        tipo_evento: data.tipo_evento,
+        fecha_envio: data.fecha_envio,
+      });
+
+      // Aplicar consecuencia (notificar o bloquear)
+      await this.applyConsequence(
+        attempt,
+        examInProgress,
+        data.tipo_evento,
+        io,
+      );
+    } else {
+    }
+
+    return event;
   }
-
-  const attempt = await attemptRepo.findOne({
-    where: { id: data.intento_id },
-  });
-
-  if (!attempt) {
-    throwHttpError("Intento no encontrado", 404);
-  }
-
-  console.log(`📝 Intento encontrado - Examen ID: ${attempt.examen_id}, Consecuencia: ${attempt.consecuencia}`);
-
-  // ✅ Crear el evento de forma explícita
-  const event = new ExamEvent();
-  event.tipo_evento = data.tipo_evento;
-  event.fecha_envio = data.fecha_envio;
-  event.intento_id = data.intento_id;
-  
-  await eventRepo.save(event);
-  
-  console.log(`✅ Evento guardado con ID: ${event.id}, intento_id: ${event.intento_id}`);
-
-  // Notificar al estudiante
-  console.log(`📡 Emitiendo 'fraud_detected' al estudiante (attempt_${data.intento_id})`);
-  io.to(`attempt_${data.intento_id}`).emit("fraud_detected", {
-    tipo_evento: data.tipo_evento,
-    fecha_envio: data.fecha_envio,
-  });
-
-  // Aplicar consecuencia
-  await this.applyConsequence(attempt, examInProgress, data.tipo_evento, io);
-  console.log(`✅ Consecuencia aplicada\n`);
-
-  return event;
-}
 
   static async applyConsequence(
     attempt: ExamAttempt,
@@ -251,8 +253,6 @@ export class ExamService {
   ) {
     const progressRepo = AppDataSource.getRepository(ExamInProgress);
     const attemptRepo = AppDataSource.getRepository(ExamAttempt);
-
-    console.log(`🔍 Aplicando consecuencia: ${attempt.consecuencia}`);
 
     // SIEMPRE notificar al profesor, independiente de la consecuencia
     const baseAlert = {
@@ -270,13 +270,11 @@ export class ExamService {
 
     if (attempt.consecuencia === "ninguna") {
       // Solo registrar, no notificar
-      console.log(`ℹ️  Consecuencia: ninguna - Solo se registró el evento`);
       return;
     }
 
     if (attempt.consecuencia === "notificar") {
       // Notificar al profesor, NO bloquear
-      console.log(`📢 Emitiendo fraud_alert al room exam_${attempt.examen_id}`);
       io.to(`exam_${attempt.examen_id}`).emit("fraud_alert", {
         ...baseAlert,
         blocked: false,
@@ -286,7 +284,6 @@ export class ExamService {
 
     if (attempt.consecuencia === "bloquear") {
       // Bloquear el intento
-      console.log(`🚫 Bloqueando intento ${attempt.id}`);
 
       examInProgress.estado = AttemptState.BLOCKED;
       attempt.estado = AttemptState.BLOCKED;
@@ -301,17 +298,12 @@ export class ExamService {
       });
 
       // Notificar al profesor
-      console.log(
-        `📢 Emitiendo fraud_alert (BLOCKED) al room exam_${attempt.examen_id}`,
-      );
       io.to(`exam_${attempt.examen_id}`).emit("fraud_alert", {
         ...baseAlert,
         blocked: true,
       });
 
-      console.log(
-        `📢 Emitiendo attempt_blocked_notification al room exam_${attempt.examen_id}`,
-      );
+
       io.to(`exam_${attempt.examen_id}`).emit("attempt_blocked_notification", {
         attemptId: attempt.id,
         estudiante: {
@@ -341,6 +333,16 @@ export class ExamService {
 
     if (!examInProgress) {
       throwHttpError("Examen en progreso no encontrado", 404);
+    }
+
+    // ✅ Validar que no esté bloqueado
+    if (attempt.estado === AttemptState.BLOCKED) {
+      throwHttpError("No puedes finalizar un examen bloqueado", 403);
+    }
+
+    // ✅ Validar que no esté ya finalizado
+    if (attempt.estado === AttemptState.FINISHED) {
+      throwHttpError("Este examen ya fue finalizado", 400);
     }
 
     const puntaje = await this.calculateScore(attempt);

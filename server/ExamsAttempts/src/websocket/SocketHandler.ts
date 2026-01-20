@@ -5,6 +5,7 @@ import { ExamInProgress } from "@src/models/ExamInProgress";
 export class SocketHandler {
   private io: Server;
   private timers: Map<number, NodeJS.Timeout> = new Map();
+  private connections: Map<string, { type: string; id: string | number }> = new Map();
 
   constructor(io: Server) {
     this.io = io;
@@ -13,7 +14,7 @@ export class SocketHandler {
 
   private setupSocketHandlers() {
     this.io.on("connection", (socket: Socket) => {
-      console.log(`Cliente conectado: ${socket.id}`);
+      console.log(`✅ Cliente conectado: ${socket.id}`);
 
       socket.on("join_attempt", (data: { attemptId: number; sessionId: string }) => {
         this.handleJoinAttempt(socket, data);
@@ -21,18 +22,37 @@ export class SocketHandler {
 
       socket.on("join_exam_monitoring", (examId: number) => {
         socket.join(`exam_${examId}`);
-        console.log(`Profesor monitoreando exam_${examId}`);
+        this.connections.set(socket.id, { type: 'teacher', id: examId });
+        console.log(`👨‍🏫 Profesor ${socket.id} monitoreando exam_${examId}`);
       });
 
       socket.on("leave_attempt", (attemptId: number) => {
         socket.leave(`attempt_${attemptId}`);
         this.stopTimer(attemptId);
+        this.connections.delete(socket.id);
+        console.log(`❌ Cliente ${socket.id} abandonó attempt_${attemptId}`);
       });
 
       socket.on("disconnect", () => {
-        console.log(`Cliente desconectado: ${socket.id}`);
+        const connection = this.connections.get(socket.id);
+        if (connection) {
+          console.log(`🔌 ${connection.type === 'teacher' ? 'Profesor' : 'Estudiante'} desconectado: ${socket.id}`);
+          this.connections.delete(socket.id);
+        } else {
+          console.log(`🔌 Cliente desconectado: ${socket.id}`);
+        }
       });
     });
+
+    // ✅ Mostrar conexiones activas cada 30 segundos
+    setInterval(() => {
+      const sockets = this.io.sockets.sockets;
+      console.log(`\n📊 Conexiones activas: ${sockets.size}`);
+      this.connections.forEach((conn, socketId) => {
+        console.log(`  - ${socketId}: ${conn.type} (${conn.id})`);
+      });
+      console.log('');
+    }, 30000);
   }
 
   private async handleJoinAttempt(
@@ -59,9 +79,9 @@ export class SocketHandler {
     }
 
     socket.join(`attempt_${attemptId}`);
-    console.log(`Socket ${socket.id} unido a attempt_${attemptId}`);
+    this.connections.set(socket.id, { type: 'student', id: attemptId });
+    console.log(`👨‍🎓 Estudiante ${socket.id} unido a attempt_${attemptId}`);
 
-    // Iniciar timer si hay fecha de expiración
     if (examInProgress.fecha_expiracion) {
       this.startTimer(attemptId, examInProgress.fecha_expiracion);
     }
@@ -75,7 +95,7 @@ export class SocketHandler {
 
   private startTimer(attemptId: number, fecha_expiracion: Date) {
     if (this.timers.has(attemptId)) {
-      return; // Timer ya existe
+      return;
     }
 
     const now = new Date().getTime();
@@ -89,7 +109,6 @@ export class SocketHandler {
       return;
     }
 
-    // Emitir tiempo restante cada segundo
     const interval = setInterval(() => {
       const currentTime = new Date().getTime();
       const timeLeft = expiration - currentTime;
@@ -115,7 +134,7 @@ export class SocketHandler {
     if (timer) {
       clearInterval(timer);
       this.timers.delete(attemptId);
-      console.log(`Timer detenido para attempt_${attemptId}`);
+      console.log(`⏱️ Timer detenido para attempt_${attemptId}`);
     }
   }
 

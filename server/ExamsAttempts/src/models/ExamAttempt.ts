@@ -58,10 +58,4 @@ export class ExamAttempt {
     eager: true,
   })
   respuestas?: ExamAnswer[];
-
-  @OneToMany(() => ExamEvent, (event) => event.intento_id, {
-    cascade: true,
-    eager: true,
-  })
-  eventos?: ExamEvent[];
 }

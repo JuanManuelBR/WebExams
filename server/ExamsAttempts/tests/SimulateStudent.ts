@@ -24,7 +24,7 @@ class StudentSimulator {
       // Paso 1: Obtener info del examen
       console.log(`📋 Obteniendo examen: ${config.codigoExamen}`);
       const examResponse = await axios.get(
-        `${MS_EXAMS_URL}/api/exams/${config.codigoExamen}`
+        `${MS_EXAMS_URL}/api/exams/${config.codigoExamen}`,
       );
       this.examData = examResponse.data;
       console.log(`✅ Examen encontrado: ${this.examData.nombre}`);
@@ -38,7 +38,7 @@ class StudentSimulator {
           nombre_estudiante: config.nombre,
           correo_estudiante: config.correo,
           contrasena: config.contrasena,
-        }
+        },
       );
 
       const { attempt, examInProgress } = attemptResponse.data;
@@ -84,7 +84,9 @@ class StudentSimulator {
     this.socket.on("timer_tick", (data: any) => {
       const minutes = Math.floor(data.remainingTimeSeconds / 60);
       const seconds = data.remainingTimeSeconds % 60;
-      process.stdout.write(`\r⏱️  Tiempo restante: ${minutes}:${seconds.toString().padStart(2, "0")}`);
+      process.stdout.write(
+        `\r⏱️  Tiempo restante: ${minutes}:${seconds.toString().padStart(2, "0")}`,
+      );
     });
 
     this.socket.on("time_expired", (data: any) => {
@@ -171,12 +173,16 @@ class StudentSimulator {
 
     try {
       await axios.post(
-        `${MS_ATTEMPTS_URL}/api/exam/attempt/${this.attemptId}/finish`
+        `${MS_ATTEMPTS_URL}/api/exam/attempt/${this.attemptId}/finish`,
       );
 
       console.log("✅ Examen finalizado");
     } catch (error: any) {
-      console.error("❌ Error:", error.response?.data || error.message);
+      if (error.response?.status === 403) {
+        console.log("⚠️  No se puede finalizar: Examen bloqueado por fraude");
+      } else {
+        console.error("❌ Error:", error.response?.data || error.message);
+      }
     }
   }
 
@@ -190,20 +196,18 @@ class StudentSimulator {
 // Función principal
 async function main() {
   const student = new StudentSimulator();
+  let isBlocked = false;
 
   try {
-    // Iniciar examen
     await student.startExam({
-      codigoExamen: "W71kN9wX", // Cambia por tu código de examen
+      codigoExamen: "W71kN9wX",
       nombre: "Juan Pérez",
       correo: "juan@example.com",
-      contrasena: "test123", // Si el examen la requiere
+      contrasena: "test123",
     });
 
-    // Esperar 3 segundos
     await sleep(3000);
 
-    // Responder algunas preguntas
     await student.answerQuestion(1, "Respuesta a pregunta 1");
     await sleep(2000);
 
@@ -212,9 +216,10 @@ async function main() {
 
     // Simular evento de fraude
     await student.sendFraudEvent("pantalla_completa_cerrada");
-    await sleep(2000);
+    await sleep(3000); // Esperar a que se procese el bloqueo
 
-    // Finalizar examen
+    // ✅ Escuchar si se bloqueó
+    // (El WebSocket ya emitió el evento, pero aquí solo intentamos finalizar)
     await student.finishExam();
 
     await sleep(2000);

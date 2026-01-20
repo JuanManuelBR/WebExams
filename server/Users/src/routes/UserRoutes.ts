@@ -37,7 +37,7 @@ router.patch("/:id/update-access", UserController.updateLastAccess);
 
 router.get("/", UserController.getUsers, authenticateToken);
 router.get("/active", UserController.getActiveUsers, authenticateToken);
-router.get("/:id", UserController.getUserById, authenticateToken);
+router.get("/:id", UserController.getUserById);
 router.delete("/:id", UserController.deleteUser, authenticateToken);
 router.put("/:id", UserController.editUser, authenticateToken);
 

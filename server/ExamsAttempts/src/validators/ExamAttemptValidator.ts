@@ -7,7 +7,7 @@ export class ExamAttemptValidator {
   static async validateExamExists(codigo_examen: string) {
     try {
       const response = await axios.get(
-        `${EXAM_MS_URL}/api/exams/${codigo_examen}`,
+        `${EXAM_MS_URL}/api/exams/forAttempt/${codigo_examen}`,
       );
       return response.data;
     } catch (error: any) {

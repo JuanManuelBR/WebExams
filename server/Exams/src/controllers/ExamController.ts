@@ -160,4 +160,40 @@ export class ExamsController {
       next(error);
     }
   }
+
+  static async getExamById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const examId = Number(req.params.id);
+
+      if (isNaN(examId)) {
+        throwHttpError("ID de examen inválido", 400);
+      }
+
+      const examen = await exam_service.getExamById(examId);
+      return res.status(200).json(examen);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+   static async getExamForAttempt(req: Request, res: Response) {
+    try {
+      const { codigo } = req.params;
+
+      const exam = await exam_service.getExamForAttempt(codigo);
+
+      if (!exam) {
+        return res.status(404).json({
+          message: "Examen no encontrado",
+        });
+      }
+
+      return res.json(exam);
+    } catch (error) {
+      console.error("❌ Error obteniendo examen público:", error);
+      return res.status(500).json({
+        message: "Error al obtener el examen",
+      });
+    }
+  }
 }

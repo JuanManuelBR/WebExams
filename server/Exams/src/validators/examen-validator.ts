@@ -3,13 +3,13 @@ import { Exam } from "@src/models/Exam";
 import { throwHttpError } from "@src/utils/errors";
 import axios from "axios";
 
-const USER_MS_URL = process.env.USER_MS_URL;
+const USERS_MS_URL = process.env.USERS_MS_URL;
 
 export class examenValidator {
   static async verificarProfesor(id_profesor: number, cookies?: string) {
     try {
       const response = await axios.get(
-        `${USER_MS_URL}/api/users/${id_profesor}`,
+        `${USERS_MS_URL}/api/users/${id_profesor}`,
         {
           headers: { Cookie: cookies || "" },
           timeout: 5000,

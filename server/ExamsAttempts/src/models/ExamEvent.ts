@@ -1,5 +1,4 @@
-import { Column, Entity, PrimaryGeneratedColumn, OneToOne, JoinColumn, ManyToOne } from "typeorm";
-import type { ExamAttempt } from "./ExamAttempt";
+import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
 
 export enum AttemptEvent {
   INTENTO_INICIADO = "intento_iniciado",
@@ -9,7 +8,7 @@ export enum AttemptEvent {
   FOCO_PERDIDO = "foco_perdido",
   INTENTO_COPIAR_PEGAR_IMPRIMIR = "intento_copiar_pegar_imprimir",
   MANIPULACION_CODIGO = "manipulacion_codigo",
-  PESTAÑA_CAMBIADA = "pestaña_Cambiada",
+  PESTANA_CAMBIADA = "pestana_cambiada",
 }
 
 @Entity("exam_events")
@@ -20,10 +19,9 @@ export class ExamEvent {
   @Column({ type: "text" })
   tipo_evento!: AttemptEvent;
 
-  @Column({ type: "datetime", nullable: true })
-  fecha_envio?: Date | null;
+  @Column({ type: "datetime" })
+  fecha_envio!: Date;
 
-  @ManyToOne("ExamAttempt", "examenes_en_curso")
-  @JoinColumn({ name: "intento_id" })
+  @Column()
   intento_id!: number;
 }

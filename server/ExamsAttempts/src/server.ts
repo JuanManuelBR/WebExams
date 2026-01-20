@@ -3,21 +3,22 @@ import { Server } from "socket.io";
 import app from "./app";
 import { SocketHandler } from "./websocket/SocketHandler";
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3002;
 
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: "http://localhost:5500",
     methods: ["GET", "POST"],
     credentials: true,
   },
+  allowEIO3: true,
+  transports: ['websocket', 'polling'],
 });
 
 app.set("io", io);
 
-// Inicializar manejador de WebSocket
 const socketHandler = new SocketHandler(io);
 app.set("socketHandler", socketHandler);
 
