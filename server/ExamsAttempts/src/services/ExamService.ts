@@ -195,52 +195,53 @@ export class ExamService {
   }
 
   static async createEvent(data: CreateExamEventDto, io: Server) {
-    console.log(
-      `\n🎯 Evento recibido: ${data.tipo_evento} para intento ${data.intento_id}`,
-    );
+  console.log(`\n🎯 Evento recibido: ${data.tipo_evento} para intento ${data.intento_id}`);
+  
+  const eventRepo = AppDataSource.getRepository(ExamEvent);
+  const progressRepo = AppDataSource.getRepository(ExamInProgress);
+  const attemptRepo = AppDataSource.getRepository(ExamAttempt);
 
-    const eventRepo = AppDataSource.getRepository(ExamEvent);
-    const progressRepo = AppDataSource.getRepository(ExamInProgress);
-    const attemptRepo = AppDataSource.getRepository(ExamAttempt);
+  const examInProgress = await progressRepo.findOne({
+    where: { intento_id: data.intento_id },
+  });
 
-    const examInProgress = await progressRepo.findOne({
-      where: { intento_id: data.intento_id },
-    });
-
-    if (!examInProgress) {
-      throwHttpError("Intento no encontrado", 404);
-    }
-
-    const attempt = await attemptRepo.findOne({
-      where: { id: data.intento_id },
-    });
-
-    if (!attempt) {
-      throwHttpError("Intento no encontrado", 404);
-    }
-
-    console.log(
-      `📝 Intento encontrado - Examen ID: ${attempt.examen_id}, Consecuencia: ${attempt.consecuencia}`,
-    );
-
-    const event = eventRepo.create(data);
-    await eventRepo.save(event);
-
-    // Notificar al estudiante
-    console.log(
-      `📡 Emitiendo 'fraud_detected' al estudiante (attempt_${data.intento_id})`,
-    );
-    io.to(`attempt_${data.intento_id}`).emit("fraud_detected", {
-      tipo_evento: data.tipo_evento,
-      fecha_envio: data.fecha_envio,
-    });
-
-    // Aplicar consecuencia
-    await this.applyConsequence(attempt, examInProgress, data.tipo_evento, io);
-    console.log(`✅ Consecuencia aplicada\n`);
-
-    return event;
+  if (!examInProgress) {
+    throwHttpError("Intento no encontrado", 404);
   }
+
+  const attempt = await attemptRepo.findOne({
+    where: { id: data.intento_id },
+  });
+
+  if (!attempt) {
+    throwHttpError("Intento no encontrado", 404);
+  }
+
+  console.log(`📝 Intento encontrado - Examen ID: ${attempt.examen_id}, Consecuencia: ${attempt.consecuencia}`);
+
+  // ✅ Crear el evento de forma explícita
+  const event = new ExamEvent();
+  event.tipo_evento = data.tipo_evento;
+  event.fecha_envio = data.fecha_envio;
+  event.intento_id = data.intento_id;
+  
+  await eventRepo.save(event);
+  
+  console.log(`✅ Evento guardado con ID: ${event.id}, intento_id: ${event.intento_id}`);
+
+  // Notificar al estudiante
+  console.log(`📡 Emitiendo 'fraud_detected' al estudiante (attempt_${data.intento_id})`);
+  io.to(`attempt_${data.intento_id}`).emit("fraud_detected", {
+    tipo_evento: data.tipo_evento,
+    fecha_envio: data.fecha_envio,
+  });
+
+  // Aplicar consecuencia
+  await this.applyConsequence(attempt, examInProgress, data.tipo_evento, io);
+  console.log(`✅ Consecuencia aplicada\n`);
+
+  return event;
+}
 
   static async applyConsequence(
     attempt: ExamAttempt,
