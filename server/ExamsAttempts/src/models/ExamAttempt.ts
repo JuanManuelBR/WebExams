@@ -3,9 +3,11 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   ManyToOne,
+  OneToMany,
 } from "typeorm";
 import { ExamInProgress } from "./ExamInProgress";
 import { ExamAnswer } from "./ExamAnswer";
+import { ExamEvent } from "./ExamEvent";
 
 export enum AttemptState {
   ACTIVE = "activo",
@@ -24,7 +26,7 @@ export class ExamAttempt {
 
   @Column({ type: "text" })
   estado!: AttemptState;
-  
+
   @Column({ type: "text", nullable: true })
   nombre_estudiante?: string | null;
 
@@ -44,11 +46,22 @@ export class ExamAttempt {
   fecha_inicio!: Date;
 
   @Column({ type: "datetime", nullable: true })
-  fecha_fin ?: Date | null;
+  fecha_fin?: Date | null;
+  @Column({ type: "varchar", length: 50 })
+  limiteTiempoCumplido!: string; // "enviar" o "descartar"
 
-  @ManyToOne(() => ExamAttempt, { onDelete: "CASCADE" })
-  examenes_en_curso?: ExamInProgress[];
+  @Column({ type: "varchar", length: 50 })
+  consecuencia!: string; // "ninguna", "notificar", "bloquear"
 
-  @ManyToOne(() => ExamAnswer, { onDelete: "CASCADE" })
-  respuestas ?: ExamAnswer[];
+  @OneToMany(() => ExamAnswer, (answer) => answer.intento, {
+    cascade: true,
+    eager: true,
+  })
+  respuestas?: ExamAnswer[];
+
+  @OneToMany(() => ExamEvent, (event) => event.intento, {
+    cascade: true,
+    eager: true,
+  })
+  eventos?: ExamEvent[];
 }

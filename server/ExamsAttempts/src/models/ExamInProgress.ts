@@ -3,6 +3,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   OneToOne,
+  JoinColumn,
 } from "typeorm";
 import type { ExamAttempt } from "./ExamAttempt";
 
@@ -18,7 +19,7 @@ export class ExamInProgress {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({type: "text"})
+  @Column({ type: "varchar", unique: true, length: 10  })
   codigo_acceso!: string;
 
   @Column({ type: "text" })
@@ -28,14 +29,21 @@ export class ExamInProgress {
   fecha_inicio!: Date;
 
   @Column({ type: "datetime", nullable: true })
-  fecha_fin!: Date | null;
+  fecha_fin?: Date | null;
 
-  @Column({ type: "text" })
-  id_sesion?: string;
+  @Column({ type: "varchar", unique: true, length: 10  })
+  id_sesion!: string;
 
   @Column({ type: "datetime", nullable: true })
   fecha_expiracion?: Date | null;
 
+  @Column()
+  intento_id!: number;
+
   @OneToOne("ExamAttempt", "examenes_en_curso")
+  @JoinColumn({ name: "intento_id" })
   intento!: ExamAttempt;
 }
+
+  
+

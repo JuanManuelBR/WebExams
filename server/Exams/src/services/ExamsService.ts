@@ -151,7 +151,7 @@ export class ExamService {
   }
 
   async getExamByCodigo(codigoExamen: string) {
-    const examen = await this.examRepo.find({
+    const examen = await this.examRepo.findOne({
       where: { codigoExamen: codigoExamen },
       relations: ["questions"],
     });

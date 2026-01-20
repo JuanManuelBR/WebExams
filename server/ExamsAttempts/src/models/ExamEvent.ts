@@ -1,4 +1,4 @@
-import { Column, Entity, PrimaryGeneratedColumn, OneToOne } from "typeorm";
+import { Column, Entity, PrimaryGeneratedColumn, OneToOne, JoinColumn } from "typeorm";
 import type { ExamAttempt } from "./ExamAttempt";
 
 export enum AttemptEvent {
@@ -24,5 +24,6 @@ export class ExamEvent {
   fecha_envio?: Date | null;
 
   @OneToOne("ExamAttempt", "examenes_en_curso")
+  @JoinColumn({ name: "intento_id" })
   intento!: ExamAttempt;
 }

@@ -1,5 +1,5 @@
 {
-  "name": "ExamsAttempts",
+  "name": "examsattempts",
   "version": "0.0.0",
   "scripts": {
     "build": "ts-node ./scripts/build.ts",
@@ -9,13 +9,16 @@
     "lint": "eslint .",
     "start": "NODE_ENV=production node -r ./config.js ./dist",
     "test": "NODE_ENV=test vitest",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "simulate:student": "ts-node tests/simulateStudent.ts",
+    "simulate:teacher": "ts-node tests/simulateTeacher.ts"
   },
   "engines": {
     "node": ">=16.0.0"
   },
   "dependencies": {
     "@types/cors": "^2.8.19",
+    "axios": "^1.13.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
     "cookie-parser": "^1.4.7",

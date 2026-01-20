@@ -2,10 +2,10 @@ import {
   Column,
   Entity,
   PrimaryGeneratedColumn,
-  OneToOne,
+  ManyToOne,
+  JoinColumn,
 } from "typeorm";
 import type { ExamAttempt } from "./ExamAttempt";
-
 
 @Entity("exam_answers")
 export class ExamAnswer {
@@ -21,6 +21,10 @@ export class ExamAnswer {
   @Column({ type: "datetime" })
   fecha_respuesta!: Date;
 
-  @OneToOne("ExamAttempt", "respuestas")
+  @Column()
+  intento_id!: number;
+
+  @ManyToOne("ExamAttempt", "respuestas")
+  @JoinColumn({ name: "intento_id" })
   intento!: ExamAttempt;
 }
