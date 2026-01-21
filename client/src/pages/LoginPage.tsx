@@ -15,12 +15,12 @@ import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 // CONFIGURACIÓN DE FIREBASE
 // ============================================
 const firebaseConfig = {
-  apiKey: "AIzaSyBv1_xkK7oXRxxIXdvXTPsWOK3Joz6A2xo",
-  authDomain: "universidad-tesis.firebaseapp.com",
-  projectId: "universidad-tesis",
-  storageBucket: "universidad-tesis.firebasestorage.app",
-  messagingSenderId: "184984434762",
-  appId: "1:184984434762:web:b747333b88718d7e5a4eb3"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // Inicializar Firebase solo si no está inicializado
