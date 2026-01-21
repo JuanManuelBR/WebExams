@@ -13,7 +13,6 @@ export default defineConfig({
         target: "http://localhost:3001",
         changeOrigin: true,
         secure: false,
-        cookieDomainRewrite: "localhost",
         configure: (proxy, options) => {
           proxy.on("proxyReq", (proxyReq, req, res) => {
             console.log("📤 [PROXY EXAMS] Request:", req.method, req.url);
@@ -35,7 +34,6 @@ export default defineConfig({
         target: "http://localhost:3000",
         changeOrigin: true,
         secure: false,
-        cookieDomainRewrite: "localhost",
         configure: (proxy, options) => {
           proxy.on("proxyReq", (proxyReq, req, res) => {
             console.log("📤 [PROXY USERS] Request:", req.method, req.url);

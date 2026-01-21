@@ -78,11 +78,9 @@ export class UserController {
       return res.status(200).json(usuario);
     } catch (error: any) {
       if (error.message.includes("No se encontró")) {
-        return res
-          .status(404)
-          .json({
-            message: "No se encontró al usuario con el id especificado",
-          });
+        return res.status(404).json({
+          message: "No se encontró al usuario con el id especificado",
+        });
       }
 
       return res
@@ -115,10 +113,11 @@ export class UserController {
 
       res.cookie("token", token, {
         httpOnly: true,
-        secure: false,
+        expires: new Date(Date.now() + 900000),
+        secure: process.env.NODE_ENV === "production", // true en prod
         sameSite: "lax",
-        maxAge: 12 * 60 * 60 * 1000,
         path: "/",
+        maxAge: 12 * 60 * 60 * 1000,
         priority: "high",
       });
 

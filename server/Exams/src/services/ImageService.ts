@@ -20,13 +20,31 @@ export class ImageService {
   }
 
   async saveImage(file: any): Promise<string> {
-    const fileName = `${uuidv4()}.webp`;
+    const isGif = file.mimetype === "image/gif";
+
+    const extension = isGif ? "gif" : "webp";
+    const fileName = `${uuidv4()}.${extension}`;
     const filePath = path.join(this.uploadDir, fileName);
 
-    await sharp(file.buffer)
-      .webp({ quality: 80 })
-      .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
-      .toFile(filePath);
+    const image = sharp(file.buffer, { animated: true });
+
+    if (isGif) {
+      // Mantener GIF animado, optimizado
+      await image
+        .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
+        .gif({
+          loop: 0, // infinito
+          effort: 7, // compresión (1–10)
+          dither: 0.5, // calidad visual
+        })
+        .toFile(filePath);
+    } else {
+      // Imágenes normales → WebP
+      await image
+        .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 80 })
+        .toFile(filePath);
+    }
 
     return fileName;
   }
