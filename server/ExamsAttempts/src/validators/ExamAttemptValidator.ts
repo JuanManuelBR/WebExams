@@ -18,6 +18,20 @@ export class ExamAttemptValidator {
     }
   }
 
+  static async validateExamExistsById(codigo_examen: number) {
+    try {
+      const response = await axios.get(
+        `${EXAM_MS_URL}/api/exams/by-id/${codigo_examen}`,
+      );
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        throwHttpError("El código de examen no existe", 404);
+      }
+      throwHttpError("Error al validar el examen", 500);
+    }
+  }
+
   static validateExamState(exam: any) {
     if (exam.estado !== "open") {
       throwHttpError(

@@ -725,9 +725,7 @@ function VigilanciaContent({ darkMode }: { darkMode: boolean }) {
   const intentosFiltrados =
     filtroEstado === "todos"
       ? activeAttempts
-      : activeAttempts.filter(
-          (a) => normalizarEstado(a.estado) === filtroEstado,
-        );
+      : activeAttempts.filter((a) => a.estado === filtroEstado);
 
   // Cargar exámenes abiertos del profesor
   useEffect(() => {
@@ -794,7 +792,7 @@ function VigilanciaContent({ darkMode }: { darkMode: boolean }) {
             fecha_inicio: data.fecha_inicio,
             tiempoTranscurrido: "0 min",
             progreso: 0,
-            alertas: data.alertas || 0, // Respetar el valor que viene de la BD
+            alertas: data.alertas || 0,
             alertasNoLeidas: data.alertasNoLeidas || 0,
           },
         ];
@@ -835,6 +833,18 @@ function VigilanciaContent({ darkMode }: { darkMode: boolean }) {
         prev.map((attempt) =>
           attempt.id === data.attemptId
             ? { ...attempt, estado: "finished" }
+            : attempt,
+        ),
+      );
+    });
+
+    newSocket.on("progress_updated", (data) => {
+      console.log("📊 Progreso actualizado:", data);
+
+      setActiveAttempts((prev) =>
+        prev.map((attempt) =>
+          attempt.id === data.attemptId
+            ? { ...attempt, progreso: data.progreso }
             : attempt,
         ),
       );
@@ -906,6 +916,7 @@ function VigilanciaContent({ darkMode }: { darkMode: boolean }) {
     return () => {
       socket.off("new_alert");
       socket.off("alerts_read");
+      socket.off("progress_updated");
     };
   }, [socket]);
 

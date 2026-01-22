@@ -55,6 +55,10 @@ export class CreateExamAttemptDto {
   @IsNumber()
   puntaje?: number;
 
+  @IsOptional()
+  @IsNumber()
+  progreso?: number;
+
   @IsNumber()
   @IsNotEmpty({ message: "Falta el puntaje máximo del examen" })
   puntajeMaximo!: number;

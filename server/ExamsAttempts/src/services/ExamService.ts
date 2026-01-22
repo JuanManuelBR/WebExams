@@ -151,8 +151,8 @@ export class ExamService {
   static async saveAnswer(data: CreateExamAnswerDto, io: Server) {
     const repo = AppDataSource.getRepository(ExamAnswer);
     const progressRepo = AppDataSource.getRepository(ExamInProgress);
+    const attemptRepo = AppDataSource.getRepository(ExamAttempt);
 
-    // Validar que el intento existe y está activo
     const examInProgress = await progressRepo.findOne({
       where: { intento_id: data.intento_id },
     });
@@ -165,7 +165,6 @@ export class ExamService {
       throwHttpError("No se pueden guardar respuestas en este intento", 403);
     }
 
-    // Verificar si ya existe una respuesta para esta pregunta
     const existingAnswer = await repo.findOne({
       where: {
         intento_id: data.intento_id,
@@ -173,23 +172,74 @@ export class ExamService {
       },
     });
 
+    let answer;
+
     if (existingAnswer) {
-      // Actualizar respuesta existente
       existingAnswer.respuesta = data.respuesta;
       existingAnswer.fecha_respuesta = data.fecha_respuesta;
-      await repo.save(existingAnswer);
-
-      io.to(`attempt_${data.intento_id}`).emit(
-        "answer_updated",
-        existingAnswer,
-      );
-      return existingAnswer;
+      answer = await repo.save(existingAnswer);
+      io.to(`attempt_${data.intento_id}`).emit("answer_updated", answer);
+    } else {
+      answer = repo.create(data);
+      await repo.save(answer);
+      io.to(`attempt_${data.intento_id}`).emit("answer_saved", answer);
     }
 
-    const answer = repo.create(data);
-    await repo.save(answer);
+    // ✅ CALCULAR PROGRESO CON LOGS
+    console.log(
+      `🔍 Intentando calcular progreso para intento ${data.intento_id}`,
+    );
 
-    io.to(`attempt_${data.intento_id}`).emit("answer_saved", answer);
+    const totalAnswers = await repo.count({
+      where: { intento_id: data.intento_id },
+    });
+    console.log(`📝 Total respuestas guardadas: ${totalAnswers}`);
+
+    const attempt = await attemptRepo.findOne({
+      where: { id: data.intento_id },
+    });
+
+    if (!attempt) {
+      console.log(`❌ Intento ${data.intento_id} no encontrado`);
+      return answer;
+    }
+
+    console.log(`✅ Intento encontrado, examen_id: ${attempt.examen_id}`);
+
+    const exam = await ExamAttemptValidator.validateExamExistsById(
+      attempt.examen_id,
+    );
+
+    console.log(`📚 Examen encontrado:`, {
+      id: exam.id,
+      nombre: exam.nombre,
+      totalPreguntas: exam.questions?.length || 0,
+    });
+
+    const totalQuestions = exam.questions?.length || 0;
+
+    if (totalQuestions === 0) {
+      console.log(`⚠️ El examen no tiene preguntas`);
+      return answer;
+    }
+
+    const progreso = Math.round((totalAnswers / totalQuestions) * 100);
+
+    console.log(
+      `📊 Progreso calculado: ${totalAnswers}/${totalQuestions} = ${progreso}%`,
+    );
+    console.log(`📝 Progreso anterior: ${attempt.progreso}`);
+
+    attempt.progreso = progreso;
+
+    const savedAttempt = await attemptRepo.save(attempt);
+
+    console.log(`💾 Progreso guardado: ${savedAttempt.progreso}`);
+
+    io.to(`exam_${attempt.examen_id}`).emit("progress_updated", {
+      attemptId: data.intento_id,
+      progreso,
+    });
 
     return answer;
   }
@@ -481,9 +531,9 @@ export class ExamService {
           estado: attempt.estado,
           fecha_inicio: attempt.fecha_inicio,
           tiempoTranscurrido: `${elapsedMinutes} min`,
-          progreso: totalAnswers,
+          progreso: attempt.progreso || 0,
           alertas: allEvents.length,
-          alertasNoLeidas: unreadEvents.length, // ✅ NUEVO
+          alertasNoLeidas: unreadEvents.length,
           codigo_acceso: progress?.codigo_acceso,
           fecha_expiracion: progress?.fecha_expiracion,
         };

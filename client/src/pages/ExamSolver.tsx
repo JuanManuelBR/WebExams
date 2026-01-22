@@ -22,17 +22,15 @@ import {
   Shield,
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
+
 interface StudentData {
   nombre?: string;
   correoElectronico?: string;
   codigoEstudiante?: string;
-
-  // Se llenan DESPUÉS de iniciar intento
   attemptId?: number;
   codigo_acceso?: string;
   id_sesion?: string;
   fecha_expiracion?: string | null;
-
   examCode: string;
   startTime: string;
   contrasena?: string;
@@ -62,6 +60,37 @@ type PanelType =
   | "python";
 type Layout = "horizontal" | "vertical";
 
+// ✅ Componente SavingIndicator FUERA del componente principal
+function SavingIndicator({
+  savingStates,
+  darkMode,
+}: {
+  savingStates: Record<number, boolean>;
+  darkMode: boolean;
+}) {
+  const isSaving = Object.values(savingStates).some((s) => s);
+
+  if (!isSaving) return null;
+
+  return (
+    <div
+      className="fixed bottom-6 right-6 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg z-50"
+      style={{
+        backgroundColor: darkMode ? "#1e293b" : "#ffffff",
+        border: `2px solid ${darkMode ? "#3b82f6" : "#3b82f6"}`,
+      }}
+    >
+      <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
+      <span
+        className="text-sm font-medium"
+        style={{ color: darkMode ? "#e5e7eb" : "#1f2937" }}
+      >
+        Guardando...
+      </span>
+    </div>
+  );
+}
+
 export default function SecureExamPlatform() {
   const [examStarted, setExamStarted] = useState(false);
   const [examBlocked, setExamBlocked] = useState(false);
@@ -82,11 +111,18 @@ export default function SecureExamPlatform() {
   const [resizingIndex, setResizingIndex] = useState<number | null>(null);
   const [startPos, setStartPos] = useState(0);
 
+  // ✅ Estado para respuestas y auto-guardado
+  const [answers, setAnswers] = useState<Record<number, any>>({});
+  const [savingStates, setSavingStates] = useState<Record<number, boolean>>({});
+  const saveTimersRef = useRef<Record<number, number>>({});
+  const [lastSavedAnswers, setLastSavedAnswers] = useState<
+    Record<number, string>
+  >({});
+
   const [draggedPanelIndex, setDraggedPanelIndex] = useState<number | null>(
     null,
   );
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-
   const [securityViolations, setSecurityViolations] = useState<string[]>([]);
 
   const fullscreenRef = useRef<HTMLDivElement>(null);
@@ -104,7 +140,6 @@ export default function SecureExamPlatform() {
       setStudentData(parsedStudent);
     }
 
-    // ✅ Solo cargar la info básica del examen (sin preguntas)
     if (storedExamData) {
       const parsedExam = JSON.parse(storedExamData);
       setExamData(parsedExam);
@@ -228,13 +263,14 @@ export default function SecureExamPlatform() {
 
   useEffect(() => {
     if (!examStarted || !studentData || !examData) return;
-    if (!examStarted || examBlocked || examData?.consecuencia === "ninguna") {
-      console.log("🔓 Protecciones desactivadas (consecuencia: ninguna)");
+
+    // ✅ Establecer "Sin límite" ANTES de las otras condiciones
+    if (!examData.limiteTiempo || examData.limiteTiempo === 0) {
+      setRemainingTime("Sin límite");
       return;
     }
 
-    if (!examData.limiteTiempo || examData.limiteTiempo === 0) {
-      setRemainingTime("Sin límite");
+    if (examBlocked) {
       return;
     }
 
@@ -263,13 +299,11 @@ export default function SecureExamPlatform() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [examStarted, studentData, examData]);
+  }, [examStarted, studentData, examData, examBlocked]);
 
-  // ✅ Detectar DevTools abiertas desde el inicio
   useEffect(() => {
     if (!examStarted) return;
 
-    // Verificación inmediata
     const checkDevTools = () => {
       const widthDiff = window.outerWidth - window.innerWidth;
       const heightDiff = window.outerHeight - window.innerHeight;
@@ -282,22 +316,19 @@ export default function SecureExamPlatform() {
       return false;
     };
 
-    // Verificar inmediatamente
     if (checkDevTools()) return;
 
-    // Verificar cada 2 segundos
     const interval = setInterval(checkDevTools, 2000);
 
     return () => clearInterval(interval);
   }, [examStarted, examBlocked]);
+
   useEffect(() => {
     if (!examStarted || !studentData?.attemptId) return;
 
     const handleBeforeUnload = async (e: BeforeUnloadEvent) => {
-      // ✅ Enviar abandono al backend
       if (studentData.attemptId && !examBlocked) {
         try {
-          // Usar sendBeacon para mayor confiabilidad
           const data = JSON.stringify({
             intento_id: studentData.attemptId,
           });
@@ -323,12 +354,109 @@ export default function SecureExamPlatform() {
     };
   }, [examStarted, examBlocked, studentData?.attemptId]);
 
+  // ✅ Limpiar timers al desmontar
+  useEffect(() => {
+    // Guardar todas las respuestas pendientes al cambiar de panel
+    return () => {
+      Object.entries(saveTimersRef.current).forEach(
+        ([preguntaIdStr, timer]) => {
+          const preguntaId = Number(preguntaIdStr);
+          clearTimeout(timer);
+
+          // Guardar inmediatamente si hay una respuesta pendiente
+          if (answers[preguntaId] !== undefined) {
+            console.log(
+              `💾 Forzando guardado de pregunta ${preguntaId} al cambiar panel`,
+            );
+            saveAnswer(preguntaId, answers[preguntaId]);
+          }
+        },
+      );
+      saveTimersRef.current = {};
+    };
+  }, [openPanels]);
+
   const addSecurityViolation = (violation: string) => {
     setSecurityViolations((prev) => [
       ...prev,
       `${new Date().toLocaleTimeString()}: ${violation}`,
     ]);
   };
+
+  const saveAnswer = async (preguntaId: number, respuesta: any) => {
+    if (!studentData?.attemptId) return;
+
+    const respuestaStr = JSON.stringify(respuesta);
+
+    if (lastSavedAnswers[preguntaId] === respuestaStr) {
+      return;
+    }
+
+    setSavingStates((prev) => ({ ...prev, [preguntaId]: true }));
+
+    try {
+      const response = await fetch("http://localhost:3002/api/exam/answer", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          intento_id: studentData.attemptId,
+          pregunta_id: preguntaId,
+          respuesta: respuestaStr,
+          fecha_respuesta: new Date().toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Error al guardar respuesta");
+      }
+
+      setLastSavedAnswers((prev) => ({ ...prev, [preguntaId]: respuestaStr }));
+
+      console.log(`✅ Respuesta guardada: Pregunta ${preguntaId}`);
+    } catch (error) {
+      console.error("❌ Error guardando respuesta:", error);
+    } finally {
+      setSavingStates((prev) => ({ ...prev, [preguntaId]: false }));
+    }
+  };
+
+  const handleAnswerChange = (
+    preguntaId: number,
+    respuesta: any,
+    delayMs: number = 3000,
+  ) => {
+    console.log(`📝 Cambio detectado en pregunta ${preguntaId}`);
+
+    // Actualizar estado local inmediatamente
+    setAnswers((prev) => ({ ...prev, [preguntaId]: respuesta }));
+
+    // ✅ CRUCIAL: Limpiar timer anterior de esta pregunta específica
+    const existingTimer = saveTimersRef.current[preguntaId];
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      console.log(`❌ Timer anterior cancelado para pregunta ${preguntaId}`);
+    }
+
+    // ✅ Crear nuevo timer que se ejecutará SOLO si no se vuelve a llamar
+    const timer = window.setTimeout(() => {
+      console.log(
+        `💾 Guardando pregunta ${preguntaId} después de ${delayMs}ms sin cambios`,
+      );
+      saveAnswer(preguntaId, respuesta);
+
+      // Limpiar el timer del ref después de ejecutarse
+      delete saveTimersRef.current[preguntaId];
+    }, delayMs);
+
+    // Guardar el nuevo timer
+    saveTimersRef.current[preguntaId] = timer;
+    console.log(
+      `⏰ Nuevo timer creado para pregunta ${preguntaId} (esperará ${delayMs}ms)`,
+    );
+  };
+
   const mapReasonToEventType = (reason: string): string => {
     if (reason.includes("pantalla completa"))
       return "pantalla_completa_cerrada";
@@ -344,16 +472,15 @@ export default function SecureExamPlatform() {
     if (reason.includes("código")) return "manipulacion_codigo";
     if (reason.includes("pestaña")) return "pestana_cambiada";
 
-    // Default
     return "pestana_cambiada";
   };
+
   const blockExam = async (
     reason: string,
     severity: "INFO" | "WARNING" | "CRITICAL" = "CRITICAL",
   ) => {
     if (examBlocked) return;
 
-    // ✅ Si la consecuencia es "ninguna", no hacer nada
     if (examData?.consecuencia === "ninguna") {
       console.log("⚠️ Consecuencia 'ninguna' - ignorando evento:", reason);
       return;
@@ -362,7 +489,6 @@ export default function SecureExamPlatform() {
     const tipoEvento = mapReasonToEventType(reason);
     addSecurityViolation(`[${severity}] ${reason}`);
 
-    // ✅ Enviar evento al backend via HTTP
     if (studentData?.attemptId) {
       try {
         const response = await fetch("http://localhost:3002/api/exam/event", {
@@ -387,14 +513,11 @@ export default function SecureExamPlatform() {
       }
     }
 
-    // ✅ Si la consecuencia es "notificar", NO bloquear localmente
     if (examData?.consecuencia === "notificar") {
       console.log("📢 Consecuencia 'notificar' - alerta enviada sin bloquear");
-      return; // ← No bloquear, solo enviar alerta
+      return;
     }
 
-    // ✅ Si la consecuencia es "bloquear", el backend enviará "attempt_blocked" via WebSocket
-    // No bloqueamos aquí, esperamos la señal del backend
     console.log("⏳ Esperando confirmación de bloqueo del backend...");
   };
 
@@ -405,7 +528,6 @@ export default function SecureExamPlatform() {
         return;
       }
 
-      // ✅ 0. Verificar DevTools ANTES de iniciar
       const widthDiff = window.outerWidth - window.innerWidth;
       const heightDiff = window.outerHeight - window.innerHeight;
 
@@ -416,7 +538,6 @@ export default function SecureExamPlatform() {
         return;
       }
 
-      // ✅ 1. Crear intento en el backend
       const attemptPayload = {
         codigo_examen: studentData.examCode,
         nombre_estudiante: studentData.nombre || undefined,
@@ -441,12 +562,11 @@ export default function SecureExamPlatform() {
       }
 
       const result = await res.json();
-      const { attempt, examInProgress, exam } = result;
+      const { attempt, examInProgress } = result;
 
       console.log("✅ Intento creado:", attempt);
       console.log("⏳ Exam en progreso:", examInProgress);
 
-      // ✅ 2. AHORA SÍ cargar las preguntas del examen
       console.log("📘 Cargando preguntas del examen...");
       const examDetailsRes = await fetch(
         `http://localhost:3001/api/exams/forAttempt/${studentData.examCode}`,
@@ -459,10 +579,8 @@ export default function SecureExamPlatform() {
       const examDetails = await examDetailsRes.json();
       console.log("✅ Preguntas cargadas:", examDetails);
 
-      // ✅ Actualizar examData con las preguntas
       setExamData(examDetails);
 
-      // ✅ 3. Actualizar studentData con datos del intento
       const updatedStudentData: StudentData = {
         ...studentData,
         attemptId: attempt.id,
@@ -474,7 +592,6 @@ export default function SecureExamPlatform() {
       setStudentData(updatedStudentData);
       localStorage.setItem("studentData", JSON.stringify(updatedStudentData));
 
-      // ✅ 4. Conectar al WebSocket
       const newSocket = io("http://localhost:3002", {
         transports: ["websocket", "polling"],
       });
@@ -549,13 +666,11 @@ export default function SecureExamPlatform() {
 
       setSocket(newSocket);
 
-      // ✅ 5. Marcar examen como iniciado
       setExamStarted(true);
       setOpenPanels(["exam"]);
       setPanelSizes([100]);
       setPanelZooms([100]);
 
-      // Pantalla completa
       setTimeout(async () => {
         if (fullscreenRef.current) {
           try {
@@ -879,7 +994,6 @@ export default function SecureExamPlatform() {
             style={{ backgroundColor: bgColor, color: textColor }}
           >
             <div className="max-w-4xl mx-auto">
-              {/* Header del examen */}
               <div className="mb-8">
                 <h2
                   className="text-3xl font-bold mb-2"
@@ -901,7 +1015,6 @@ export default function SecureExamPlatform() {
                 </p>
               </div>
 
-              {/* Descripción del examen (con HTML) */}
               {examData?.descripcion && (
                 <div
                   className="mb-8 p-6 rounded-lg border-2"
@@ -927,7 +1040,6 @@ export default function SecureExamPlatform() {
                 </div>
               )}
 
-              {/* Preguntas */}
               <div className="space-y-8">
                 {examData?.questions?.map((question: any, index: number) => (
                   <div
@@ -938,7 +1050,6 @@ export default function SecureExamPlatform() {
                       backgroundColor: darkMode ? "#1e293b" : "#ffffff",
                     }}
                   >
-                    {/* Número y enunciado */}
                     <div className="mb-4">
                       <div className="flex items-start gap-3 mb-2">
                         <span
@@ -964,7 +1075,6 @@ export default function SecureExamPlatform() {
                       </div>
                     </div>
 
-                    {/* Imagen si existe */}
                     {question.nombreImagen && (
                       <div className="mb-4 flex justify-center">
                         <img
@@ -981,13 +1091,20 @@ export default function SecureExamPlatform() {
                       </div>
                     )}
 
-                    {/* Renderizar según tipo de pregunta */}
                     {question.type === "open" && (
                       <div>
                         <label className="block text-sm font-medium mb-2 opacity-80">
                           Respuesta:
                         </label>
                         <textarea
+                          value={answers[question.id] || ""}
+                          onChange={(e) =>
+                            handleAnswerChange(
+                              question.id,
+                              e.target.value,
+                              3000,
+                            )
+                          }
                           className="w-full p-4 rounded-lg resize-none border-2"
                           style={{
                             backgroundColor: darkMode ? "#0f172a" : "#f9fafb",
@@ -1002,8 +1119,13 @@ export default function SecureExamPlatform() {
 
                     {question.type === "test" && (
                       <div className="space-y-3">
-                        {question.options?.map(
-                          (option: any, optIdx: number) => (
+                        {question.options?.map((option: any) => {
+                          const selectedOptions = answers[question.id] || [];
+                          const isSelected = selectedOptions.includes(
+                            option.id,
+                          );
+
+                          return (
                             <label
                               key={option.id}
                               className="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-opacity-50 transition-all"
@@ -1014,15 +1136,28 @@ export default function SecureExamPlatform() {
                               }}
                             >
                               <input
-                                type="radio"
-                                name={`question_${question.id}`}
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  const newSelected = e.target.checked
+                                    ? [...selectedOptions, option.id]
+                                    : selectedOptions.filter(
+                                        (id: number) => id !== option.id,
+                                      );
+
+                                  handleAnswerChange(
+                                    question.id,
+                                    newSelected,
+                                    10000,
+                                  );
+                                }}
                                 className="w-5 h-5"
                                 style={{ accentColor: "#3b82f6" }}
                               />
                               <span className="flex-1">{option.texto}</span>
                             </label>
-                          ),
-                        )}
+                          );
+                        })}
                       </div>
                     )}
 
@@ -1035,6 +1170,7 @@ export default function SecureExamPlatform() {
                           {(() => {
                             const texto = question.textoCorrecto || "";
                             const partes = texto.split("___");
+                            const respuestasArray = answers[question.id] || [];
 
                             return partes.map((parte: string, idx: number) => (
                               <span key={idx}>
@@ -1042,6 +1178,18 @@ export default function SecureExamPlatform() {
                                 {idx < partes.length - 1 && (
                                   <input
                                     type="text"
+                                    value={respuestasArray[idx] || ""}
+                                    onChange={(e) => {
+                                      const newRespuestas = [
+                                        ...respuestasArray,
+                                      ];
+                                      newRespuestas[idx] = e.target.value;
+                                      handleAnswerChange(
+                                        question.id,
+                                        newRespuestas,
+                                        3000,
+                                      );
+                                    }}
                                     className="inline-block mx-2 px-3 py-1 rounded border-2 min-w-[120px]"
                                     style={{
                                       backgroundColor: darkMode
@@ -1068,53 +1216,84 @@ export default function SecureExamPlatform() {
                           Conecta los pares correctos:
                         </label>
                         <div className="space-y-3">
-                          {question.pares?.map((par: any, parIdx: number) => (
-                            <div
-                              key={par.id}
-                              className="grid grid-cols-2 gap-4 p-3 rounded-lg"
-                              style={{
-                                backgroundColor: darkMode
-                                  ? "#374151"
-                                  : "#f3f4f6",
-                              }}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
-                                  style={{
-                                    backgroundColor: darkMode
-                                      ? "#1e293b"
-                                      : "#e5e7eb",
-                                    color: darkMode ? "#fbbf24" : "#d97706",
-                                  }}
-                                >
-                                  {String.fromCharCode(65 + parIdx)}
-                                </span>
-                                <span>{par.itemA.text}</span>
+                          {question.pares?.map((par: any, parIdx: number) => {
+                            const respuestasPares = answers[question.id] || [];
+                            const selectedItemBId = respuestasPares.find(
+                              (r: any) => r.itemA_id === par.itemA.id,
+                            )?.itemB_id;
+
+                            return (
+                              <div
+                                key={par.id}
+                                className="grid grid-cols-2 gap-4 p-3 rounded-lg"
+                                style={{
+                                  backgroundColor: darkMode
+                                    ? "#374151"
+                                    : "#f3f4f6",
+                                }}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+                                    style={{
+                                      backgroundColor: darkMode
+                                        ? "#1e293b"
+                                        : "#e5e7eb",
+                                      color: darkMode ? "#fbbf24" : "#d97706",
+                                    }}
+                                  >
+                                    {String.fromCharCode(65 + parIdx)}
+                                  </span>
+                                  <span>{par.itemA.text}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    value={selectedItemBId || ""}
+                                    onChange={(e) => {
+                                      const newPares = respuestasPares.filter(
+                                        (r: any) => r.itemA_id !== par.itemA.id,
+                                      );
+
+                                      if (e.target.value) {
+                                        newPares.push({
+                                          itemA_id: par.itemA.id,
+                                          itemB_id: parseInt(e.target.value),
+                                        });
+                                      }
+
+                                      handleAnswerChange(
+                                        question.id,
+                                        newPares,
+                                        3000,
+                                      );
+                                    }}
+                                    className="flex-1 px-3 py-2 rounded border"
+                                    style={{
+                                      backgroundColor: darkMode
+                                        ? "#0f172a"
+                                        : "#ffffff",
+                                      color: textColor,
+                                      borderColor: darkMode
+                                        ? "#475569"
+                                        : "#d1d5db",
+                                    }}
+                                  >
+                                    <option value="">Selecciona...</option>
+                                    {question.pares.map(
+                                      (p: any, idx: number) => (
+                                        <option
+                                          key={p.itemB.id}
+                                          value={p.itemB.id}
+                                        >
+                                          {idx + 1}. {p.itemB.text}
+                                        </option>
+                                      ),
+                                    )}
+                                  </select>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <select
-                                  className="flex-1 px-3 py-2 rounded border"
-                                  style={{
-                                    backgroundColor: darkMode
-                                      ? "#0f172a"
-                                      : "#ffffff",
-                                    color: textColor,
-                                    borderColor: darkMode
-                                      ? "#475569"
-                                      : "#d1d5db",
-                                  }}
-                                >
-                                  <option value="">Selecciona...</option>
-                                  {question.pares.map((p: any, idx: number) => (
-                                    <option key={p.id} value={p.itemB.id}>
-                                      {idx + 1}. {p.itemB.text}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -1668,6 +1847,55 @@ export default function SecureExamPlatform() {
           style={{ borderColor: darkMode ? "#334155" : "#00508f" }}
         >
           <button
+            onClick={async () => {
+              // ✅ Guardar todas las respuestas pendientes antes de entregar
+              console.log(
+                "💾 Guardando respuestas pendientes antes de entregar...",
+              );
+
+              const savePromises = Object.entries(saveTimersRef.current).map(
+                async ([preguntaIdStr, timer]) => {
+                  const preguntaId = Number(preguntaIdStr);
+                  clearTimeout(timer);
+
+                  if (answers[preguntaId] !== undefined) {
+                    await saveAnswer(preguntaId, answers[preguntaId]);
+                  }
+                },
+              );
+
+              await Promise.all(savePromises);
+              saveTimersRef.current = {};
+
+              console.log(
+                "✅ Todas las respuestas guardadas, entregando examen...",
+              );
+
+              // TODO: Llamar al endpoint de finalizar examen
+              if (studentData?.attemptId) {
+                try {
+                  const response = await fetch(
+                    `http://localhost:3002/api/exam/attempt/${studentData.attemptId}/finish`,
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                    },
+                  );
+
+                  if (response.ok) {
+                    alert("Examen entregado exitosamente");
+                    // Redirigir o cerrar
+                  } else {
+                    alert("Error al entregar el examen");
+                  }
+                } catch (error) {
+                  console.error("Error:", error);
+                  alert("Error al entregar el examen");
+                }
+              }
+            }}
             className="w-full font-bold py-4 px-4 rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 text-white"
             style={{
               background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
@@ -1773,6 +2001,25 @@ export default function SecureExamPlatform() {
           </div>
 
           <div className="flex items-center gap-6">
+            {/* ✅ Spinner al lado izquierdo del timer */}
+            {Object.values(savingStates).some((s) => s) && (
+              <div
+                className="flex items-center gap-2 px-4 py-2 rounded-lg"
+                style={{
+                  backgroundColor: darkMode ? "#1e293b" : "#e0f2fe",
+                  border: `2px solid #3b82f6`,
+                }}
+              >
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
+                <span
+                  className="text-sm font-medium"
+                  style={{ color: darkMode ? "#60a5fa" : "#1e40af" }}
+                >
+                  Guardando...
+                </span>
+              </div>
+            )}
+
             <div
               className="flex items-center gap-4 px-6 py-3 rounded-xl shadow-lg"
               style={{

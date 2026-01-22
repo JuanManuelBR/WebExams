@@ -43,6 +43,9 @@ export class ExamAttempt {
   @Column({ type: "double" })
   puntajeMaximo!: number;
 
+  @Column({ type: "double", nullable: true })
+  progreso?: number;
+
   @Column({ type: "datetime" })
   fecha_inicio!: Date;
 
