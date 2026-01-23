@@ -365,7 +365,7 @@ export default function ListaExamenes({
           onClick={() => setMostrarArchivados(!mostrarArchivados)}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all shadow-sm ${
             darkMode
-              ? "bg-[#2D3748] text-gray-200 hover:bg-[#374151]"
+              ? "bg-[#2D3E52] text-gray-200 hover:bg-[#374151]"
               : "bg-[#1e293b] text-white hover:bg-[#1e293b]/90"
           }`}
         >
@@ -586,7 +586,7 @@ export default function ListaExamenes({
                       ? "bg-slate-800/50 border-slate-700/50"
                       : "bg-gray-100/70 border-gray-200/70"
                     : darkMode
-                      ? "bg-slate-800/30 border-slate-700/50 hover:bg-slate-800/50"
+                      ? "bg-slate-900/80 border-slate-700/50 hover:bg-slate-900"
                       : "bg-white border-gray-200 shadow-sm hover:shadow-md"
                 }`}
               >
@@ -692,7 +692,7 @@ export default function ListaExamenes({
                                 ? "bg-slate-800/50 border-slate-700/50 text-slate-500"
                                 : "bg-gray-200/50 border-gray-300/50 text-gray-400"
                               : darkMode
-                                ? "bg-slate-900/80 border-slate-600 text-teal-400 hover:border-teal-500 cursor-pointer active:scale-95"
+                                ? "bg-[#2D3E52] border-slate-600 text-teal-400 hover:border-teal-500 cursor-pointer active:scale-95"
                                 : "bg-white border-gray-300 text-gray-900 hover:border-teal-500 cursor-pointer active:scale-95"
                         }`}
                         title={isInactive ? "" : "Clic para copiar código"}

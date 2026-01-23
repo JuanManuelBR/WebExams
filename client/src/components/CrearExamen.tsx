@@ -48,6 +48,8 @@ export default function CrearExamen({
   const [preguntasAutomaticasTemp, setPreguntasAutomaticasTemp] = useState<
     Pregunta[]
   >([]);
+  // ⭐ NUEVO: Estado para validación de preguntas
+  const [preguntasValidas, setPreguntasValidas] = useState(false);
 
   const [mostrarModalPreguntas, setMostrarModalPreguntas] = useState(false);
   const [
@@ -98,7 +100,7 @@ export default function CrearExamen({
   const [limiteHabilitado, setLimiteHabilitado] = useState(false);
   const [limiteTiempo, setLimiteTiempo] = useState(30);
   const [opcionTiempoAgotado, setOpcionTiempoAgotado] =
-    useState<OpcionTiempoAgotado>("");
+    useState<OpcionTiempoAgotado>("envio-automatico");
 
   const [contraseñaExamen, setContraseñaExamen] = useState("");
   const [contraseñaHabilitada, setContraseñaHabilitada] = useState(false);
@@ -266,6 +268,11 @@ export default function CrearExamen({
     setPreguntasAutomaticasTemp(nuevasPreguntas);
   };
 
+  // ⭐ NUEVO: Handler para validación de preguntas
+  const handleValidationChange = (isValid: boolean) => {
+    setPreguntasValidas(isValid);
+  };
+
   const resetearFormulario = () => {
     setNombreExamen("");
     setDescripcionExamen("");
@@ -275,6 +282,7 @@ export default function CrearExamen({
     setPreguntasAutomaticas([]);
     setPreguntasTemp("");
     setPreguntasAutomaticasTemp([]);
+    setPreguntasValidas(false); // ⭐ NUEVO
     setCamposEstudiante((campos) =>
       campos.map((c) => ({ ...c, activo: false })),
     );
@@ -347,6 +355,12 @@ export default function CrearExamen({
       }
     }
 
+
+    // ✅ NUEVA VALIDACIÓN: Verificar opcionTiempoAgotado si límite está habilitado
+    if (limiteHabilitado && !opcionTiempoAgotado) {
+      alert("Por favor, seleccione qué hacer cuando se agote el tiempo");
+      return;
+    }
     setGuardando(true);
 
     try {
@@ -373,7 +387,7 @@ export default function CrearExamen({
         limiteTiempo: limiteHabilitado
           ? { valor: limiteTiempo, unidad: "minutos" as const }
           : null,
-        opcionTiempoAgotado: limiteHabilitado ? opcionTiempoAgotado : "",
+        opcionTiempoAgotado: limiteHabilitado ? opcionTiempoAgotado : "envio-automatico",
         seguridad: {
           contraseña: contraseñaHabilitada ? contraseñaExamen : "",
           consecuenciaAbandono,
@@ -384,6 +398,11 @@ export default function CrearExamen({
       };
 
       console.log("📤 [CREAR EXAMEN] Enviando datos al backend...");
+      console.log("📋 [DEBUG] Datos del examen:", {
+        ...datosExamen,
+        archivoPDF: datosExamen.archivoPDF ? "FILE" : null,
+      });
+      
       const resultado = await examsService.crearExamen(datosExamen, usuario.id);
 
       if (resultado.success) {
@@ -1198,7 +1217,7 @@ export default function CrearExamen({
         </button>
       </div>
 
-      {/* Modal Preguntas Automáticas */}
+      {/* Modal Preguntas Automáticas - ⭐ MODIFICADO */}
       {mostrarModalPreguntasAutomaticas && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div
@@ -1220,10 +1239,12 @@ export default function CrearExamen({
               </button>
             </div>
             <div className="flex-1 p-6 overflow-auto">
+              {/* ⭐ AGREGADA PROP onValidationChange */}
               <CrearPreguntas
                 darkMode={darkMode}
                 preguntasIniciales={preguntasAutomaticasTemp}
                 onPreguntasChange={handlePreguntasChange}
+                onValidationChange={handleValidationChange}
               />
             </div>
             <div
@@ -1254,9 +1275,18 @@ export default function CrearExamen({
                 >
                   Cancelar y cerrar
                 </button>
+                {/* ⭐ BOTÓN OK BLOQUEADO SI HAY PREGUNTAS SIN CONFIGURAR */}
                 <button
                   onClick={guardarPreguntasAutomaticas}
-                  className={`px-6 py-3 rounded-lg font-medium ${bgBoton} text-white ${bgBotonHover} transition-colors`}
+                  disabled={!preguntasValidas}
+                  className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                    preguntasValidas
+                      ? `${bgBoton} ${bgBotonHover} text-white cursor-pointer`
+                      : darkMode
+                        ? 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-60'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
+                  }`}
+                  title={!preguntasValidas ? 'Configura las respuestas correctas para continuar' : 'Guardar preguntas'}
                 >
                   Ok
                 </button>

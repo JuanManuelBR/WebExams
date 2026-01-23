@@ -1,6 +1,6 @@
 // ============================================
-// LMSDashboard.tsx - CÓDIGO COMPLETO
-// Con sistema de estado activo, heartbeat y verificación de sesión
+// LMSDashboard.tsx - VERSIÓN MEJORADA
+// Con mejor integración de vigilancia/resultados
 // ============================================
 
 // Importar componentes reutilizables
@@ -12,6 +12,7 @@ import HomeContent from "../components/Homecontent";
 import ExamenVigilancia from "../components/ExamenVigilancia";
 import logoUniversidad from "../../assets/logo-universidad.webp";
 import logoUniversidadNoche from "../../assets/logo-universidad-noche.webp";
+import fondoImagen from "../../assets/fondo.webp";
 import { useState, useEffect } from "react";
 import {
   Home,
@@ -275,20 +276,28 @@ export default function LMSDashboard() {
 
   return (
     <div
-      className={`flex h-screen transition-colors duration-300 ${darkMode ? "bg-gray-950" : "bg-gray-50"}`}
+      className="flex h-screen relative bg-cover bg-center transition-colors duration-300"
+      style={{ backgroundImage: `url(${fondoImagen})` }}
     >
+      {/* Overlay de fondo con diferentes colores según el tema */}
+      <div className={`absolute inset-0 backdrop-blur-sm transition-all duration-300 ${
+        darkMode
+          ? "bg-gradient-to-br from-gray-900/95 via-slate-900/90 to-gray-900/95"
+          : "bg-gradient-to-br from-white/88 via-gray-50/85 to-white/88"
+      }`}></div>
+
       {/* Sidebar */}
       <div
-        className={`${darkMode ? "bg-slate-900 border-slate-900" : "bg-white border-white"} border-r flex flex-col transition-all duration-300 ease-in-out ${sidebarCollapsed ? "w-16" : "w-64"}`}
+        className={`relative z-10 ${darkMode ? "bg-slate-900/80 backdrop-blur-md" : "bg-white border-r border-gray-200"} flex flex-col transition-all duration-300 ease-in-out ${sidebarCollapsed ? "w-16" : "w-64"}`}
       >
         <div
-          className={`p-4 border-b ${darkMode ? "border-slate-900" : "border-white"} relative`}
+          className={`p-4 ${darkMode ? "border-slate-800/50" : "border-gray-200"} relative`}
         >
           <button
             onClick={() => setShowProfileMenu(!showProfileMenu)}
-            className={`w-full flex items-center ${sidebarCollapsed ? "justify-center" : "gap-2"} ${darkMode ? "hover:bg-slate-800" : "hover:bg-gray-50"} rounded-lg p-1 transition-colors`}
+            className={`w-full flex items-center ${sidebarCollapsed ? "justify-center" : "gap-2"} ${darkMode ? "hover:bg-slate-800/50" : "hover:bg-gray-100/50"} rounded-lg p-1 transition-colors`}
           >
-            <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-blue-400 to-purple-500">
+            <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-blue-400 to-purple-500 shadow-lg">
               {usuarioData?.picture || usuarioData?.foto_perfil ? (
                 <img
                   src={usuarioData.picture || usuarioData.foto_perfil}
@@ -312,7 +321,7 @@ export default function LMSDashboard() {
                 {nombreCorto}
               </div>
               <div
-                className={`text-xs truncate ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                className={`text-xs truncate ${darkMode ? "text-gray-400" : "text-gray-600"}`}
               >
                 Docente
               </div>
@@ -326,18 +335,18 @@ export default function LMSDashboard() {
 
           {showProfileMenu && !sidebarCollapsed && (
             <div
-              className={`absolute left-4 top-16 right-4 ${darkMode ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"} border rounded-lg shadow-lg z-50 py-1`}
+              className={`absolute left-4 top-16 right-4 ${darkMode ? "bg-slate-800/95 backdrop-blur-md border-slate-700/50" : "bg-white/95 backdrop-blur-md border-gray-200/50"} border rounded-lg shadow-2xl z-50 py-1`}
             >
               <button
                 onClick={() => handleMenuItemClick("mi-perfil")}
-                className={`w-full flex items-center gap-2 px-3 py-2 text-sm ${darkMode ? "text-gray-200 hover:bg-slate-700" : "text-gray-700 hover:bg-gray-50"} transition-colors`}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-sm ${darkMode ? "text-gray-200 hover:bg-slate-700/50" : "text-gray-700 hover:bg-gray-100/50"} transition-colors`}
               >
                 <User className="w-4 h-4" />
                 <span>Mi Perfil</span>
               </button>
               <button
                 onClick={toggleTheme}
-                className={`w-full flex items-center gap-2 px-3 py-2 text-sm ${darkMode ? "text-gray-200 hover:bg-slate-700" : "text-gray-700 hover:bg-gray-50"} transition-colors`}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-sm ${darkMode ? "text-gray-200 hover:bg-slate-700/50" : "text-gray-700 hover:bg-gray-100/50"} transition-colors`}
               >
                 {darkMode ? (
                   <Sun className="w-4 h-4" />
@@ -347,11 +356,11 @@ export default function LMSDashboard() {
                 <span>Cambiar Tema</span>
               </button>
               <div
-                className={`border-t ${darkMode ? "border-slate-700" : "border-gray-100"} my-1`}
+                className={`border-t ${darkMode ? "border-slate-700/50" : "border-gray-100/50"} my-1`}
               ></div>
               <button
                 onClick={handleLogout}
-                className={`w-full flex items-center gap-2 px-3 py-2 text-sm ${darkMode ? "text-red-400 hover:bg-red-900/20" : "text-red-600 hover:bg-red-50"} transition-colors`}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-sm ${darkMode ? "text-red-400 hover:bg-red-900/20" : "text-red-600 hover:bg-red-50/50"} transition-colors`}
               >
                 <LogOut className="w-4 h-4" />
                 <span>Salir</span>
@@ -360,7 +369,7 @@ export default function LMSDashboard() {
           )}
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="p-4 space-y-1">
           <NavItem
             icon={Home}
             label="Inicio"
@@ -409,12 +418,40 @@ export default function LMSDashboard() {
           </div>
         </nav>
 
-        <div
-          className={`p-3 border-t ${darkMode ? "border-slate-900" : "border-white"} flex justify-end`}
-        >
+        {/* Espaciador flexible */}
+        <div className="flex-1 min-h-[4px]"></div>
+
+        {/* Botón de Salir pegado al botón de minimizar */}
+        <div className="px-4">
+          <button
+            onClick={handleLogout}
+            className={`w-full flex items-center rounded-lg text-sm transition-colors ${
+              sidebarCollapsed ? "justify-center px-2 py-2" : "px-3 py-2 gap-3"
+            } ${
+              darkMode
+                ? "text-red-400 hover:bg-red-900/20"
+                : "text-red-600 hover:bg-red-50"
+            }`}
+            title={sidebarCollapsed ? "Salir" : ""}
+          >
+            <div className="relative flex-shrink-0">
+              <LogOut className="w-5 h-5" />
+            </div>
+            <span
+              className={`whitespace-nowrap transition-all duration-200 ease-in-out overflow-hidden ${
+                sidebarCollapsed ? "opacity-0 w-0" : "opacity-100 delay-100"
+              }`}
+            >
+              Salir
+            </span>
+          </button>
+        </div>
+
+        {/* Botón de contraer/expandir */}
+        <div className="p-3 flex justify-end">
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className={`p-2 ${darkMode ? "hover:bg-slate-800" : "hover:bg-gray-100"} rounded-lg transition-colors`}
+            className={`p-2 ${darkMode ? "hover:bg-slate-800/50" : "hover:bg-gray-100/50"} rounded-lg transition-colors`}
             title={sidebarCollapsed ? "Expandir menú" : "Contraer menú"}
           >
             {sidebarCollapsed ? (
@@ -431,32 +468,16 @@ export default function LMSDashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden relative z-10">
         <header
-          className={`${darkMode ? "bg-gray-950 border-gray-950" : "bg-gray-50 border-gray-50"} border-b px-8 py-4 transition-colors duration-300`}
+          className="bg-transparent px-8 py-4 transition-colors duration-300"
         >
-          <div className="flex items-center justify-between">
-            <div>
-              {activeMenu === "home" && (
-                <>
-                  <h1
-                    className={`text-xl font-semibold ${darkMode ? "text-white" : "text-gray-900"} flex items-center gap-2`}
-                  >
-                    Hey, {nombreCorto} 👋
-                  </h1>
-                  <p
-                    className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"} mt-1`}
-                  >
-                    Crea, supervisa y evalúa exámenes con total seguridad
-                  </p>
-                </>
-              )}
-            </div>
+          <div className="flex items-center justify-end">
             <div className="flex items-center">
               <img
                 src={darkMode ? logoUniversidadNoche : logoUniversidad}
                 alt="Logo Universidad"
-                className="h-13 w-auto object-contain transition-opacity duration-300"
+                className="h-13 w-auto object-contain transition-opacity duration-300 drop-shadow-lg"
               />
             </div>
           </div>
@@ -487,11 +508,24 @@ export default function LMSDashboard() {
             />
           )}
           {activeMenu === "vigilancia-resultados" && (
-            <VigilanciaContent darkMode={darkMode} />
+            <VigilanciaContent darkMode={darkMode} usuarioData={usuarioData} />
           )}
           {activeMenu === "mi-perfil" && <MiPerfil darkMode={darkMode} />}
         </main>
       </div>
+
+      {/* Botón de tema - Posición fija abajo a la derecha */}
+      <button
+        onClick={toggleTheme}
+        className={`fixed bottom-6 right-6 z-20 p-3 rounded-full shadow-lg transition-all duration-300 ${
+          darkMode
+            ? "bg-slate-800/90 backdrop-blur-md text-yellow-400 hover:bg-slate-700/90 border border-slate-700/50"
+            : "bg-white text-gray-700 hover:bg-gray-50"
+        }`}
+        title={darkMode ? "Cambiar a modo día" : "Cambiar a modo noche"}
+      >
+        {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+      </button>
     </div>
   );
 }
@@ -523,10 +557,10 @@ function NavItem({
       } ${
         active
           ? darkMode
-            ? "bg-slate-800 text-white font-medium"
-            : "bg-slate-700 text-white font-medium"
+            ? "bg-slate-800/70 text-white font-medium shadow-lg"
+            : "bg-[#2c3e50] text-white font-medium"
           : darkMode
-            ? "text-gray-300 hover:bg-slate-800"
+            ? "text-gray-300 hover:bg-slate-800/50"
             : "text-gray-700 hover:bg-gray-50"
       }`}
       title={collapsed ? label : ""}
@@ -534,7 +568,7 @@ function NavItem({
       <div className="relative flex-shrink-0">
         <Icon className="w-5 h-5" />
         {showBadge && (
-          <span className="absolute -top-0.5 -right-0.5 bg-white rounded-full w-2 h-2 border-2 border-slate-900"></span>
+          <span className="absolute -top-0.5 -right-0.5 bg-red-500 rounded-full w-2 h-2 border-2 border-slate-900"></span>
         )}
       </div>
       <span
@@ -570,10 +604,10 @@ function NotificationsContent({
   return (
     <div className="max-w-4xl mx-auto">
       <div
-        className={`${darkMode ? "bg-slate-900" : "bg-white"} rounded-lg shadow-sm transition-colors duration-300 overflow-hidden`}
+        className={`${darkMode ? "bg-slate-900/80 backdrop-blur-md border-slate-800/50" : "bg-white border-gray-200"} rounded-lg shadow-xl transition-colors duration-300 overflow-hidden border`}
       >
         <div
-          className={`p-6 flex items-center justify-between ${darkMode ? "bg-slate-800" : "bg-[#1e293b]"}`}
+          className={`p-6 flex items-center justify-between ${darkMode ? "bg-slate-800/80" : "bg-[#1e293b]/90"}`}
         >
           <h2 className="text-lg font-semibold text-white">Notificaciones</h2>
           <div className="flex items-center gap-3">
@@ -649,13 +683,49 @@ function ListaExamenesContent({
   );
 }
 
-
-function VigilanciaContent({ darkMode }: { darkMode: boolean }) {
+function VigilanciaContent({ 
+  darkMode,
+  usuarioData
+}: { 
+  darkMode: boolean;
+  usuarioData: any;
+}) {
   const [selectedExam, setSelectedExam] = useState<any>(null);
+
+  // Si hay un examen seleccionado, mostrar directamente la vista de vigilancia
+  if (selectedExam) {
+    return (
+      <ExamenVigilancia
+        selectedExam={selectedExam}
+        onVolver={() => setSelectedExam(null)}
+        darkMode={darkMode}
+        usuarioData={usuarioData}
+      />
+    );
+  }
+
+  // Vista de selección de examen - versión simplificada
+  return (
+    <ExamenesAbiertosLista
+      darkMode={darkMode}
+      onSelectExam={setSelectedExam}
+      usuarioData={usuarioData}
+    />
+  );
+}
+
+// Componente para mostrar la lista de exámenes abiertos - REDISEÑADO
+function ExamenesAbiertosLista({
+  darkMode,
+  onSelectExam,
+  usuarioData,
+}: {
+  darkMode: boolean;
+  onSelectExam: (exam: any) => void;
+  usuarioData: any;
+}) {
   const [openExams, setOpenExams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const usuarioData = JSON.parse(localStorage.getItem("usuario") || "{}");
 
   // Cargar exámenes abiertos del profesor
   useEffect(() => {
@@ -676,68 +746,125 @@ function VigilanciaContent({ darkMode }: { darkMode: boolean }) {
     loadOpenExams();
   }, [usuarioData.id]);
 
-  // Si hay un examen seleccionado, mostrar el componente ExamenVigilancia
-  if (selectedExam) {
+  if (loading) {
     return (
-      <ExamenVigilancia
-        selectedExam={selectedExam}
-        onVolver={() => setSelectedExam(null)}
-        darkMode={darkMode}
-        usuarioData={usuarioData}
-      />
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-teal-500 border-t-transparent mx-auto mb-4"></div>
+          <p className={`text-lg ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+            Cargando exámenes...
+          </p>
+        </div>
+      </div>
     );
   }
 
-  // Vista de selección de examen
-  return (
-    <div className="p-6">
-      <div
-        className={`${darkMode ? "bg-slate-900" : "bg-white"} rounded-lg shadow-sm p-6 transition-colors duration-300`}
-      >
-        <h2
-          className={`text-2xl font-semibold mb-6 ${darkMode ? "text-white" : "text-gray-900"}`}
-        >
-          Exámenes Abiertos
-        </h2>
+  if (openExams.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center max-w-md">
+          <div className={`w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center ${darkMode ? "bg-slate-800" : "bg-gray-100"}`}>
+            <Monitor className={`w-12 h-12 ${darkMode ? "text-gray-600" : "text-gray-400"}`} />
+          </div>
+          <h3 className={`text-2xl font-bold mb-3 ${darkMode ? "text-white" : "text-gray-900"}`}>
+            No hay exámenes activos
+          </h3>
+          <p className={`text-base ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+            Los exámenes que abras aparecerán aquí para que puedas monitorear a tus estudiantes en tiempo real.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-        {loading ? (
-          <div
-            className={`text-center py-8 ${darkMode ? "text-gray-400" : "text-gray-600"}`}
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className={`text-3xl font-bold ${darkMode ? "text-white" : "text-gray-900"}`}>
+            Vigilancia de Exámenes
+          </h1>
+          <p className={`mt-2 text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+            Selecciona un examen para monitorear a los estudiantes
+          </p>
+        </div>
+        <div className={`px-4 py-2 rounded-lg ${darkMode ? "bg-teal-900/30" : "bg-teal-50"}`}>
+          <span className={`text-sm font-medium ${darkMode ? "text-teal-400" : "text-teal-700"}`}>
+            {openExams.length} {openExams.length === 1 ? "examen activo" : "exámenes activos"}
+          </span>
+        </div>
+      </div>
+
+      {/* Grid de exámenes */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        {openExams.map((exam: any) => (
+          <button
+            key={exam.id}
+            onClick={() => onSelectExam(exam)}
+            className={`group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-2xl ${
+              darkMode
+                ? "bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 hover:border-teal-500/50"
+                : "bg-white border-2 border-gray-200 hover:border-teal-500 shadow-lg"
+            }`}
           >
-            Cargando...
-          </div>
-        ) : openExams.length === 0 ? (
-          <div
-            className={`text-center py-8 ${darkMode ? "text-gray-400" : "text-gray-600"}`}
-          >
-            No hay exámenes abiertos en este momento
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {openExams.map((exam: any) => (
-              <div
-                key={exam.id}
-                className={`p-4 rounded-lg border cursor-pointer hover:shadow-lg transition-all ${
-                  darkMode
-                    ? "bg-slate-800 border-slate-700 hover:border-blue-500"
-                    : "bg-white border-gray-200 hover:border-blue-500"
-                }`}
-                onClick={() => setSelectedExam(exam)}
-              >
-                <h3
-                  className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}
-                >
-                  {exam.nombre}
-                </h3>
-                <p
-                  className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}
-                >
-                  Código: {exam.codigoExamen}
-                </p>
+            {/* Efecto de brillo en hover */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-teal-500/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+            
+            {/* Contenido */}
+            <div className="relative p-6">
+              {/* Badge de estado */}
+              <div className="flex items-center justify-between mb-4">
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/20 text-green-400 text-xs font-semibold">
+                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                  En vivo
+                </span>
+                <div className={`p-2 rounded-lg ${darkMode ? "bg-slate-700/50" : "bg-gray-100"}`}>
+                  <Monitor className={`w-5 h-5 ${darkMode ? "text-gray-400" : "text-gray-600"}`} />
+                </div>
               </div>
-            ))}
-          </div>
-        )}
+
+              {/* Título del examen */}
+              <h3 className={`text-xl font-bold mb-3 line-clamp-2 ${darkMode ? "text-white" : "text-gray-900"}`}>
+                {exam.nombre}
+              </h3>
+
+              {/* Código */}
+              <div className="mb-4">
+                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${darkMode ? "bg-slate-700/50" : "bg-gray-100"}`}>
+                  <svg className="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                  </svg>
+                  <span className={`text-sm font-mono font-semibold ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                    {exam.codigoExamen}
+                  </span>
+                </div>
+              </div>
+
+              {/* Descripción (si existe) */}
+              {exam.descripcion && (
+                <p className={`text-sm mb-4 line-clamp-2 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+                  {exam.descripcion}
+                </p>
+              )}
+
+              {/* Botón de acción */}
+              <div className="flex items-center justify-between pt-4 border-t border-gray-700/30">
+                <span className="text-teal-400 font-semibold text-sm group-hover:text-teal-300 transition-colors">
+                  Ir a vigilancia
+                </span>
+                <svg 
+                  className="w-5 h-5 text-teal-400 transform group-hover:translate-x-1 transition-transform" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </div>
+            </div>
+          </button>
+        ))}
       </div>
     </div>
   );

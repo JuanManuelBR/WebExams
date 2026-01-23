@@ -156,15 +156,29 @@ function mapearPreguntasConImagenes(preguntas: Pregunta[]) {
         break;
 
       case "rellenar-espacios":
+        // Generar el texto con espacios reemplazados por ___
+        let textoConEspacios = pregunta.textoCompleto || "";
+        const palabrasSeleccionadas = pregunta.palabrasSeleccionadas || [];
+        
+        // Ordenar palabras seleccionadas por índice descendente para reemplazar
+        const palabrasOrdenadas = [...palabrasSeleccionadas].sort((a, b) => b.indice - a.indice);
+        
+        // Reemplazar cada palabra seleccionada con ___
+        palabrasOrdenadas.forEach(palabra => {
+          const palabras = textoConEspacios.split(/\s+/);
+          palabras[palabra.indice] = "___";
+          textoConEspacios = palabras.join(" ");
+        });
+        
         preguntaMapeada = {
           ...base,
           type: "fill_blanks",
-          textoCorrecto: pregunta.textoConEspacios || "",
+          textoCorrecto: textoConEspacios || "Texto no configurado",
           respuestas:
-            pregunta.espacios?.map((espacio, idx) => ({
+            palabrasSeleccionadas.map((palabra, idx) => ({
               posicion: idx,
-              textoCorrecto: espacio.respuestaCorrecta,
-            })) || [],
+              textoCorrecto: palabra.palabra,
+            })),
         };
         break;
 

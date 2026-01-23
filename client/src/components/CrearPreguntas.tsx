@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Copy, Image as ImageIcon, X, Check, ChevronDown, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Copy, Image as ImageIcon, X, Check, ChevronDown, AlertCircle, HelpCircle, ChevronUp } from 'lucide-react';
 import EditorTexto from './EditorTexto';
 
 interface CrearPreguntasProps {
   darkMode: boolean;
   preguntasIniciales?: Pregunta[];
   onPreguntasChange?: (preguntas: Pregunta[]) => void;
+  onValidationChange?: (isValid: boolean) => void;
 }
 
 type TipoPregunta = 'seleccion-multiple' | 'rellenar-espacios' | 'conectar' | 'abierta';
@@ -23,9 +24,9 @@ interface ParConexion {
   derecha: string;
 }
 
-interface EspacioBlanco {
-  id: string;
-  respuestaCorrecta: string;
+interface PalabraSeleccionada {
+  indice: number;
+  palabra: string;
 }
 
 export interface Pregunta {
@@ -36,23 +37,42 @@ export interface Pregunta {
   puntos: number;
   calificacionParcial?: boolean;
   opciones?: OpcionSeleccion[];
-  textoConEspacios?: string;
-  espacios?: EspacioBlanco[];
+  // Nuevos campos para rellenar espacios
+  textoCompleto?: string;
+  palabrasSeleccionadas?: PalabraSeleccionada[];
   paresConexion?: ParConexion[];
   respuestasCorrectas?: { [key: string]: string };
-  // Nuevos campos para pregunta abierta
+  // Campos para pregunta abierta
   metodoEvaluacion?: MetodoEvaluacionAbierta;
   palabrasClave?: string[];
   textoExacto?: string;
 }
 
-export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPreguntasChange }: CrearPreguntasProps) {
+export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPreguntasChange, onValidationChange }: CrearPreguntasProps) {
   const [preguntas, setPreguntas] = useState<Pregunta[]>(preguntasIniciales);
-  const [preguntaEditando, setPreguntaEditando] = useState<string | null>(null);
+  const [preguntasEditando, setPreguntasEditando] = useState<Set<string>>(new Set());
   const [mostrarSelectorTipo, setMostrarSelectorTipo] = useState<string | null>(null);
   const [mostrarClaveRespuesta, setMostrarClaveRespuesta] = useState<string | null>(null);
   const [puntosTemp, setPuntosTemp] = useState<{[key: string]: string}>({});
   const [palabraClaveTemp, setPalabraClaveTemp] = useState<string>('');
+
+  // Colores para las líneas laterales de las preguntas
+  const coloresPregunta = [
+    'border-l-blue-500',
+    'border-l-green-500',
+    'border-l-purple-500',
+    'border-l-orange-500',
+    'border-l-pink-500',
+    'border-l-teal-500',
+    'border-l-red-500',
+    'border-l-indigo-500',
+    'border-l-yellow-500',
+    'border-l-cyan-500',
+  ];
+
+  const obtenerColorPregunta = (index: number) => {
+    return coloresPregunta[index % coloresPregunta.length];
+  };
 
   // Notificar al padre cuando cambien las preguntas
   useEffect(() => {
@@ -60,6 +80,48 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
       onPreguntasChange(preguntas);
     }
   }, [preguntas, onPreguntasChange]);
+
+  // Verificar validación de preguntas y notificar al padre
+  useEffect(() => {
+    if (onValidationChange) {
+      const todasConfiguradas = preguntas.every(pregunta => {
+        if (pregunta.tipo === 'seleccion-multiple') {
+          return pregunta.opciones?.some(o => o.esCorrecta) || false;
+        }
+        if (pregunta.tipo === 'abierta') {
+          if (pregunta.metodoEvaluacion === 'manual') return true;
+          if (pregunta.metodoEvaluacion === 'palabras-clave') {
+            return pregunta.palabrasClave && pregunta.palabrasClave.length > 0;
+          }
+          if (pregunta.metodoEvaluacion === 'texto-exacto') {
+            return pregunta.textoExacto && pregunta.textoExacto.trim() !== '';
+          }
+          return false;
+        }
+        if (pregunta.tipo === 'rellenar-espacios') {
+          return pregunta.palabrasSeleccionadas && pregunta.palabrasSeleccionadas.length > 0;
+        }
+        if (pregunta.tipo === 'conectar') {
+          return pregunta.paresConexion && pregunta.paresConexion.length > 0 && 
+                 pregunta.paresConexion.every(p => p.izquierda && p.derecha);
+        }
+        return false;
+      });
+      onValidationChange(todasConfiguradas && preguntas.length > 0);
+    }
+  }, [preguntas, onValidationChange]);
+
+  const toggleEditarPregunta = (id: string) => {
+    setPreguntasEditando(prev => {
+      const nuevo = new Set(prev);
+      if (nuevo.has(id)) {
+        nuevo.delete(id);
+      } else {
+        nuevo.add(id);
+      }
+      return nuevo;
+    });
+  };
 
   const crearNuevaPregunta = () => {
     const nuevaPregunta: Pregunta = {
@@ -72,7 +134,7 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
       opciones: [{ id: '1', texto: 'Opción 1', esCorrecta: false }]
     };
     setPreguntas([...preguntas, nuevaPregunta]);
-    setPreguntaEditando(nuevaPregunta.id);
+    setPreguntasEditando(prev => new Set(prev).add(nuevaPregunta.id));
   };
 
   const duplicarPregunta = (id: string) => {
@@ -85,7 +147,11 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
 
   const eliminarPregunta = (id: string) => {
     setPreguntas(preguntas.filter(p => p.id !== id));
-    if (preguntaEditando === id) setPreguntaEditando(null);
+    setPreguntasEditando(prev => {
+      const nuevo = new Set(prev);
+      nuevo.delete(id);
+      return nuevo;
+    });
   };
 
   const actualizarPregunta = (id: string, cambios: Partial<Pregunta>) => {
@@ -101,8 +167,8 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
         cambios.calificacionParcial = false;
         break;
       case 'rellenar-espacios':
-        cambios.textoConEspacios = '';
-        cambios.espacios = [];
+        cambios.textoCompleto = '';
+        cambios.palabrasSeleccionadas = [];
         cambios.calificacionParcial = false;
         break;
       case 'conectar':
@@ -124,7 +190,7 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
 
   const agregarOpcion = (id: string) => {
     const pregunta = preguntas.find(p => p.id === id);
-    if (pregunta?.opciones) {
+    if (pregunta?.opciones && pregunta.opciones.length < 10) {
       const nuevaOpcion: OpcionSeleccion = {
         id: Date.now().toString(),
         texto: `Opción ${pregunta.opciones.length + 1}`,
@@ -165,7 +231,7 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
 
   const agregarParConexion = (id: string) => {
     const pregunta = preguntas.find(p => p.id === id);
-    if (pregunta?.paresConexion) {
+    if (pregunta?.paresConexion && pregunta.paresConexion.length < 10) {
       const nuevoPar: ParConexion = {
         id: Date.now().toString(),
         izquierda: '',
@@ -195,38 +261,105 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
     }
   };
 
-  // ========== FUNCIONES PARA RELLENAR ESPACIOS ==========
+  // ========== NUEVAS FUNCIONES PARA RELLENAR ESPACIOS ==========
   
-  const actualizarTextoConEspacios = (preguntaId: string, nuevoTexto: string) => {
-    const numEspacios = (nuevoTexto.match(/___/g) || []).length;
+  const actualizarTextoCompleto = (preguntaId: string, nuevoTexto: string) => {
     const pregunta = preguntas.find(p => p.id === preguntaId);
+    if (!pregunta) return;
+
+    // Obtener las palabras del nuevo texto
+    const palabrasNuevas = nuevoTexto.split(/\s+/).filter(p => p.trim().length > 0);
     
-    let nuevosEspacios: EspacioBlanco[] = [];
-    
-    for (let i = 0; i < numEspacios; i++) {
-      const espacioExistente = pregunta?.espacios?.[i];
-      nuevosEspacios.push({
-        id: (i + 1).toString(),
-        respuestaCorrecta: espacioExistente?.respuestaCorrecta || ''
-      });
-    }
-    
+    // Filtrar las palabras seleccionadas que aún existen en el nuevo texto
+    const palabrasSeleccionadasActualizadas = (pregunta.palabrasSeleccionadas || []).filter(ps => {
+      // Verificar si el índice todavía es válido
+      if (ps.indice >= palabrasNuevas.length) return false;
+      
+      // Verificar si la palabra en esa posición sigue siendo la misma
+      return palabrasNuevas[ps.indice] === ps.palabra;
+    });
+
     actualizarPregunta(preguntaId, {
-      textoConEspacios: nuevoTexto,
-      espacios: nuevosEspacios
+      textoCompleto: nuevoTexto,
+      palabrasSeleccionadas: palabrasSeleccionadasActualizadas
     });
   };
 
-  const actualizarRespuestaEspacio = (preguntaId: string, espacioIndex: number, respuesta: string) => {
+  const manejarDobleClicPalabra = (preguntaId: string, e: React.MouseEvent<HTMLTextAreaElement>) => {
     const pregunta = preguntas.find(p => p.id === preguntaId);
-    if (pregunta?.espacios) {
-      const nuevosEspacios = [...pregunta.espacios];
-      nuevosEspacios[espacioIndex] = {
-        ...nuevosEspacios[espacioIndex],
-        respuestaCorrecta: respuesta
-      };
-      actualizarPregunta(preguntaId, { espacios: nuevosEspacios });
+    if (!pregunta || !pregunta.textoCompleto) return;
+
+    const textarea = e.currentTarget as HTMLTextAreaElement;
+    const posicionClick = textarea.selectionStart;
+    const texto = pregunta.textoCompleto;
+
+    // Encontrar los límites de la palabra en la posición del clic
+    let inicio = posicionClick;
+    let fin = posicionClick;
+
+    // Expandir hacia atrás hasta encontrar un espacio o el inicio
+    while (inicio > 0 && !/\s/.test(texto[inicio - 1])) {
+      inicio--;
     }
+
+    // Expandir hacia adelante hasta encontrar un espacio o el final
+    while (fin < texto.length && !/\s/.test(texto[fin])) {
+      fin++;
+    }
+
+    const palabraSeleccionada = texto.substring(inicio, fin).trim();
+    
+    if (!palabraSeleccionada || palabraSeleccionada.length === 0) return;
+
+    // Contar cuántas palabras hay antes de esta posición
+    const textoAntes = texto.substring(0, inicio);
+    const palabrasAntes = textoAntes.split(/\s+/).filter(p => p.trim().length > 0);
+    const indice = palabrasAntes.length;
+
+    const palabrasSeleccionadas = pregunta.palabrasSeleccionadas || [];
+    const yaSeleccionada = palabrasSeleccionadas.find(p => p.indice === indice);
+
+    if (yaSeleccionada) {
+      // Deseleccionar
+      actualizarPregunta(preguntaId, {
+        palabrasSeleccionadas: palabrasSeleccionadas.filter(p => p.indice !== indice)
+      });
+    } else {
+      // Seleccionar (máximo 10)
+      if (palabrasSeleccionadas.length < 10) {
+        actualizarPregunta(preguntaId, {
+          palabrasSeleccionadas: [...palabrasSeleccionadas, { indice, palabra: palabraSeleccionada }]
+            .sort((a, b) => a.indice - b.indice)
+        });
+      }
+    }
+
+    // Restaurar el foco al textarea
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(posicionClick, posicionClick);
+    }, 0);
+  };
+
+  const eliminarPalabraSeleccionada = (preguntaId: string, indice: number) => {
+    const pregunta = preguntas.find(p => p.id === preguntaId);
+    if (!pregunta || !pregunta.palabrasSeleccionadas) return;
+
+    actualizarPregunta(preguntaId, {
+      palabrasSeleccionadas: pregunta.palabrasSeleccionadas.filter(p => p.indice !== indice)
+    });
+  };
+
+  const generarTextoConEspacios = (pregunta: Pregunta): string => {
+    if (!pregunta.textoCompleto) return '';
+
+    const palabras = pregunta.textoCompleto.split(/\s+/);
+    const palabrasSeleccionadas = pregunta.palabrasSeleccionadas || [];
+    
+    return palabras.map((palabra, idx) => {
+      const estaSeleccionada = palabrasSeleccionadas.some(p => p.indice === idx);
+      return estaSeleccionada ? '___' : palabra;
+    }).join(' ');
   };
 
   const toggleCalificacionParcial = (preguntaId: string) => {
@@ -238,7 +371,7 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
     }
   };
 
-  // ========== NUEVAS FUNCIONES PARA PREGUNTA ABIERTA ==========
+  // ========== FUNCIONES PARA PREGUNTA ABIERTA ==========
   
   const cambiarMetodoEvaluacion = (preguntaId: string, metodo: MetodoEvaluacionAbierta) => {
     actualizarPregunta(preguntaId, { metodoEvaluacion: metodo });
@@ -250,10 +383,12 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
     const pregunta = preguntas.find(p => p.id === preguntaId);
     if (pregunta) {
       const palabrasActuales = pregunta.palabrasClave || [];
-      actualizarPregunta(preguntaId, {
-        palabrasClave: [...palabrasActuales, palabraClaveTemp.trim()]
-      });
-      setPalabraClaveTemp('');
+      if (palabrasActuales.length < 10) {
+        actualizarPregunta(preguntaId, {
+          palabrasClave: [...palabrasActuales, palabraClaveTemp.trim()]
+        });
+        setPalabraClaveTemp('');
+      }
     }
   };
 
@@ -269,8 +404,6 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
   const actualizarTextoExacto = (preguntaId: string, texto: string) => {
     actualizarPregunta(preguntaId, { textoExacto: texto });
   };
-
-  // ========== FIN NUEVAS FUNCIONES ==========
 
   const handleImagenCarga = (preguntaId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -294,16 +427,33 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
     { tipo: 'abierta' as TipoPregunta, nombre: 'Párrafo', icono: '≡' }
   ];
 
-  const renderizarPreguntaEdicion = (pregunta: Pregunta) => {
+  const renderizarPreguntaEdicion = (pregunta: Pregunta, index: number) => {
     const permiteCalificacionParcial = ['seleccion-multiple', 'rellenar-espacios', 'conectar', 'abierta'].includes(pregunta.tipo);
+    const colorBorde = obtenerColorPregunta(index);
 
     return (
       <div 
-        className={`rounded-lg border-l-4 border-l-blue-500 p-6 mb-4 ${
+        className={`rounded-lg border-l-4 ${colorBorde} p-6 mb-4 ${
           darkMode ? 'bg-slate-800' : 'bg-white'
         } shadow-sm`}
       >
-        {/* Selector de tipo de pregunta - PRIMERO */}
+        {/* Header con botón de colapsar */}
+        <div className="flex items-center justify-between mb-4">
+          <div className={`text-lg font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            Pregunta {index + 1}
+          </div>
+          <button
+            onClick={() => toggleEditarPregunta(pregunta.id)}
+            className={`p-2 rounded-lg transition-colors ${
+              darkMode ? 'hover:bg-slate-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+            }`}
+            title="Cerrar edición"
+          >
+            <ChevronUp className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Selector de tipo de pregunta */}
         <div className="mb-4">
           <label className={`block text-sm font-medium mb-2 ${
             darkMode ? 'text-gray-400' : 'text-gray-600'
@@ -349,7 +499,7 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
           </div>
         </div>
 
-        {/* Editor de pregunta e imagen - SEGUNDO */}
+        {/* Editor de pregunta e imagen */}
         <div className="flex items-start gap-4 mb-4">
           <div className="flex-1">
             <EditorTexto
@@ -394,9 +544,19 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
           <div className="space-y-2 mb-4">
             {pregunta.opciones?.map((opcion, index) => (
               <div key={opcion.id} className="flex items-center gap-3">
-                <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 ${
-                  darkMode ? 'border-gray-500' : 'border-gray-400'
-                }`} />
+                <button
+                  onClick={() => toggleRespuestaCorrecta(pregunta.id, opcion.id)}
+                  className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center cursor-pointer transition-all ${
+                    opcion.esCorrecta
+                      ? 'bg-green-500 border-green-500'
+                      : darkMode 
+                        ? 'border-gray-500 hover:border-green-400' 
+                        : 'border-gray-400 hover:border-green-500'
+                  }`}
+                  title={opcion.esCorrecta ? 'Respuesta correcta' : 'Marcar como correcta'}
+                >
+                  {opcion.esCorrecta && <Check className="w-3 h-3 text-white" />}
+                </button>
                 <input
                   type="text"
                   value={opcion.texto}
@@ -417,37 +577,147 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                 )}
               </div>
             ))}
-            <button
-              onClick={() => agregarOpcion(pregunta.id)}
-              className={`flex items-center gap-2 px-3 py-2 text-sm ${
-                darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'
-              }`}
-            >
-              <div className={`w-5 h-5 rounded-full border-2 ${
-                darkMode ? 'border-gray-500' : 'border-gray-400'
-              }`} />
-              <span>Agregar una opción</span>
-            </button>
+            {pregunta.opciones && pregunta.opciones.length < 10 ? (
+              <button
+                onClick={() => agregarOpcion(pregunta.id)}
+                className={`flex items-center gap-2 px-3 py-2 text-sm ${
+                  darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full border-2 ${
+                  darkMode ? 'border-gray-500' : 'border-gray-400'
+                }`} />
+                <span>Agregar una opción</span>
+              </button>
+            ) : (
+              <p className={`text-sm italic ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                Máximo 10 opciones alcanzado
+              </p>
+            )}
           </div>
         )}
 
         {pregunta.tipo === 'rellenar-espacios' && (
           <div className="mb-4">
-            <textarea
-              value={pregunta.textoConEspacios}
-              onChange={(e) => actualizarTextoConEspacios(pregunta.id, e.target.value)}
-              placeholder="Escribe el texto con espacios en blanco. Usa ___ para indicar espacios. Ejemplo: El ___ es azul y la ___ es roja."
-              rows={4}
-              className={`w-full px-4 py-3 rounded-lg border resize-none ${
-                darkMode 
-                  ? 'bg-slate-700 border-slate-600 text-white placeholder-gray-400' 
-                  : 'bg-gray-50 border-gray-300 placeholder-gray-500'
-              }`}
-            />
-            <p className={`text-sm mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              Usa "___" para crear espacios en blanco. {pregunta.espacios && pregunta.espacios.length > 0 && 
-              `(${pregunta.espacios.length} ${pregunta.espacios.length === 1 ? 'espacio detectado' : 'espacios detectados'})`}
-            </p>
+            <div className="relative">
+              {/* Capa de fondo con resaltado de palabras seleccionadas */}
+              {pregunta.textoCompleto && pregunta.palabrasSeleccionadas && pregunta.palabrasSeleccionadas.length > 0 && (
+                <div 
+                  className={`absolute inset-0 px-4 py-3 rounded-lg pointer-events-none whitespace-pre-wrap break-words overflow-hidden`}
+                  style={{ 
+                    lineHeight: '1.5',
+                    zIndex: 1,
+                    fontSize: '16px',
+                    fontFamily: 'inherit',
+                    letterSpacing: 'normal',
+                    wordSpacing: 'normal'
+                  }}
+                  aria-hidden="true"
+                >
+                  {pregunta.textoCompleto.split(/(\s+)/).map((parte, idx) => {
+                    // Si es un espacio, renderizarlo tal cual
+                    if (/\s+/.test(parte)) {
+                      return <span key={idx}>{parte}</span>;
+                    }
+                    
+                    // Calcular el índice real de la palabra (sin contar espacios)
+                    const palabrasAnteriores = pregunta.textoCompleto!
+                      .substring(0, pregunta.textoCompleto!.indexOf(parte, idx > 0 ? pregunta.textoCompleto!.split(/(\s+)/).slice(0, idx).join('').length : 0))
+                      .split(/\s+/)
+                      .filter(p => p.trim().length > 0);
+                    const indicePalabra = palabrasAnteriores.length;
+                    
+                    const estaSeleccionada = pregunta.palabrasSeleccionadas?.some(p => p.indice === indicePalabra);
+                    
+                    return (
+                      <span 
+                        key={idx}
+                        className={estaSeleccionada 
+                          ? darkMode 
+                            ? 'bg-blue-500/30 border-b-2 border-blue-400 rounded-sm' 
+                            : 'bg-blue-200/60 border-b-2 border-blue-500 rounded-sm'
+                          : ''
+                        }
+                        style={{ color: 'transparent' }}
+                      >
+                        {parte}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+              
+              {/* Textarea editable encima */}
+              <textarea
+                value={pregunta.textoCompleto || ''}
+                onChange={(e) => actualizarTextoCompleto(pregunta.id, e.target.value)}
+                onDoubleClick={(e) => {
+                  e.preventDefault();
+                  manejarDobleClicPalabra(pregunta.id, e);
+                }}
+                placeholder="Escribe el texto aquí y luego haz doble clic en las palabras que quieres convertir en espacios en blanco..."
+                rows={5}
+                className={`w-full px-4 py-3 rounded-lg border resize-none relative ${
+                  darkMode 
+                    ? 'bg-transparent border-slate-600 text-white placeholder-gray-400' 
+                    : 'bg-transparent border-gray-300 text-gray-900 placeholder-gray-500'
+                }`}
+                style={{ 
+                  lineHeight: '1.5',
+                  zIndex: 2,
+                  position: 'relative',
+                  backgroundColor: 'transparent',
+                  fontSize: '16px'
+                }}
+              />
+            </div>
+            
+            <div className={`mt-3 space-y-2`}>
+              <p className={`text-sm flex items-center gap-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                <span className="font-medium">💡 Instrucciones:</span>
+                <span>Haz doble clic en cualquier palabra para seleccionarla como espacio en blanco. Máximo 10 palabras.</span>
+              </p>
+              
+              {pregunta.textoCompleto && pregunta.palabrasSeleccionadas && pregunta.palabrasSeleccionadas.length > 0 && (
+                <div className={`flex items-center gap-2 flex-wrap p-3 rounded-lg ${
+                  darkMode ? 'bg-slate-600/50' : 'bg-blue-50'
+                }`}>
+                  <span className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Espacios seleccionados ({pregunta.palabrasSeleccionadas.length}/10):
+                  </span>
+                  {pregunta.palabrasSeleccionadas.map((ps, idx) => (
+                    <span 
+                      key={idx}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded text-sm font-medium ${
+                        darkMode 
+                          ? 'bg-blue-500/40 text-white border border-blue-400' 
+                          : 'bg-blue-200 text-gray-900 border border-blue-400'
+                      }`}
+                    >
+                      <span>{ps.palabra}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          eliminarPalabraSeleccionada(pregunta.id, ps.indice);
+                        }}
+                        className={`hover:opacity-70 transition-opacity ${
+                          darkMode ? 'text-white' : 'text-gray-700'
+                        }`}
+                        title="Eliminar"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {pregunta.palabrasSeleccionadas && pregunta.palabrasSeleccionadas.length >= 10 && (
+                <p className={`text-xs ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
+                  ⚠️ Máximo de 10 espacios alcanzado
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -488,15 +758,21 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                 )}
               </div>
             ))}
-            <button
-              onClick={() => agregarParConexion(pregunta.id)}
-              className={`flex items-center gap-2 px-3 py-2 text-sm ${
-                darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'
-              }`}
-            >
-              <Plus className="w-4 h-4" />
-              <span>Agregar par</span>
-            </button>
+            {pregunta.paresConexion && pregunta.paresConexion.length < 10 ? (
+              <button
+                onClick={() => agregarParConexion(pregunta.id)}
+                className={`flex items-center gap-2 px-3 py-2 text-sm ${
+                  darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'
+                }`}
+              >
+                <Plus className="w-4 h-4" />
+                <span>Agregar par</span>
+              </button>
+            ) : (
+              <p className={`text-sm italic ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                Máximo 10 pares alcanzado
+              </p>
+            )}
           </div>
         )}
 
@@ -519,23 +795,15 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
             }`}
           >
             <Check className="w-4 h-4" />
-            <span className="font-medium">Respuestas correctas</span>
+            <span className="font-medium">Configuración de puntos</span>
             <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
               ({pregunta.puntos} {pregunta.puntos === 1 ? 'punto' : 'puntos'})
             </span>
-            {pregunta.tipo === 'seleccion-multiple' && !pregunta.opciones?.some(o => o.esCorrecta) && (
+            {pregunta.tipo === 'rellenar-espacios' && (!pregunta.palabrasSeleccionadas || pregunta.palabrasSeleccionadas.length === 0) && (
               <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
                 darkMode ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-700'
               }`}>
-                Sin configurar
-              </span>
-            )}
-            {pregunta.tipo === 'rellenar-espacios' && pregunta.espacios && 
-             pregunta.espacios.some(e => !e.respuestaCorrecta) && (
-              <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
-                darkMode ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-700'
-              }`}>
-                Incompleto
+                Sin espacios
               </span>
             )}
           </button>
@@ -545,78 +813,95 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
               darkMode ? 'bg-slate-700 border-slate-600' : 'bg-gray-50 border-gray-200'
             }`}>
               {pregunta.tipo === 'seleccion-multiple' && (
-                <div className="space-y-3">
-                  <p className={`text-sm font-medium mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Selecciona las respuestas correctas:
-                  </p>
-                  {pregunta.opciones?.map((opcion) => (
-                    <div
-                      key={opcion.id}
-                      onClick={() => toggleRespuestaCorrecta(pregunta.id, opcion.id)}
-                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                        opcion.esCorrecta
-                          ? darkMode ? 'bg-green-900/30 border border-green-700' : 'bg-green-50 border border-green-300'
-                          : darkMode ? 'hover:bg-slate-600' : 'hover:bg-gray-100'
+                <div className="space-y-4">
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      Puntos de la pregunta:
+                    </label>
+                    <input
+                      type="text"
+                      value={puntosTemp[pregunta.id] !== undefined ? puntosTemp[pregunta.id] : pregunta.puntos}
+                      onChange={(e) => {
+                        const valor = e.target.value;
+                        if (valor === '' || /^[0-9]*[.,]?[0-9]*$/.test(valor)) {
+                          setPuntosTemp({...puntosTemp, [pregunta.id]: valor});
+                        }
+                      }}
+                      onFocus={() => {
+                        if (puntosTemp[pregunta.id] === undefined) {
+                          setPuntosTemp({...puntosTemp, [pregunta.id]: String(pregunta.puntos)});
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      onBlur={() => {
+                        const valor = puntosTemp[pregunta.id] || String(pregunta.puntos);
+                        const numero = parseFloat(valor.replace(',', '.'));
+                        
+                        if (valor === '' || isNaN(numero) || numero <= 0) {
+                          actualizarPregunta(pregunta.id, { puntos: 1 });
+                          setPuntosTemp({...puntosTemp, [pregunta.id]: '1'});
+                        } else {
+                          actualizarPregunta(pregunta.id, { puntos: numero });
+                          const temp = {...puntosTemp};
+                          delete temp[pregunta.id];
+                          setPuntosTemp(temp);
+                        }
+                      }}
+                      className={`w-32 px-3 py-2 rounded border ${
+                        darkMode 
+                          ? 'bg-slate-600 border-slate-500 text-white' 
+                          : 'bg-white border-gray-300'
+                      }`}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <label className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Calificación parcial:
+                      </label>
+                      <div className="relative group">
+                        <HelpCircle className={`w-5 h-5 ${darkMode ? "text-gray-500" : "text-gray-400"} cursor-help`} />
+                        <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-normal" style={{ minWidth: '280px' }}>
+                          Se otorgarán puntos proporcionales por respuestas parcialmente correctas
+                          <div className="absolute left-3 -bottom-1 w-2 h-2 bg-gray-900 transform rotate-45"></div>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => toggleCalificacionParcial(pregunta.id)}
+                      className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border-2 transition-all w-40 ${
+                        pregunta.calificacionParcial
+                          ? darkMode 
+                            ? 'border-teal-500 bg-teal-500/10' 
+                            : 'border-slate-700 bg-slate-700/10'
+                          : darkMode
+                            ? 'border-slate-600 hover:border-slate-500'
+                            : 'border-gray-300 hover:border-gray-400'
                       }`}
                     >
-                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
-                        opcion.esCorrecta 
-                          ? 'bg-green-500 border-green-500'
-                          : darkMode ? 'border-gray-500' : 'border-gray-400'
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                        pregunta.calificacionParcial
+                          ? darkMode 
+                            ? 'bg-teal-500 border-teal-500' 
+                            : 'bg-slate-700 border-slate-700'
+                          : darkMode
+                            ? 'border-gray-500'
+                            : 'border-gray-400'
                       }`}>
-                        {opcion.esCorrecta && <Check className="w-3 h-3 text-white" />}
+                        {pregunta.calificacionParcial && <Check className="w-3 h-3 text-white" />}
                       </div>
-                      <span className={darkMode ? 'text-white' : 'text-gray-900'}>{opcion.texto}</span>
-                      {opcion.esCorrecta && (
-                        <Check className="w-4 h-4 text-green-500 ml-auto" />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {pregunta.tipo === 'rellenar-espacios' && (
-                <div className="space-y-3">
-                  <p className={`text-sm font-medium mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Define las respuestas correctas para cada espacio:
-                  </p>
-                  {pregunta.espacios && pregunta.espacios.length > 0 ? (
-                    pregunta.espacios.map((espacio, index) => (
-                      <div key={espacio.id} className="flex items-center gap-3">
-                        <span className={`text-sm font-medium min-w-[80px] ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                          Espacio {index + 1}:
-                        </span>
-                        <input
-                          type="text"
-                          value={espacio.respuestaCorrecta}
-                          onChange={(e) => actualizarRespuestaEspacio(pregunta.id, index, e.target.value)}
-                          placeholder="Respuesta correcta"
-                          className={`flex-1 px-3 py-2 rounded border ${
-                            darkMode 
-                              ? 'bg-slate-600 border-slate-500 text-white placeholder-gray-400' 
-                              : 'bg-white border-gray-300 placeholder-gray-500'
-                          }`}
-                        />
-                        {espacio.respuestaCorrecta ? (
-                          <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-                        ) : (
-                          <AlertCircle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <p className={`text-sm italic ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      Primero define el texto con espacios en blanco (usando ___)
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {pregunta.tipo === 'conectar' && (
-                <div className="space-y-3">
-                  <p className={`text-sm font-medium mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Las conexiones ya están definidas por los pares que creaste
-                  </p>
+                      <span className={`text-sm font-medium ${
+                        darkMode ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        {pregunta.calificacionParcial ? 'Activada' : 'Desactivada'}
+                      </span>
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -702,10 +987,9 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                       darkMode ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-200'
                     }`}>
                       <p className={`text-sm font-medium mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                        Define las palabras clave que deben aparecer:
+                        Define las palabras clave que deben aparecer (máximo 10):
                       </p>
                       
-                      {/* Input para agregar palabras clave */}
                       <div className="flex gap-2 mb-3">
                         <input
                           type="text"
@@ -718,15 +1002,17 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                             }
                           }}
                           placeholder="Escribe una palabra clave..."
+                          disabled={(pregunta.palabrasClave?.length || 0) >= 10}
                           className={`flex-1 px-3 py-2 rounded border ${
                             darkMode 
-                              ? 'bg-slate-700 border-slate-600 text-white placeholder-gray-400' 
-                              : 'bg-white border-gray-300 placeholder-gray-500'
+                              ? 'bg-slate-700 border-slate-600 text-white placeholder-gray-400 disabled:opacity-50' 
+                              : 'bg-white border-gray-300 placeholder-gray-500 disabled:opacity-50'
                           }`}
                         />
                         <button
                           onClick={() => agregarPalabraClave(pregunta.id)}
-                          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                          disabled={(pregunta.palabrasClave?.length || 0) >= 10}
+                          className={`px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                             darkMode 
                               ? 'bg-green-600 hover:bg-green-700 text-white' 
                               : 'bg-green-600 hover:bg-green-700 text-white'
@@ -736,7 +1022,6 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                         </button>
                       </div>
 
-                      {/* Lista de palabras clave */}
                       {pregunta.palabrasClave && pregunta.palabrasClave.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
                           {pregunta.palabrasClave.map((palabra, index) => (
@@ -764,6 +1049,12 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                         </p>
                       )}
 
+                      {pregunta.palabrasClave && pregunta.palabrasClave.length >= 10 && (
+                        <p className={`text-xs mt-2 ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
+                          ⚠️ Máximo de 10 palabras clave alcanzado
+                        </p>
+                      )}
+
                       <p className={`text-xs mt-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         💡 El sistema buscará estas palabras en la respuesta del estudiante. 
                         Se otorgarán puntos proporcionales según cuántas palabras clave se encuentren.
@@ -781,8 +1072,13 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                       
                       <textarea
                         value={pregunta.textoExacto || ''}
-                        onChange={(e) => actualizarTextoExacto(pregunta.id, e.target.value)}
+                        onChange={(e) => {
+                          if (e.target.value.length <= 1000) {
+                            actualizarTextoExacto(pregunta.id, e.target.value);
+                          }
+                        }}
                         placeholder="Escribe la respuesta exacta que esperas del estudiante..."
+                        maxLength={1000}
                         rows={4}
                         className={`w-full px-4 py-3 rounded-lg border resize-none ${
                           darkMode 
@@ -795,14 +1091,14 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                         <div className="flex items-center gap-2 mt-2">
                           <Check className="w-4 h-4 text-green-500" />
                           <span className={`text-xs ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
-                            Respuesta configurada ({pregunta.textoExacto.length} caracteres)
+                            Respuesta configurada ({pregunta.textoExacto.length}/1000 caracteres)
                           </span>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2 mt-2">
                           <AlertCircle className="w-4 h-4 text-yellow-500" />
                           <span className={`text-xs ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
-                            Define la respuesta esperada
+                            Define la respuesta esperada (máximo 1000 caracteres)
                           </span>
                         </div>
                       )}
@@ -827,7 +1123,8 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                 </div>
               )}
 
-              {/* Input de puntos y opción de calificación parcial */}
+              {/* Input de puntos y opción de calificación parcial - NO para selección múltiple */}
+              {pregunta.tipo !== 'seleccion-multiple' && (
               <div className="mt-4 pt-4 border-t border-gray-300 dark:border-slate-600 space-y-4">
                 <div>
                   <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -877,9 +1174,18 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                 {/* Opción de calificación parcial */}
                 {permiteCalificacionParcial && pregunta.tipo !== 'abierta' && (
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Calificación parcial:
-                    </label>
+                    <div className="flex items-center gap-2 mb-2">
+                      <label className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Calificación parcial:
+                      </label>
+                      <div className="relative group">
+                        <HelpCircle className={`w-5 h-5 ${darkMode ? "text-gray-500" : "text-gray-400"} cursor-help`} />
+                        <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg" style={{ minWidth: '280px' }}>
+                          Se otorgarán puntos proporcionales por respuestas parcialmente correctas
+                          <div className="absolute left-3 -bottom-1 w-2 h-2 bg-gray-900 transform rotate-45"></div>
+                        </div>
+                      </div>
+                    </div>
                     <button
                       onClick={() => toggleCalificacionParcial(pregunta.id)}
                       className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border-2 transition-all w-40 ${
@@ -909,20 +1215,26 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                         {pregunta.calificacionParcial ? 'Activada' : 'Desactivada'}
                       </span>
                     </button>
-                    {pregunta.calificacionParcial && (
-                      <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Se otorgarán puntos proporcionales por respuestas parcialmente correctas
-                      </p>
-                    )}
                   </div>
                 )}
 
                 {/* Calificación parcial para pregunta abierta */}
                 {pregunta.tipo === 'abierta' && pregunta.metodoEvaluacion !== 'manual' && (
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      Calificación parcial:
-                    </label>
+                    <div className="flex items-center gap-2 mb-2">
+                      <label className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Calificación parcial:
+                      </label>
+                      <div className="relative group">
+                        <HelpCircle className={`w-5 h-5 ${darkMode ? "text-gray-500" : "text-gray-400"} cursor-help`} />
+                        <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg" style={{ minWidth: '280px' }}>
+                          {pregunta.metodoEvaluacion === 'palabras-clave' 
+                            ? 'Se otorgarán puntos proporcionales según cuántas palabras clave se encuentren en la respuesta del estudiante'
+                            : 'La respuesta del estudiante debe coincidir exactamente con el texto especificado para obtener puntos (sin puntos parciales)'}
+                          <div className="absolute left-3 -bottom-1 w-2 h-2 bg-gray-900 transform rotate-45"></div>
+                        </div>
+                      </div>
+                    </div>
                     <button
                       onClick={() => toggleCalificacionParcial(pregunta.id)}
                       className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border-2 transition-all w-40 ${
@@ -952,14 +1264,10 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                         {pregunta.calificacionParcial ? 'Activada' : 'Desactivada'}
                       </span>
                     </button>
-                    <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {pregunta.metodoEvaluacion === 'palabras-clave' 
-                        ? 'Se otorgarán puntos proporcionales según cuántas palabras clave se encuentren'
-                        : 'La respuesta debe ser exacta para obtener puntos (sin puntos parciales)'}
-                    </p>
                   </div>
                 )}
               </div>
+              )}
             </div>
           )}
         </div>
@@ -1005,8 +1313,7 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
         return false;
       }
       if (pregunta.tipo === 'rellenar-espacios') {
-        return pregunta.espacios && pregunta.espacios.length > 0 && 
-               pregunta.espacios.every(e => e.respuestaCorrecta && e.respuestaCorrecta.trim() !== '');
+        return pregunta.palabrasSeleccionadas && pregunta.palabrasSeleccionadas.length > 0;
       }
       if (pregunta.tipo === 'conectar') {
         return pregunta.paresConexion && pregunta.paresConexion.length > 0 && 
@@ -1017,11 +1324,12 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
 
     const tipoInfo = tiposPregunta.find(t => t.tipo === pregunta.tipo);
     const configurada = tieneRespuestasConfiguradas();
+    const colorBorde = obtenerColorPregunta(index);
 
     return (
       <div
-        onClick={() => setPreguntaEditando(pregunta.id)}
-        className={`rounded-lg p-6 mb-4 cursor-pointer transition-all ${
+        onClick={() => toggleEditarPregunta(pregunta.id)}
+        className={`rounded-lg border-l-4 ${colorBorde} p-6 mb-4 cursor-pointer transition-all ${
           darkMode ? 'bg-slate-800 hover:bg-slate-750' : 'bg-white hover:bg-gray-50'
         } shadow-sm border border-transparent hover:border-blue-300`}
       >
@@ -1032,34 +1340,34 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
           <div className="flex-1 min-w-0">
             {/* Badges arriba - ahora a la derecha */}
             <div className="flex items-center justify-end gap-2 mb-3">
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap ${
                 darkMode ? 'bg-slate-700 text-gray-300' : 'bg-gray-100 text-gray-700'
               }`}>
                 <span>{tipoInfo?.icono}</span>
                 <span>{tipoInfo?.nombre}</span>
               </span>
               {!configurada && (
-                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                  darkMode ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-700' : 'bg-yellow-50 text-yellow-700 border border-yellow-300'
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap ${
+                  darkMode ? 'bg-yellow-900/30 text-yellow-400 border-2 border-yellow-700' : 'bg-yellow-50 text-yellow-700 border-2 border-yellow-400'
                 }`}>
                   <span>⚠️</span>
                   <span>Sin configurar</span>
                 </span>
               )}
               {pregunta.calificacionParcial && (
-                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                  darkMode ? 'bg-teal-900/30 text-teal-400 border border-teal-700' : 'bg-blue-50 text-blue-700 border border-blue-300'
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap ${
+                  darkMode ? 'bg-teal-900/30 text-teal-400 border-2 border-teal-700' : 'bg-blue-50 text-blue-700 border-2 border-blue-400'
                 }`}>
                   <span>📊</span>
                   <span>Parcial</span>
                 </span>
               )}
-              <div className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <div className={`text-base font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 {pregunta.puntos} {pregunta.puntos === 1 ? 'pt' : 'pts'}
               </div>
             </div>
             
-            {/* Título de la pregunta - ahora con todo el ancho */}
+            {/* Título de la pregunta */}
             <div 
               className={`mb-2 ${darkMode ? 'text-white' : 'text-gray-900'} prose prose-sm max-w-none`}
               dangerouslySetInnerHTML={{ __html: pregunta.titulo || '<span style="color: #9ca3af;">Pregunta sin título</span>' }}
@@ -1095,12 +1403,13 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                 </div>
                 {pregunta.metodoEvaluacion && pregunta.metodoEvaluacion !== 'manual' && (
                   <div className="mt-2 flex items-center gap-2">
-                    <span className={`text-xs px-2 py-1 rounded-full ${
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap ${
                       pregunta.metodoEvaluacion === 'palabras-clave'
-                        ? darkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'
-                        : darkMode ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-100 text-purple-700'
+                        ? darkMode ? 'bg-green-900/30 text-green-400 border-2 border-green-700' : 'bg-green-100 text-green-700 border-2 border-green-400'
+                        : darkMode ? 'bg-purple-900/30 text-purple-400 border-2 border-purple-700' : 'bg-purple-100 text-purple-700 border-2 border-purple-400'
                     }`}>
-                      {pregunta.metodoEvaluacion === 'palabras-clave' ? '🔑 Palabras clave' : '📝 Respuesta exacta'}
+                      <span>{pregunta.metodoEvaluacion === 'palabras-clave' ? '🔑' : '📝'}</span>
+                      <span>{pregunta.metodoEvaluacion === 'palabras-clave' ? 'Palabras clave' : 'Respuesta exacta'}</span>
                     </span>
                   </div>
                 )}
@@ -1108,20 +1417,9 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
             )}
             {pregunta.tipo === 'rellenar-espacios' && (
               <div className="space-y-3 mt-3">
-                {pregunta.textoConEspacios ? (
-                  <div className={`${darkMode ? 'text-gray-300' : 'text-gray-800'}`}>
-                    {pregunta.textoConEspacios.split('___').map((parte, idx) => (
-                      <span key={idx}>
-                        {parte}
-                        {idx < pregunta.textoConEspacios!.split('___').length - 1 && (
-                          <span className={`inline-block min-w-[100px] mx-1 px-3 py-1 border-b-2 ${
-                            darkMode ? 'border-gray-500' : 'border-gray-400'
-                          }`}>
-                            {' '}
-                          </span>
-                        )}
-                      </span>
-                    ))}
+                {pregunta.textoCompleto ? (
+                  <div className={`${darkMode ? 'text-gray-300' : 'text-gray-800'} leading-relaxed`}>
+                    {generarTextoConEspacios(pregunta)}
                   </div>
                 ) : (
                   <div className={`text-sm italic ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -1197,8 +1495,8 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
   return (
     <div className="space-y-6">
       {preguntas.map((pregunta, index) => (
-        preguntaEditando === pregunta.id 
-          ? renderizarPreguntaEdicion(pregunta)
+        preguntasEditando.has(pregunta.id)
+          ? renderizarPreguntaEdicion(pregunta, index)
           : renderizarPreguntaVista(pregunta, index)
       ))}
 
@@ -1216,9 +1514,8 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
         </div>
       </button>
 
-      {/* Estilos globales para renderizado de HTML en modo vista */}
+      {/* Estilos globales */}
       <style>{`
-        /* Estilos para listas en el contenido renderizado */
         .prose ul,
         .prose ol {
           padding-left: 2em !important;
@@ -1247,7 +1544,6 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
           list-style-type: decimal !important;
         }
 
-        /* Evitar que el texto se ponga en negrita automáticamente */
         .prose p {
           font-weight: normal !important;
         }
@@ -1261,13 +1557,11 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
           font-weight: normal !important;
         }
 
-        /* Estilos para enlaces */
         .prose a {
           color: #3b82f6;
           text-decoration: underline;
         }
 
-        /* Estilos para texto formateado - SOLO cuando se aplica explícitamente */
         .prose strong {
           font-weight: 700 !important;
         }
@@ -1284,7 +1578,6 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
           text-decoration: line-through !important;
         }
 
-        /* Alineación de texto */
         .prose [style*="text-align: center"] {
           text-align: center;
         }

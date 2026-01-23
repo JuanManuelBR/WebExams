@@ -13,6 +13,7 @@ interface Examen {
   codigoExamen: string;
   descripcion?: string;
   duracion?: number;
+  mostrarCalificaciones?: boolean;
 }
 
 interface ExamenVigilanciaProps {
@@ -31,6 +32,7 @@ interface ExamAttempt {
   progreso: number;
   alertas: number;
   alertasNoLeidas?: number;
+  calificacion?: number;
 }
 
 interface Alerta {
@@ -39,7 +41,7 @@ interface Alerta {
   descripcion?: string;
   fecha_envio: string;
   leida: boolean;
-  leido: boolean;  // Propiedad requerida por AlertasModal
+  leido: boolean;
   leida_ts?: string | null;
 }
 
@@ -58,6 +60,8 @@ interface StudentCardProps {
   progreso: number;
   alertas: number;
   alertasNoLeidas: number;
+  calificacion?: number;
+  mostrarCalificacion: boolean;
   darkMode: boolean;
   onRestablecerAcceso: (id: number) => void;
   onVerDetalles: (id: number) => void;
@@ -74,6 +78,8 @@ function StudentCard({
   progreso,
   alertas,
   alertasNoLeidas,
+  calificacion,
+  mostrarCalificacion,
   darkMode,
   onRestablecerAcceso,
   onVerDetalles,
@@ -149,6 +155,12 @@ function StudentCard({
         <p>
           <span className="font-medium">Tiempo:</span> {tiempoTranscurrido}
         </p>
+        {mostrarCalificacion && calificacion !== undefined && (
+          <p className="mt-1">
+            <span className="font-medium">Calificación:</span>{" "}
+            <span className="text-teal-600 font-semibold">{calificacion}/100</span>
+          </p>
+        )}
       </div>
 
       {/* Barra de progreso */}
@@ -220,6 +232,8 @@ export default function ExamenVigilancia({
     attemptId: null as number | null,
     nombre: "",
   });
+  const [mostrarCalificaciones, setMostrarCalificaciones] = useState(false);
+  const [modoVigilancia, setModoVigilancia] = useState(true);
 
   // ============================================
   // SOCKET.IO - MONITOREO EN TIEMPO REAL
@@ -291,7 +305,6 @@ export default function ExamenVigilancia({
 
     const cargarIntentos = async () => {
       try {
-        // Usar getActiveAttemptsByExam que es el método que existe en el servicio
         const data = await examsAttemptsService.getActiveAttemptsByExam(
           selectedExam.id
         );
@@ -331,15 +344,12 @@ export default function ExamenVigilancia({
 
   const handleVerAlertas = async (attemptId: number, nombre: string) => {
     try {
-      // Usar getAttemptEvents que es el método correcto del servicio
       const eventos = await examsAttemptsService.getAttemptEvents(attemptId);
       setAlertasDetalle(eventos);
       setModalAlertas({ show: true, attemptId, nombre });
 
-      // Marcar eventos como leídos usando el método correcto
       await examsAttemptsService.markEventsAsRead(attemptId);
 
-      // Actualizar contador de alertas no leídas
       setExamAttempts((prev) =>
         prev.map((attempt) =>
           attempt.id === attemptId
@@ -349,9 +359,29 @@ export default function ExamenVigilancia({
       );
     } catch (error) {
       console.error("❌ Error al cargar eventos/alertas:", error);
-      // Mostrar modal vacío en caso de error
       setAlertasDetalle([]);
       setModalAlertas({ show: true, attemptId, nombre });
+    }
+  };
+
+  const handleDescargarCalificaciones = async () => {
+    try {
+      console.log("📥 Descargando calificaciones en PDF...");
+      // Aquí iría la lógica para descargar el PDF
+      // Por ejemplo: await examsService.downloadGradesPDF(selectedExam.id);
+      alert("Funcionalidad de descarga de PDF en desarrollo");
+    } catch (error) {
+      console.error("❌ Error al descargar calificaciones:", error);
+    }
+  };
+
+  const handleForzarEnvio = async () => {
+    try {
+      console.log("📤 Forzando envío de exámenes...");
+      // Aquí iría la lógica para forzar el envío
+      alert("Funcionalidad de forzar envío en desarrollo");
+    } catch (error) {
+      console.error("❌ Error al forzar envío:", error);
     }
   };
 
@@ -374,7 +404,6 @@ export default function ExamenVigilancia({
     return traducciones[estado.toLowerCase()] || "Abandonado";
   };
 
-  // Normalizar estado para comparación en filtros (minúsculas)
   const normalizarEstado = (estado: string): string => {
     return traducirEstado(estado).toLowerCase();
   };
@@ -402,224 +431,352 @@ export default function ExamenVigilancia({
     abandonados: examAttempts.filter(
       (a) => normalizarEstado(a.estado) === "abandonado"
     ).length,
+    enCurso: examAttempts.filter(
+      (a) => normalizarEstado(a.estado) === "activo" || normalizarEstado(a.estado) === "pausado"
+    ).length,
   };
 
   // ============================================
   // RENDER
   // ============================================
   return (
-    <div className="p-6">
-      {/* Header con botón de volver */}
+    <div className="space-y-6">
+      {/* Header mejorado */}
       <div
-        className={`${darkMode ? "bg-slate-900" : "bg-white"} rounded-lg shadow-sm p-6 mb-6`}
+        className={`${darkMode ? "bg-gradient-to-r from-slate-800 to-slate-900 border-slate-700" : "bg-gradient-to-r from-white to-gray-50 border-gray-200"} border rounded-xl shadow-lg p-6`}
       >
-        <div className="mb-4">
-          <button
-            onClick={onVolver}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              darkMode
-                ? "bg-slate-800 hover:bg-slate-700 text-gray-300"
-                : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-            }`}
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+        {/* Botón volver y título */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={onVolver}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all hover:scale-105 ${
+                darkMode
+                  ? "bg-slate-700 hover:bg-slate-600 text-gray-300"
+                  : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+              }`}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            Volver
-          </button>
-        </div>
-
-        <div className="mb-6">
-          <h2
-            className={`text-xl font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}
-          >
-            {selectedExam.nombre}
-          </h2>
-          <div
-            className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}
-          >
-            Código: {selectedExam.codigoExamen}
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+              Volver
+            </button>
+            
+            <div className="h-8 w-px bg-gray-700"></div>
+            
+            <div>
+              <h1
+                className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-900"}`}
+              >
+                {selectedExam.nombre}
+              </h1>
+              <div className="flex items-center gap-3 mt-1">
+                <span
+                  className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}
+                >
+                  Código: <span className="font-mono font-semibold">{selectedExam.codigoExamen}</span>
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+                    Vigilancia:
+                  </span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={modoVigilancia}
+                      onChange={(e) => setModoVigilancia(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-800 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Contadores por estado */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* Estadísticas principales */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div
-            className={`p-4 rounded-lg ${darkMode ? "bg-slate-800" : "bg-gray-50"}`}
+            className={`${darkMode ? "bg-slate-700/50" : "bg-blue-50"} rounded-lg p-4 text-center border ${darkMode ? "border-slate-600" : "border-blue-200"}`}
           >
-            <div
-              className={`text-xs font-semibold mb-1 ${darkMode ? "text-gray-400" : "text-gray-600"}`}
-            >
-              Total
-            </div>
-            <div
-              className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-900"}`}
-            >
+            <div className="text-3xl font-bold text-blue-500 mb-1">
               {contadores.total}
             </div>
-          </div>
-
-          <div
-            className={`p-4 rounded-lg ${darkMode ? "bg-slate-800" : "bg-gray-50"}`}
-          >
-            <div className="text-xs font-semibold mb-1 text-green-400">
-              Activos
-            </div>
-            <div className="text-2xl font-bold text-green-400">
-              {contadores.activos}
+            <div
+              className={`text-sm font-medium ${darkMode ? "text-gray-400" : "text-gray-600"}`}
+            >
+              Han empezado
             </div>
           </div>
 
           <div
-            className={`p-4 rounded-lg ${darkMode ? "bg-slate-800" : "bg-gray-50"}`}
+            className={`${darkMode ? "bg-slate-700/50" : "bg-green-50"} rounded-lg p-4 text-center border ${darkMode ? "border-slate-600" : "border-green-200"}`}
           >
-            <div className="text-xs font-semibold mb-1 text-red-400">
-              Bloqueados
-            </div>
-            <div className="text-2xl font-bold text-red-400">
-              {contadores.bloqueados}
-            </div>
-          </div>
-
-          <div
-            className={`p-4 rounded-lg ${darkMode ? "bg-slate-800" : "bg-gray-50"}`}
-          >
-            <div className="text-xs font-semibold mb-1 text-yellow-400">
-              En Pausa
-            </div>
-            <div className="text-2xl font-bold text-yellow-400">
-              {contadores.pausados}
-            </div>
-          </div>
-
-          <div
-            className={`p-4 rounded-lg ${darkMode ? "bg-slate-800" : "bg-gray-50"}`}
-          >
-            <div className="text-xs font-semibold mb-1 text-blue-400">
-              Terminados
-            </div>
-            <div className="text-2xl font-bold text-blue-400">
+            <div className="text-3xl font-bold text-green-500 mb-1">
               {contadores.terminados}
             </div>
+            <div
+              className={`text-sm font-medium ${darkMode ? "text-gray-400" : "text-gray-600"}`}
+            >
+              Han enviado
+            </div>
           </div>
 
           <div
-            className={`p-4 rounded-lg ${darkMode ? "bg-slate-800" : "bg-gray-50"}`}
+            className={`${darkMode ? "bg-slate-700/50" : "bg-orange-50"} rounded-lg p-4 text-center border ${darkMode ? "border-slate-600" : "border-orange-200"}`}
           >
-            <div className="text-xs font-semibold mb-1 text-gray-400">
-              Abandonados
+            <div className="text-3xl font-bold text-orange-500 mb-1">
+              {contadores.enCurso}
             </div>
-            <div className="text-2xl font-bold text-gray-400">
-              {contadores.abandonados}
+            <div
+              className={`text-sm font-medium ${darkMode ? "text-gray-400" : "text-gray-600"}`}
+            >
+              En curso
+            </div>
+          </div>
+
+          <div
+            className={`${darkMode ? "bg-slate-700/50" : "bg-red-50"} rounded-lg p-4 text-center border ${darkMode ? "border-slate-600" : "border-red-200"}`}
+          >
+            <div className="text-3xl font-bold text-red-500 mb-1">
+              {contadores.bloqueados}
+            </div>
+            <div
+              className={`text-sm font-medium ${darkMode ? "text-gray-400" : "text-gray-600"}`}
+            >
+              Bloqueados
             </div>
           </div>
         </div>
 
-        {/* Botones de filtro */}
-        <div className="mt-6 flex flex-wrap gap-2">
+        {/* Acciones principales - Rediseñadas */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
-            onClick={() => setFiltroEstado("todos")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              filtroEstado === "todos"
-                ? darkMode
-                  ? "bg-blue-600 text-white"
-                  : "bg-blue-600 text-white"
-                : darkMode
-                  ? "bg-slate-800 text-gray-300 hover:bg-slate-700"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            onClick={handleForzarEnvio}
+            className={`group flex items-center gap-3 p-4 rounded-lg transition-all hover:scale-105 ${
+              darkMode
+                ? "bg-gradient-to-r from-red-900/40 to-red-800/40 hover:from-red-900/60 hover:to-red-800/60 border border-red-700/50"
+                : "bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 border border-red-200"
             }`}
           >
-            Todos ({contadores.total})
+            <div className="flex-shrink-0 w-12 h-12 bg-red-500 rounded-lg flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+              <svg
+                className="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                />
+              </svg>
+            </div>
+            <div className="text-left flex-1">
+              <div className={`font-semibold ${darkMode ? "text-white" : "text-gray-900"}`}>
+                Forzar envío
+              </div>
+              <div className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+                Finalizar para todos
+              </div>
+            </div>
           </button>
 
           <button
-            onClick={() => setFiltroEstado("activo")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              filtroEstado === "activo"
-                ? "bg-green-600 text-white"
+            onClick={() => setMostrarCalificaciones(!mostrarCalificaciones)}
+            className={`group flex items-center gap-3 p-4 rounded-lg transition-all hover:scale-105 ${
+              mostrarCalificaciones
+                ? "bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 border border-teal-500"
                 : darkMode
-                  ? "bg-slate-800 text-gray-300 hover:bg-slate-700"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  ? "bg-gradient-to-r from-blue-900/40 to-blue-800/40 hover:from-blue-900/60 hover:to-blue-800/60 border border-blue-700/50"
+                  : "bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 border border-blue-200"
             }`}
           >
-            Activos ({contadores.activos})
+            <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow ${
+              mostrarCalificaciones ? "bg-white" : "bg-blue-500"
+            }`}>
+              <svg
+                className={`w-6 h-6 ${mostrarCalificaciones ? "text-teal-600" : "text-white"}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <div className="text-left flex-1">
+              <div className={`font-semibold ${mostrarCalificaciones ? "text-white" : darkMode ? "text-white" : "text-gray-900"}`}>
+                {mostrarCalificaciones ? "Ocultar" : "Mostrar"} notas
+              </div>
+              <div className={`text-xs ${mostrarCalificaciones ? "text-teal-100" : darkMode ? "text-gray-400" : "text-gray-600"}`}>
+                Calificaciones
+              </div>
+            </div>
           </button>
 
           <button
-            onClick={() => setFiltroEstado("bloqueado")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              filtroEstado === "bloqueado"
-                ? "bg-red-600 text-white"
-                : darkMode
-                  ? "bg-slate-800 text-gray-300 hover:bg-slate-700"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            onClick={handleDescargarCalificaciones}
+            className={`group flex items-center gap-3 p-4 rounded-lg transition-all hover:scale-105 ${
+              darkMode
+                ? "bg-gradient-to-r from-purple-900/40 to-purple-800/40 hover:from-purple-900/60 hover:to-purple-800/60 border border-purple-700/50"
+                : "bg-gradient-to-r from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 border border-purple-200"
             }`}
           >
-            Bloqueados ({contadores.bloqueados})
-          </button>
-
-          <button
-            onClick={() => setFiltroEstado("pausado")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              filtroEstado === "pausado"
-                ? "bg-yellow-600 text-white"
-                : darkMode
-                  ? "bg-slate-800 text-gray-300 hover:bg-slate-700"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            En Pausa ({contadores.pausados})
-          </button>
-
-          <button
-            onClick={() => setFiltroEstado("terminado")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              filtroEstado === "terminado"
-                ? "bg-blue-600 text-white"
-                : darkMode
-                  ? "bg-slate-800 text-gray-300 hover:bg-slate-700"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            Terminados ({contadores.terminados})
-          </button>
-
-          <button
-            onClick={() => setFiltroEstado("abandonado")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              filtroEstado === "abandonado"
-                ? "bg-gray-600 text-white"
-                : darkMode
-                  ? "bg-slate-800 text-gray-300 hover:bg-slate-700"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            Abandonados ({contadores.abandonados})
+            <div className="flex-shrink-0 w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+              <svg
+                className="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+            </div>
+            <div className="text-left flex-1">
+              <div className={`font-semibold ${darkMode ? "text-white" : "text-gray-900"}`}>
+                Descargar PDF
+              </div>
+              <div className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+                Reporte completo
+              </div>
+            </div>
           </button>
         </div>
       </div>
 
-      {/* Lista de estudiantes FILTRADA */}
+      {/* Filtros de estado - Rediseñados */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => setFiltroEstado("todos")}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            filtroEstado === "todos"
+              ? "bg-teal-600 text-white shadow-lg scale-105"
+              : darkMode
+                ? "bg-slate-800 text-gray-300 hover:bg-slate-700"
+                : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+          }`}
+        >
+          Todos <span className="ml-1 opacity-75">({contadores.total})</span>
+        </button>
+
+        <button
+          onClick={() => setFiltroEstado("activo")}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            filtroEstado === "activo"
+              ? "bg-green-600 text-white shadow-lg scale-105"
+              : darkMode
+                ? "bg-slate-800 text-gray-300 hover:bg-slate-700"
+                : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+          }`}
+        >
+          Activos <span className="ml-1 opacity-75">({contadores.activos})</span>
+        </button>
+
+        <button
+          onClick={() => setFiltroEstado("bloqueado")}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            filtroEstado === "bloqueado"
+              ? "bg-red-600 text-white shadow-lg scale-105"
+              : darkMode
+                ? "bg-slate-800 text-gray-300 hover:bg-slate-700"
+                : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+          }`}
+        >
+          Bloqueados <span className="ml-1 opacity-75">({contadores.bloqueados})</span>
+        </button>
+
+        <button
+          onClick={() => setFiltroEstado("pausado")}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            filtroEstado === "pausado"
+              ? "bg-yellow-600 text-white shadow-lg scale-105"
+              : darkMode
+                ? "bg-slate-800 text-gray-300 hover:bg-slate-700"
+                : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+          }`}
+        >
+          En Pausa <span className="ml-1 opacity-75">({contadores.pausados})</span>
+        </button>
+
+        <button
+          onClick={() => setFiltroEstado("terminado")}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            filtroEstado === "terminado"
+              ? "bg-blue-600 text-white shadow-lg scale-105"
+              : darkMode
+                ? "bg-slate-800 text-gray-300 hover:bg-slate-700"
+                : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+          }`}
+        >
+          Terminados <span className="ml-1 opacity-75">({contadores.terminados})</span>
+        </button>
+
+        <button
+          onClick={() => setFiltroEstado("abandonado")}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            filtroEstado === "abandonado"
+              ? "bg-gray-600 text-white shadow-lg scale-105"
+              : darkMode
+                ? "bg-slate-800 text-gray-300 hover:bg-slate-700"
+                : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+          }`}
+        >
+          Abandonados <span className="ml-1 opacity-75">({contadores.abandonados})</span>
+        </button>
+      </div>
+
+      {/* Lista de estudiantes */}
       {intentosFiltrados.length === 0 ? (
         <div
           className={`${darkMode ? "bg-slate-900" : "bg-white"} rounded-lg shadow-sm p-12 text-center`}
         >
+          <svg
+            className={`w-16 h-16 mx-auto mb-4 ${darkMode ? "text-gray-600" : "text-gray-400"}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+            />
+          </svg>
           <p
-            className={`text-lg ${darkMode ? "text-gray-400" : "text-gray-600"}`}
+            className={`text-lg font-medium mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}
           >
             {filtroEstado === "todos"
-              ? "No hay estudiantes en este momento"
+              ? "No hay estudiantes realizando el examen"
               : `No hay estudiantes en estado "${filtroEstado}"`}
+          </p>
+          <p
+            className={`text-sm ${darkMode ? "text-gray-500" : "text-gray-500"}`}
+          >
+            Los estudiantes aparecerán aquí cuando comiencen el examen
           </p>
         </div>
       ) : (
@@ -636,6 +793,8 @@ export default function ExamenVigilancia({
               progreso={attempt.progreso}
               alertas={attempt.alertas}
               alertasNoLeidas={attempt.alertasNoLeidas || 0}
+              calificacion={attempt.calificacion}
+              mostrarCalificacion={mostrarCalificaciones}
               darkMode={darkMode}
               onRestablecerAcceso={handleUnlockAttempt}
               onVerDetalles={handleViewDetails}
