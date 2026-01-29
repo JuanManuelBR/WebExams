@@ -13,6 +13,12 @@ import {
   Download,
   Mail,
   Zap,
+  ArrowLeft,
+  Maximize,
+  MousePointer,
+  ShieldAlert,
+  ShieldCheck,
+  Lock
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import AlertasModal from "./AlertasModal";
@@ -20,7 +26,7 @@ import { examsService } from "../services/examsService";
 import { examsAttemptsService } from "../services/examsAttempts";
 
 // ============================================
-// INTERFACES (Sin cambios)
+// INTERFACES
 // ============================================
 interface Examen {
   id: number;
@@ -89,6 +95,7 @@ export default function VigilanciaExamenesLista({
   const [alertasEstudiante, setAlertasEstudiante] = useState<Alerta[]>([]);
   const [mostrarModalAlertas, setMostrarModalAlertas] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchExamen, setSearchExamen] = useState("");
   const [socket, setSocket] = useState<Socket | null>(null);
   const [filtrosPorExamen, setFiltrosPorExamen] = useState<{ [key: number]: FiltroEstado }>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -217,12 +224,20 @@ export default function VigilanciaExamenesLista({
   const handleMarcarAlertasComoLeidas = async (attemptId: number) => {
     try {
       await examsAttemptsService.markEventsAsRead(attemptId);
-      await cargarAlertasEstudiante(attemptId);
+      
+      // Limpiar las alertas del estado local
+      setAlertasEstudiante([]);
+      
+      // Actualizar el estado de los exámenes
       setExamAttempts(prev => {
          if(!examenActual) return prev;
          return { ...prev, [examenActual.id]: prev[examenActual.id].map(i => i.id === attemptId ? {...i, alertasNoLeidas: 0} : i) };
       });
-      if(estudianteSeleccionado?.id === attemptId) setEstudianteSeleccionado(prev => prev ? {...prev, alertasNoLeidas: 0} : null);
+      
+      // Actualizar el estudiante seleccionado
+      if(estudianteSeleccionado?.id === attemptId) {
+        setEstudianteSeleccionado(prev => prev ? {...prev, alertasNoLeidas: 0} : null);
+      }
     } catch (e) { console.error(e); }
   };
 
@@ -233,7 +248,6 @@ export default function VigilanciaExamenesLista({
     handleMarcarAlertasComoLeidas(estudiante.id);
   };
 
-  // Acciones (Placeholders)
   const handleForzarEnvio = async () => { if(confirm("¿Forzar envío?")) console.log("Forzando..."); };
   const handleCalificarAutomaticamente = async () => console.log("Calificando...");
   const handleDescargarPDF = async () => console.log("Descargando PDF...");
@@ -267,6 +281,35 @@ export default function VigilanciaExamenesLista({
       default: return dark ? "bg-slate-700 text-slate-400 border-slate-600" : "bg-slate-100 text-slate-600 border-slate-300";
     }
   };
+
+  // Helper para configuración de alertas
+  const getAlertConfig = (tipo: string) => {
+    const t = tipo.toLowerCase();
+    if(t.includes("pestaña")) return { 
+      icon: <Eye className="w-5 h-5" />, 
+      color: "text-blue-600", 
+      bg: darkMode ? "bg-blue-900/20" : "bg-gradient-to-br from-blue-50 to-blue-100/50", 
+      border: darkMode ? "border-blue-800" : "border-blue-200" 
+    };
+    if(t.includes("foco") || t.includes("focus")) return { 
+      icon: <MousePointer className="w-5 h-5" />, 
+      color: "text-amber-600", 
+      bg: darkMode ? "bg-amber-900/20" : "bg-gradient-to-br from-amber-50 to-amber-100/50", 
+      border: darkMode ? "border-amber-800" : "border-amber-200" 
+    };
+    if(t.includes("pantalla")) return { 
+      icon: <Maximize className="w-5 h-5" />, 
+      color: "text-purple-600", 
+      bg: darkMode ? "bg-purple-900/20" : "bg-gradient-to-br from-purple-50 to-purple-100/50", 
+      border: darkMode ? "border-purple-800" : "border-purple-200" 
+    };
+    return { 
+      icon: <AlertTriangle className="w-5 h-5" />, 
+      color: "text-rose-600", 
+      bg: darkMode ? "bg-rose-900/20" : "bg-gradient-to-br from-rose-50 to-rose-100/50", 
+      border: darkMode ? "border-rose-800" : "border-rose-200" 
+    };
+  }
 
   const estudiantesFiltrados = examenActual && examAttempts[examenActual.id]
     ? examAttempts[examenActual.id].filter((est) => {
@@ -306,11 +349,10 @@ export default function VigilanciaExamenesLista({
       <div className="flex h-[calc(100vh-140px)] gap-6 px-12 overflow-hidden">
         
         {/* =======================================================
-            PANEL IZQUIERDO: LISTA DE EXÁMENES + CONTROLES
+            PANEL IZQUIERDO
            ======================================================= */}
         <div className="w-80 flex flex-col gap-4 flex-shrink-0 overflow-hidden">
           
-          {/* CABECERA IZQUIERDA */}
           <div className={`p-4 rounded-2xl shadow-sm flex-shrink-0 border ${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"}`}>
             <div className="flex items-start justify-between mb-4">
                <div>
@@ -322,54 +364,59 @@ export default function VigilanciaExamenesLista({
                   <span className="text-[10px] font-bold text-teal-500 uppercase tracking-wide">En vivo</span>
                </div>
             </div>
-            {/* Buscador Global */}
             <div className="relative">
               <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${darkMode ? "text-slate-500" : "text-slate-400"}`} />
               <input
                 type="text"
-                placeholder="Filtrar estudiante..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className={`w-full pl-9 pr-4 py-2 text-xs rounded-lg border transition-all ${darkMode ? "bg-slate-800 border-slate-700 text-slate-200" : "bg-slate-50 border-slate-200 text-slate-900"} focus:outline-none focus:border-teal-500`}
+                placeholder="Buscar examen..."
+                value={searchExamen}
+                onChange={(e) => setSearchExamen(e.target.value)}
+                className={`w-full pl-9 pr-4 py-2 text-xs rounded-lg border transition-all ${darkMode ? "bg-slate-800 border-slate-700 text-slate-200 placeholder:text-slate-500" : "bg-slate-50 border-slate-200 text-slate-900"} focus:outline-none focus:border-teal-500`}
               />
             </div>
           </div>
 
-          {/* LISTA DE EXÁMENES */}
           <div className={`flex-1 rounded-2xl shadow-sm border flex flex-col min-h-0 ${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"}`}>
             <div className="flex-1 overflow-y-scroll scrollbar-hide p-2 space-y-2">
-              {examenes.map((examen) => {
+              {examenes.filter((examen) => 
+                examen.nombre.toLowerCase().includes(searchExamen.toLowerCase()) ||
+                examen.codigoExamen.toLowerCase().includes(searchExamen.toLowerCase())
+              ).map((examen) => {
                 const isExpanded = examenExpandido === examen.id;
                 const tipoExamen = obtenerTipoExamen(examen);
                 const colores = obtenerColoresExamen(tipoExamen);
                 
                 return (
                   <div key={examen.id} className={`rounded-xl transition-all ${isExpanded ? (darkMode ? "bg-slate-800/50" : "bg-teal-50/50") : ""}`}>
-                    {/* Examen Item */}
                     <button
                       onClick={() => toggleExamen(examen)}
-                      className={`w-full px-3 py-3 text-left flex items-center gap-3 rounded-xl border-l-4 transition-all ${colores.borde} ${isExpanded ? "" : "hover:bg-slate-50 dark:hover:bg-slate-800"} ${examen.estado === "closed" ? "opacity-60" : "opacity-100"}`}
+                      className={`w-full px-3 py-3 text-left flex items-center gap-3 rounded-xl border-l-4 transition-all group ${colores.borde} ${isExpanded ? (darkMode ? "bg-slate-800/50" : "bg-teal-50/70") : (darkMode ? "hover:bg-slate-800" : "hover:bg-slate-50")} ${examen.estado === "closed" ? "opacity-60" : "opacity-100"}`}
                     >
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${colores.fondo}`}>
                         <FileText className="w-5 h-5 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-center">
-                            <p className={`font-bold text-sm truncate ${isExpanded ? "text-teal-600 dark:text-teal-400" : darkMode ? "text-slate-200" : "text-slate-700"}`}>{examen.nombre}</p>
-                            <ChevronDown className={`w-4 h-4 opacity-50 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                            <p className={`font-bold text-sm truncate transition-colors ${
+                              isExpanded 
+                                ? (darkMode ? "text-teal-400" : "text-teal-600")
+                                : (darkMode ? "text-slate-400 group-hover:text-white" : "text-slate-700")
+                            }`}>{examen.nombre}</p>
+                            <ChevronDown className={`w-4 h-4 transition-all ${
+                              darkMode ? "text-slate-500 group-hover:text-white" : "text-slate-500"
+                            } ${isExpanded ? "rotate-180" : ""}`} />
                         </div>
-                        <p className={`text-[10px] font-mono ${darkMode ? "text-slate-400" : "text-slate-500"}`}>{examen.codigoExamen}</p>
+                        <p className={`text-[10px] font-mono transition-colors ${
+                          darkMode ? "text-slate-500 group-hover:text-slate-300" : "text-slate-500"
+                        }`}>{examen.codigoExamen}</p>
                       </div>
                     </button>
 
-                    {/* MENÚ DE ACCIONES (Expandido) - AHORA AQUÍ EN LUGAR DE LA LISTA */}
                     {isExpanded && (
                       <div className="px-3 pb-3 pt-1 space-y-3 animation-fade-in">
-                        
-                        {/* 1. Exam Key Card */}
                         <div className={`p-3 rounded-lg border flex items-center justify-between ${darkMode ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200"}`}>
                             <div>
-                                <p className="text-[10px] uppercase font-bold text-slate-500">Código</p>
+                                <p className={`text-[10px] uppercase font-bold ${darkMode ? "text-slate-500" : "text-slate-400"}`}>Código</p>
                                 <p className={`font-mono font-bold ${darkMode ? "text-white" : "text-slate-800"}`}>{examen.codigoExamen}</p>
                             </div>
                             <button
@@ -380,9 +427,7 @@ export default function VigilanciaExamenesLista({
                             </button>
                         </div>
 
-                        {/* 2. Botones de Acción */}
                         <div className="grid grid-cols-1 gap-2">
-                           {/* Forzar Envío */}
                            <button 
                              onClick={(e) => { e.stopPropagation(); if(examen.estado === "open") handleForzarEnvio(); }}
                              disabled={examen.estado === "closed"}
@@ -392,13 +437,12 @@ export default function VigilanciaExamenesLista({
                                 : darkMode ? "bg-slate-800 border-slate-700 hover:border-orange-500 text-slate-200" : "bg-white border-slate-200 hover:border-orange-500 text-slate-700"
                              }`}
                            >
-                              <div className={`p-1.5 rounded-md ${examen.estado === "open" ? "bg-orange-500/10 text-orange-500" : "bg-slate-500/10"}`}>
+                              <div className={`p-1.5 rounded-md ${examen.estado === "open" ? "bg-orange-500/10 text-orange-500" : "bg-slate-500/10 text-slate-400"}`}>
                                 <Send className="w-4 h-4" />
                               </div>
                               <span className="text-xs font-semibold">Forzar Envío</span>
                            </button>
 
-                           {/* Descargar PDF (Solo si cerrado) */}
                            {examen.estado === "closed" && (
                              <button 
                                onClick={(e) => { e.stopPropagation(); handleDescargarPDF(); }}
@@ -411,7 +455,6 @@ export default function VigilanciaExamenesLista({
                              </button>
                            )}
 
-                           {/* Enviar Notas (Solo si cerrado) */}
                            {examen.estado === "closed" && (
                              <button 
                                onClick={(e) => { e.stopPropagation(); handleEnviarNotas(); }}
@@ -424,7 +467,6 @@ export default function VigilanciaExamenesLista({
                              </button>
                            )}
                            
-                           {/* Calificar (Si no es PDF y cerrado) */}
                            {examen.estado === "closed" && tipoExamen !== "pdf" && (
                              <button 
                                onClick={(e) => { e.stopPropagation(); handleCalificarAutomaticamente(); }}
@@ -437,7 +479,6 @@ export default function VigilanciaExamenesLista({
                              </button>
                            )}
                         </div>
-
                       </div>
                     )}
                   </div>
@@ -448,11 +489,11 @@ export default function VigilanciaExamenesLista({
         </div>
 
         {/* =======================================================
-            PANEL DERECHO: LISTA DE ESTUDIANTES (PRINCIPAL)
+            PANEL DERECHO
            ======================================================= */}
         <div className="flex-1 flex flex-col gap-5 min-w-0 overflow-hidden">
           
-          {/* 1. Stats Cards (Arriba) */}
+          {/* Stats Cards */}
           {examenActual && (
             <div className="grid grid-cols-4 gap-4 flex-shrink-0">
               {[
@@ -474,11 +515,11 @@ export default function VigilanciaExamenesLista({
             </div>
           )}
 
-          {/* 2. Contenido Principal */}
-          <div className={`flex-1 flex flex-col overflow-hidden rounded-2xl shadow-sm border ${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"}`}>
+          {/* Contenido Principal */}
+          <div className={`flex-1 flex flex-col overflow-hidden rounded-2xl shadow-sm border ${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"}`}>
             
             {!examenActual ? (
-              <div className="flex flex-col items-center justify-center h-full opacity-50">
+              <div className={`flex flex-col items-center justify-center h-full ${darkMode ? "text-slate-400" : "text-slate-400"}`}>
                   <FileText className="w-12 h-12 mb-4" />
                   <p>Selecciona un examen del panel lateral</p>
               </div>
@@ -486,46 +527,52 @@ export default function VigilanciaExamenesLista({
               // ================= VISTA LISTA DE ESTUDIANTES =================
               <div className="flex flex-col h-full">
                 
-                {/* Header Examen (Nombre) */}
-                <div className="p-6 pb-2 border-b border-dashed border-slate-200 dark:border-slate-800 flex-shrink-0">
-                    <h1 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-slate-800"}`}>{examenActual.nombre}</h1>
-                    <p className={`text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}>{estudiantesFiltrados.length} estudiantes mostrados</p>
+                <div className="p-6 pb-4 flex-shrink-0">
+                    <h1 className={`text-2xl font-bold mb-2 ${darkMode ? "text-white" : "text-slate-800"}`}>{examenActual.nombre}</h1>
+                    <div className="flex justify-between items-center">
+                        <p className={`text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}>{estudiantesFiltrados.length} estudiantes mostrados</p>
+                        <div className="relative w-64">
+                            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${darkMode ? "text-slate-500" : "text-slate-400"}`} />
+                            <input
+                                type="text"
+                                placeholder="Buscar estudiante..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className={`w-full pl-10 pr-4 py-2 text-sm rounded-lg border transition-all ${darkMode ? "bg-slate-800 border-slate-700 text-slate-200" : "bg-slate-50 border-slate-200 text-slate-900"} focus:outline-none focus:border-teal-500`}
+                            />
+                        </div>
+                    </div>
                 </div>
 
-                {/* Filtros Tabs (Movidos aquí) */}
-                <div className={`flex border-b ${darkMode ? "border-slate-800" : "border-slate-200"} flex-shrink-0`}>
+                <div className={`flex gap-1 px-6 flex-shrink-0 mb-4 border-b ${darkMode ? "border-slate-800" : "border-slate-100"}`}>
                    {[
                       { key: "todos" as FiltroEstado, label: "Todos", count: contadores.todos },
                       { key: "activos" as FiltroEstado, label: "Activos", count: contadores.activos },
                       { key: "bloqueados" as FiltroEstado, label: "Bloqueados", count: contadores.bloqueados },
                       { key: "pausados" as FiltroEstado, label: "Pausa", count: contadores.pausados },
                       { key: "terminados" as FiltroEstado, label: "Terminados", count: contadores.terminados },
-                      { key: "abandonados" as FiltroEstado, label: "Abandonados", count: contadores.abandonados },
                    ].map((filtro) => (
                       <button
                         key={filtro.key}
                         onClick={() => cambiarFiltroExamen(filtro.key)}
-                        className={`flex-1 py-4 text-center transition-all border-b-2 relative ${
+                        className={`py-3 px-4 text-sm font-medium border-b-2 transition-all ${
                           filtroActual === filtro.key 
-                          ? `border-teal-500 ${darkMode ? "text-teal-400" : "text-teal-600 bg-teal-50/50"}` 
-                          : `border-transparent ${darkMode ? "text-slate-500 hover:text-slate-300" : "text-slate-400 hover:text-slate-600"}`
+                          ? `border-teal-500 ${darkMode ? "text-teal-400" : "text-teal-600"}`
+                          : `border-transparent ${darkMode ? "text-slate-400 hover:text-slate-300" : "text-slate-500 hover:text-slate-700"}`
                         }`}
                       >
-                         <span className="text-xs font-bold uppercase tracking-wider block">{filtro.label}</span>
-                         <span className="text-lg font-bold block mt-1">{filtro.count}</span>
+                         {filtro.label} <span className="opacity-60 ml-1 text-xs">({filtro.count})</span>
                       </button>
                    ))}
                 </div>
 
-                {/* Lista Scrollable */}
-                <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
+                <div className="flex-1 overflow-y-auto px-6 pb-4 scrollbar-hide">
                    {estudiantesFiltrados.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center opacity-50">
-                         <Search className="w-10 h-10 mb-2" />
+                      <div className={`h-64 flex flex-col items-center justify-center ${darkMode ? "text-slate-400" : "text-slate-400"}`}>
                          <p>No se encontraron estudiantes</p>
                       </div>
                    ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         {estudiantesFiltrados.map((estudiante) => {
                            const estado = traducirEstado(estudiante.estado);
                            return (
@@ -534,57 +581,50 @@ export default function VigilanciaExamenesLista({
                                onClick={() => seleccionarEstudiante(estudiante)}
                                className={`w-full text-left p-4 rounded-xl border transition-all group ${
                                   darkMode 
-                                  ? "bg-slate-800/40 border-slate-800 hover:bg-slate-800" 
+                                  ? "bg-slate-800/40 border-slate-700 hover:bg-slate-800 hover:border-slate-600" 
                                   : "bg-white border-slate-100 hover:border-teal-200 hover:shadow-md"
                                }`}
                              >
                                 <div className="flex items-center gap-4">
-                                   {/* Avatar */}
-                                   <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${darkMode ? "bg-slate-700 text-slate-300" : "bg-teal-50 text-teal-600"}`}>
+                                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${darkMode ? "bg-slate-700 text-slate-300" : "bg-teal-50 text-teal-600"}`}>
                                       {estudiante.nombre_estudiante.charAt(0)}
                                    </div>
 
-                                   {/* Info Principal */}
                                    <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2 mb-1">
-                                         <h4 className={`font-bold truncate ${darkMode ? "text-white" : "text-slate-800"}`}>{estudiante.nombre_estudiante}</h4>
-                                         <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${getEstadoBadgeColor(estado, darkMode)}`}>{estado}</span>
+                                         <h4 className={`font-bold truncate text-base ${darkMode ? "text-white" : "text-slate-800"}`}>{estudiante.nombre_estudiante}</h4>
+                                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${getEstadoBadgeColor(estado, darkMode)}`}>{estado}</span>
                                       </div>
-                                      <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 font-mono">
-                                          <span>{estudiante.tiempoTranscurrido}</span>
-                                          <span>•</span>
-                                          <span>{estudiante.correo_estudiante || "Sin correo"}</span>
+                                      <div className={`flex items-center gap-4 text-xs font-mono ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                                         <span className="flex items-center gap-1"><Clock className="w-3 h-3"/> {estudiante.tiempoTranscurrido}</span>
+                                         <span>•</span>
+                                         <span>{estudiante.correo_estudiante || "Sin correo"}</span>
                                       </div>
                                    </div>
 
-                                   {/* Métricas (Lado derecho) */}
-                                   <div className="flex items-center gap-6">
-                                      {/* Alertas */}
-                                      <div className={`text-center ${estudiante.alertas > 0 ? "text-rose-500" : "text-slate-400"}`}>
-                                         <div className="flex justify-center mb-1">
-                                            {estudiante.alertasNoLeidas ? (
-                                               <div className="relative">
-                                                  <AlertTriangle className="w-5 h-5" />
-                                                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900" />
-                                               </div>
-                                            ) : <AlertTriangle className="w-5 h-5 opacity-50" />}
-                                         </div>
-                                         <span className="text-[10px] font-bold">{estudiante.alertas} Alertas</span>
+                                   <div className="flex items-center gap-8 mr-4">
+                                      <div className={`text-center flex flex-col items-center ${estudiante.alertas > 0 ? "text-rose-500" : (darkMode ? "text-slate-600" : "text-slate-300")}`}>
+                                         {estudiante.alertasNoLeidas ? (
+                                            <div className="relative animate-bounce">
+                                               <AlertTriangle className="w-5 h-5" />
+                                               <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 ${darkMode ? "border-slate-900" : "border-white"}`} />
+                                            </div>
+                                         ) : <AlertTriangle className="w-5 h-5" />}
+                                         <span className="text-[10px] font-bold mt-1">{estudiante.alertas}</span>
                                       </div>
 
-                                      {/* Progreso */}
-                                      <div className="w-24">
-                                         <div className="flex justify-between text-[10px] mb-1 font-bold">
-                                            <span className={darkMode ? "text-slate-400" : "text-slate-500"}>Progreso</span>
-                                            <span className="text-teal-500">{estudiante.progreso}%</span>
-                                         </div>
-                                         <div className={`h-1.5 w-full rounded-full overflow-hidden ${darkMode ? "bg-slate-700" : "bg-slate-200"}`}>
-                                            <div className="h-full bg-teal-500 rounded-full" style={{ width: `${estudiante.progreso}%` }}></div>
-                                         </div>
+                                      <div className="w-32 flex flex-col items-end">
+                                          <div className="flex justify-between w-full mb-1">
+                                              <span className={`text-[10px] uppercase font-bold tracking-wider ${darkMode ? "text-slate-500" : "text-slate-400"}`}>Progreso</span>
+                                              <span className={`text-xs font-bold ${darkMode ? "text-teal-400" : "text-teal-600"}`}>{estudiante.progreso}%</span>
+                                          </div>
+                                          <div className={`h-2.5 w-full rounded-full overflow-hidden ${darkMode ? "bg-slate-700" : "bg-slate-200"}`}>
+                                             <div className="h-full bg-gradient-to-r from-teal-400 to-teal-600 rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(20,184,166,0.3)]" style={{ width: `${estudiante.progreso}%` }}></div>
+                                          </div>
                                       </div>
-                                      
-                                      <ChevronDown className="w-5 h-5 text-slate-300 -rotate-90 group-hover:text-teal-500 transition-colors" />
                                    </div>
+                                   
+                                   <ChevronDown className={`w-5 h-5 -rotate-90 opacity-0 group-hover:opacity-100 transition-all ${darkMode ? "text-slate-500" : "text-slate-300"}`} />
                                 </div>
                              </button>
                            );
@@ -596,91 +636,131 @@ export default function VigilanciaExamenesLista({
 
             ) : (
               // ================= VISTA DETALLE ESTUDIANTE =================
-              <div className="flex flex-col h-full">
-                 <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-4">
-                    <button onClick={() => setEstudianteSeleccionado(null)} className={`p-2 rounded-lg transition-colors ${darkMode ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-100 text-slate-500"}`}>
-                       ← Volver a la lista
+              <div className={`flex flex-col h-full ${darkMode ? "bg-slate-900/50" : "bg-white"}`}>
+                 <div className={`px-6 py-4 border-b flex items-center justify-between ${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"}`}>
+                    <button onClick={() => setEstudianteSeleccionado(null)} className={`flex items-center gap-2 text-sm font-medium transition-colors ${darkMode ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-800"}`}>
+                       <div className={`p-1.5 rounded-lg border ${darkMode ? "border-slate-700 bg-slate-800" : "border-slate-200 bg-slate-50"}`}>
+                           <ArrowLeft className="w-4 h-4" />
+                       </div>
+                       Volver a la lista
                     </button>
-                    <div className="h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
-                    <span className={`font-bold ${darkMode ? "text-white" : "text-slate-800"}`}>Detalle del Estudiante</span>
+                    <div className="flex gap-2">
+                         <button onClick={() => handleMarcarAlertasComoLeidas(estudianteSeleccionado.id)} className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-2 transition-all ${darkMode ? "border-slate-700 hover:bg-slate-800 text-slate-300" : "bg-slate-800 border-slate-700 hover:bg-slate-700 text-white"}`}>
+                            <CheckCircle className="w-3.5 h-3.5" /> Marcar Leídas
+                         </button>
+
+                         {/* NUEVOS BOTONES SOLICITADOS */}
+                         <button onClick={() => console.log("Forzar envío")} className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-2 transition-all ${darkMode ? "border-slate-700 hover:bg-orange-900/20 text-orange-400" : "bg-orange-600 border-orange-600 hover:bg-orange-700 text-white"}`}>
+                            <Send className="w-3.5 h-3.5" /> Forzar Envío
+                         </button>
+                         <button onClick={() => console.log("Cerrar examen")} className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-2 transition-all ${darkMode ? "border-slate-700 hover:bg-rose-900/20 text-rose-400" : "bg-rose-600 border-rose-600 hover:bg-rose-700 text-white"}`}>
+                            <Ban className="w-3.5 h-3.5" /> Cerrar Examen
+                         </button>
+                         
+                         <button onClick={() => handleRestablecerAcceso(estudianteSeleccionado.id)} className="px-4 py-2 rounded-lg text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-500/20 transition-all flex items-center gap-2">
+                             <Zap className="w-3.5 h-3.5" /> Desbloquear
+                         </button>
+                    </div>
                  </div>
                  
-                 <div className="flex-1 overflow-y-auto p-8">
-                     {/* Header Estudiante Seleccionado */}
-                     <div className="flex items-start justify-between mb-8">
-                        <div className="flex items-center gap-5">
-                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-bold shadow-sm ${darkMode ? "bg-slate-800 text-teal-400" : "bg-teal-50 text-teal-600"}`}>
-                                {estudianteSeleccionado.nombre_estudiante.charAt(0)}
-                            </div>
-                            <div>
-                                <h2 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-slate-900"}`}>{estudianteSeleccionado.nombre_estudiante}</h2>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <span className={`px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wide border ${getEstadoBadgeColor(traducirEstado(estudianteSeleccionado.estado), darkMode)}`}>
-                                        {traducirEstado(estudianteSeleccionado.estado)}
-                                    </span>
-                                    <span className={`text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}>{estudianteSeleccionado.correo_estudiante}</span>
-                                </div>
-                            </div>
+                 <div className={`flex-1 overflow-y-auto p-6 scrollbar-hide ${darkMode ? "bg-transparent" : "bg-white"}`}>
+                     
+                     <div className="flex items-center gap-5 mb-8">
+                        <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold shadow-sm ${darkMode ? "bg-slate-800 text-teal-400 border border-slate-700" : "bg-gradient-to-br from-teal-500 to-teal-600 text-white shadow-lg shadow-teal-500/20"}`}>
+                            {estudianteSeleccionado.nombre_estudiante.charAt(0)}
                         </div>
-                        <div className="flex gap-3">
-                            <button onClick={() => handleMarcarAlertasComoLeidas(estudianteSeleccionado.id)} className={`p-2 rounded-lg transition-colors ${darkMode ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-50 text-slate-400"}`} title="Limpiar Alertas">
-                                <CheckCircle className="w-5 h-5" />
-                            </button>
-                            <button onClick={() => handleRestablecerAcceso(estudianteSeleccionado.id)} className="px-4 py-2 rounded-lg text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-500/20 transition-all">
-                                Desbloquear Acceso
-                            </button>
-                        </div>
-                      </div>
-
-                      {/* Grid Métricas */}
-                      <div className="grid grid-cols-3 gap-6 mb-8">
-                        <div className={`p-5 rounded-xl border ${darkMode ? "bg-slate-800/50 border-slate-700" : "bg-white border-slate-100"}`}>
-                            <span className={`text-xs font-medium uppercase tracking-wider ${darkMode ? "text-slate-400" : "text-slate-400"}`}>Progreso</span>
-                            <div className="mt-2 flex items-baseline gap-1">
-                                <span className={`text-3xl font-bold ${darkMode ? "text-white" : "text-slate-900"}`}>{estudianteSeleccionado.progreso}</span>
-                                <span className="text-sm text-slate-400">%</span>
-                            </div>
-                            <div className="w-full h-1.5 bg-slate-100 rounded-full mt-3 overflow-hidden dark:bg-slate-700">
-                                <div className="h-full bg-teal-500 transition-all duration-500" style={{ width: `${estudianteSeleccionado.progreso}%` }}></div>
-                            </div>
-                        </div>
-                        <div className={`p-5 rounded-xl border ${darkMode ? "bg-slate-800/50 border-slate-700" : "bg-white border-slate-100"}`}>
-                            <span className={`text-xs font-medium uppercase tracking-wider ${darkMode ? "text-slate-400" : "text-slate-400"}`}>Tiempo</span>
-                            <div className="mt-2">
-                                <span className={`text-3xl font-bold ${darkMode ? "text-white" : "text-slate-900"}`}>{estudianteSeleccionado.tiempoTranscurrido}</span>
-                            </div>
-                        </div>
-                        <div className={`p-5 rounded-xl border relative overflow-hidden ${darkMode ? "bg-slate-800/50 border-slate-700" : "bg-rose-50/50 border-rose-100"}`}>
-                            <span className={`text-xs font-medium uppercase tracking-wider ${darkMode ? "text-slate-400" : "text-rose-400"}`}>Alertas</span>
-                            <div className="mt-2 flex items-center gap-3">
-                                <span className={`text-3xl font-bold ${estudianteSeleccionado.alertas > 0 ? "text-rose-500" : darkMode ? "text-slate-200" : "text-slate-900"}`}>{estudianteSeleccionado.alertas}</span>
-                                {estudianteSeleccionado.alertas > 0 && (
-                                  <button onClick={() => handleVerAlertas(estudianteSeleccionado)} className="px-3 py-1 text-xs font-semibold bg-rose-500 hover:bg-rose-600 text-white rounded-lg transition-colors">Ver alertas</button>
-                                )}
-                            </div>
-                        </div>
-                      </div>
-
-                      {/* Feed Alertas */}
-                      {estudianteSeleccionado.alertas > 0 && alertasEstudiante.length > 0 && (
                         <div>
-                          <div className="flex items-center justify-between mb-3">
-                            <h3 className={`text-sm font-bold ${darkMode ? "text-white" : "text-slate-800"}`}>Actividad Sospechosa Reciente</h3>
-                            <button onClick={() => handleVerAlertas(estudianteSeleccionado)} className="text-xs font-semibold text-teal-500 hover:text-teal-600 transition-colors">Ver todas →</button>
-                          </div>
-                          <div className={`rounded-xl border overflow-hidden ${darkMode ? "border-slate-800" : "border-slate-100"}`}>
-                            {alertasEstudiante.slice(0, 5).map((alerta) => (
-                              <div key={alerta.id} className={`p-4 flex gap-4 border-b last:border-0 ${darkMode ? "bg-slate-800/30 border-slate-800" : "bg-white border-slate-50"}`}>
-                                <div className="mt-1"><AlertTriangle className="w-4 h-4 text-rose-500" /></div>
-                                <div className="flex-1">
-                                  <p className={`text-sm font-semibold ${darkMode ? "text-slate-200" : "text-slate-700"}`}>{alerta.tipo_evento}</p>
-                                  <p className={`text-xs mt-0.5 ${darkMode ? "text-slate-400" : "text-slate-500"}`}>{new Date(alerta.fecha_envio).toLocaleTimeString()} • {alerta.descripcion}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                            <h2 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-slate-900"}`}>{estudianteSeleccionado.nombre_estudiante}</h2>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className={`px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wide border ${getEstadoBadgeColor(traducirEstado(estudianteSeleccionado.estado), darkMode)}`}>
+                                    {traducirEstado(estudianteSeleccionado.estado)}
+                                </span>
+                                <span className={`text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}>{estudianteSeleccionado.correo_estudiante}</span>
+                            </div>
                         </div>
-                      )}
+                     </div>
+
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        
+                        {/* Progreso */}
+                        <div className={`p-5 rounded-xl border flex flex-col justify-between shadow-sm ${darkMode ? "bg-slate-800 border-slate-700" : "bg-gradient-to-br from-teal-50 to-white border-slate-200"}`}>
+                            <div className="flex justify-between items-start mb-4">
+                                <span className={`text-xs font-bold uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>Progreso</span>
+                                <span className={`text-2xl font-bold ${darkMode ? "text-teal-400" : "text-teal-600"}`}>{estudianteSeleccionado.progreso}%</span>
+                            </div>
+                            <div className={`h-4 w-full rounded-full overflow-hidden ${darkMode ? "bg-slate-900 shadow-inner" : "bg-slate-100 shadow-inner"}`}>
+                                <div className="h-full bg-gradient-to-r from-teal-500 to-emerald-400 rounded-full shadow-lg shadow-teal-500/20" style={{ width: `${estudianteSeleccionado.progreso}%` }}></div>
+                            </div>
+                        </div>
+
+                        {/* Tiempo */}
+                        <div className={`p-5 rounded-xl border flex flex-col justify-between shadow-sm ${darkMode ? "bg-slate-800 border-slate-700" : "bg-gradient-to-br from-blue-50 to-white border-slate-200"}`}>
+                            <span className={`text-xs font-bold uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>Tiempo Transcurrido</span>
+                            <div className="flex items-center gap-3 mt-2">
+                                <Clock className={`w-8 h-8 ${darkMode ? "text-blue-500" : "text-blue-600"}`} />
+                                <span className={`text-3xl font-mono font-bold tracking-tight ${darkMode ? "text-white" : "text-slate-800"}`}>
+                                    {estudianteSeleccionado.tiempoTranscurrido}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Estado Alertas */}
+                        <div className={`p-5 rounded-xl border flex items-center justify-between ${
+                            estudianteSeleccionado.alertas > 0 
+                                ? (darkMode ? "bg-rose-500/10 border-rose-500/30" : "bg-rose-50 border-rose-200") 
+                                : (darkMode ? "bg-emerald-500/10 border-emerald-500/30" : "bg-emerald-50 border-emerald-200")
+                        }`}>
+                            <div>
+                                <span className={`text-xs font-bold uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>Estado de Seguridad</span>
+                                <div className={`text-xl font-bold mt-1 ${estudianteSeleccionado.alertas > 0 ? "text-rose-500" : "text-emerald-500"}`}>
+                                    {estudianteSeleccionado.alertas > 0 ? "Actividad Sospechosa" : "Seguro"}
+                                </div>
+                                <div className={`text-sm font-medium mt-1 ${darkMode ? "text-white/80" : "text-slate-800"}`}>{estudianteSeleccionado.alertas} incidentes registrados</div>
+                            </div>
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${estudianteSeleccionado.alertas > 0 ? "bg-rose-500 text-white" : "bg-emerald-500 text-white"}`}>
+                                {estudianteSeleccionado.alertas > 0 ? <AlertTriangle className="w-6 h-6" /> : <CheckCircle className="w-6 h-6" />}
+                            </div>
+                        </div>
+                     </div>
+
+                     <div>
+                        <h3 className={`text-sm font-bold mb-4 flex items-center gap-2 ${darkMode ? "text-white" : "text-slate-800"}`}>
+                            <Activity className="w-4 h-4 text-teal-500" />
+                            Registro de Actividad
+                        </h3>
+
+                        {alertasEstudiante.length === 0 ? (
+                             <div className={`p-8 rounded-xl border border-dashed flex flex-col items-center justify-center ${darkMode ? "border-slate-700 text-slate-500 bg-slate-800/30" : "border-slate-200 text-slate-400 bg-white"}`}>
+                                <CheckCircle className={`w-8 h-8 mb-2 ${darkMode ? "opacity-50" : "text-emerald-500 opacity-50"}`} />
+                                <span className={`text-sm font-medium ${darkMode ? "text-slate-500" : "text-slate-600"}`}>Sin incidentes registrados hasta el momento.</span>
+                             </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {alertasEstudiante.map((alerta) => {
+                                    const config = getAlertConfig(alerta.tipo_evento);
+                                    return (
+                                        <div key={alerta.id} className={`p-4 rounded-xl border shadow-sm flex gap-3 transition-transform hover:-translate-y-1 ${config.bg} ${config.border}`}>
+                                            <div className={`w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center ${darkMode ? "bg-black/20" : "bg-white"} ${config.color}`}>
+                                                {config.icon}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-start">
+                                                    <h4 className={`text-sm font-bold truncate ${darkMode ? "text-slate-200" : "text-slate-800"}`}>{alerta.tipo_evento}</h4>
+                                                    <span className={`text-xs font-mono mt-0.5 font-semibold ${darkMode ? "text-white/80" : "text-slate-600/90"}`}>
+                                                        {new Date(alerta.fecha_envio).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                    </span>
+                                                </div>
+                                                <p className={`text-xs mt-1 leading-snug ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+                                                    {alerta.descripcion || "Se detectó un cambio en el comportamiento."}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+                     </div>
+
                  </div>
               </div>
             )}

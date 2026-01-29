@@ -9,7 +9,7 @@ import NotificationItem from "../components/NotificationItem";
 import MiPerfil from "../components/MiPerfil";
 import CrearExamen from "../components/CrearExamen";
 import HomeContent from "../components/Homecontent";
-import VigilanciaExamenesLista from "../components/Listaexamenesvigilancia";
+import VigilanciaExamenesLista from "../components/ExamenVigilancia";
 import logoUniversidad from "../../assets/logo-universidad.webp";
 import logoUniversidadNoche from "../../assets/logo-universidad-noche.webp";
 import fondoImagen from "../../assets/fondo.webp";
