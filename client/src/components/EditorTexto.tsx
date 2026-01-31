@@ -87,6 +87,7 @@ interface EditorTextoProps {
   placeholder?: string;
   minHeight?: string;
   maxLength?: number;
+  fullHeight?: boolean;
 }
 
 export default function EditorTexto({
@@ -96,6 +97,7 @@ export default function EditorTexto({
   placeholder = 'Escribe aquí...',
   minHeight = '200px',
   maxLength,
+  fullHeight = false,
 }: EditorTextoProps) {
   const [characterCount, setCharacterCount] = useState(0);
 
@@ -229,7 +231,7 @@ export default function EditorTexto({
   const isNearLimit = maxLength && characterCount >= maxLength * 0.95;
 
   return (
-    <div className="w-full">
+    <div className={`w-full ${fullHeight ? "h-full flex flex-col" : ""}`}>
       {/* Barra de herramientas */}
       <div
         className={`flex flex-wrap items-center gap-1 p-2 rounded-t-lg border ${
@@ -406,7 +408,7 @@ export default function EditorTexto({
       <div
         className={`rounded-b-lg border border-t-0 ${
           darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-300'
-        } ${isLimitReached ? 'ring-2 ring-red-500' : ''}`}
+        } ${isLimitReached ? 'ring-2 ring-red-500' : ''} ${fullHeight ? "flex-1 overflow-y-auto" : ""}`}
       >
         <EditorContent editor={editor} />
       </div>
@@ -422,6 +424,7 @@ export default function EditorTexto({
       <style>{`
         .ProseMirror {
           min-height: ${minHeight};
+          ${fullHeight ? "height: 100%;" : ""}
         }
         .ProseMirror:focus {
           outline: none;

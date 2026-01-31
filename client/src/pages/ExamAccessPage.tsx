@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Moon, Sun } from "lucide-react";
+import logoUniversidad from "../../assets/logo-universidad.webp";
 import logoUniversidadNoche from "../../assets/logo-universidad-noche.webp";
 import fondoImagen from "../../assets/fondo.webp";
 import { examsService } from "../services/examsService";
@@ -391,7 +392,7 @@ export default function ExamAccessPage() {
         className={`absolute inset-0 backdrop-blur-sm transition-all duration-300 ${
           darkMode
             ? "bg-gradient-to-br from-gray-900/95 via-slate-900/90 to-gray-900/95"
-            : "bg-gradient-to-br from-[#003876]/90 via-[#00508f]/85 to-[#003876]/90"
+            : "bg-gradient-to-br from-[#003876]/75 via-[#00508f]/70 to-[#003876]/75"
         }`}
       ></div>
 
