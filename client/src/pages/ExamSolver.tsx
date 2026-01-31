@@ -838,7 +838,7 @@ export default function SecureExamPlatform() {
         <SavingIndicator savingStates={savingStates} darkMode={darkMode} />
 
         {/* --- SIDEBAR REFACTORIZADO (Estilo Dashboard) --- */}
-        <div className={`relative z-30 flex flex-col transition-all duration-300 ease-in-out border-r shadow-xl ${
+        <div className={`relative z-30 flex flex-col transition-all duration-300 ease-in-out border-r ${
             sidebarCollapsed ? "w-20" : "w-64"
           } ${
             darkMode 
@@ -847,7 +847,7 @@ export default function SecureExamPlatform() {
           }`}>
           
           {/* Header Sidebar */}
-          <div className={`p-4 border-b ${darkMode ? "border-slate-800" : "border-gray-100"}`}>
+          <div className="p-4">
             <div className={`flex items-center ${sidebarCollapsed ? "justify-center" : "gap-3"}`}>
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg flex-shrink-0">
                  <User className="w-5 h-5 text-white" />
@@ -863,11 +863,11 @@ export default function SecureExamPlatform() {
 
           {/* Navegación */}
           <nav className="flex-1 p-3 space-y-1 overflow-y-auto custom-scrollbar">
-              {!sidebarCollapsed && <p className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider ${darkMode ? "text-slate-500" : "text-gray-400"}`}>Examen</p>}
+              {!sidebarCollapsed && <p className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider ${darkMode ? "text-slate-500" : "text-gray-400"}`}>Evaluación</p>}
               
               <SidebarNavItem 
                   icon={FileText} 
-                  label={examData?.nombre || "Ver Examen"} 
+                  label="Examen" 
                   active={openPanels.includes("exam")} 
                   collapsed={sidebarCollapsed} 
                   darkMode={darkMode} 
@@ -881,8 +881,6 @@ export default function SecureExamPlatform() {
                   darkMode={darkMode} 
                   onClick={() => openPanel("answer")} 
               />
-
-              <div className={`my-4 border-t ${darkMode ? "border-slate-800" : "border-gray-100"}`}></div>
 
               {!sidebarCollapsed && <p className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider ${darkMode ? "text-slate-500" : "text-gray-400"}`}>Herramientas</p>}
               
@@ -904,7 +902,7 @@ export default function SecureExamPlatform() {
           </nav>
 
           {/* Footer Sidebar (Botones de acción) */}
-          <div className={`p-3 border-t space-y-2 ${darkMode ? "border-slate-800 bg-slate-900/50" : "border-gray-100 bg-gray-50/50"}`}>
+          <div className={`p-3 space-y-2 ${darkMode ? "bg-slate-900/50" : "bg-gray-50/50"}`}>
               
               {/* Botón Entregar */}
               <button

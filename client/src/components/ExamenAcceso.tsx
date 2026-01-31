@@ -27,7 +27,7 @@ export default function MonitoreoSupervisado({
         {/* 1. Sidebar Simulado (Izquierda) */}
         <div className={`w-64 flex flex-col h-full border-r ${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-gray-200"}`}>
            {/* Header del Sidebar */}
-           <div className={`p-4 border-b ${darkMode ? "border-slate-800" : "border-gray-100"}`}>
+           <div className="p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg flex-shrink-0">
                    <User className="w-5 h-5 text-white" />
@@ -41,17 +41,15 @@ export default function MonitoreoSupervisado({
            
            {/* Items del Sidebar */}
            <div className="p-3 space-y-2 opacity-70">
-              <div className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider ${darkMode ? "text-slate-500" : "text-gray-400"}`}>Examen</div>
+              <div className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider ${darkMode ? "text-slate-500" : "text-gray-400"}`}>Evaluación</div>
               <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
                  <FileText className="w-5 h-5" />
-                 <span className="font-medium text-sm">{examData?.nombre || "Ver Examen"}</span>
+                 <span className="font-medium text-sm">Examen</span>
               </div>
               <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
                  <div className="w-5 h-5 rounded bg-current opacity-20"></div>
                  <span className="font-medium text-sm">Responder</span>
               </div>
-              
-              <div className={`my-4 border-t ${darkMode ? "border-slate-800" : "border-gray-100"}`}></div>
               
               <div className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider ${darkMode ? "text-slate-500" : "text-gray-400"}`}>Herramientas</div>
               <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
@@ -61,7 +59,7 @@ export default function MonitoreoSupervisado({
            </div>
 
            {/* Footer del Sidebar */}
-           <div className={`mt-auto p-3 border-t space-y-2 ${darkMode ? "border-slate-800 bg-slate-900/50" : "border-gray-100 bg-gray-50/50"}`}>
+           <div className={`mt-auto p-3 space-y-2 ${darkMode ? "bg-slate-900/50" : "bg-gray-50/50"}`}>
               <div className="w-full h-10 rounded-lg bg-emerald-600/20 border border-emerald-600/30"></div>
               <div className="w-full h-10 rounded-lg bg-red-600/10 border border-red-600/20"></div>
            </div>
