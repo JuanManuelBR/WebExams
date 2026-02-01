@@ -144,6 +144,11 @@ export default function EditorTexto({
         class: `prose prose-sm sm:prose max-w-none focus:outline-none px-4 py-3 ${
           darkMode ? 'prose-invert text-white' : 'text-gray-900'
         }`,
+        spellcheck: 'false',
+        autocomplete: 'off',
+        autocorrect: 'off',
+        autocapitalize: 'off',
+        'data-gramm': 'false',
       },
     },
   });
@@ -491,6 +496,17 @@ export default function EditorTexto({
         
         .ProseMirror ol li {
           list-style-type: decimal !important;
+        }
+
+        /* Bloqueo visual de extensiones de IA (Monica, Grammarly, etc.) */
+        [id^="monica-"], [class^="monica-"], 
+        div[id*="monica"], div[class*="monica"],
+        #monica-root, .monica-widget {
+          display: none !important;
+          pointer-events: none !important;
+          opacity: 0 !important;
+          visibility: hidden !important;
+          z-index: -9999 !important;
         }
       `}</style>
     </div>

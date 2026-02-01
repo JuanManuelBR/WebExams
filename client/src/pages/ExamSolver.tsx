@@ -222,14 +222,20 @@ export default function SecureExamPlatform() {
         e.preventDefault();
         blockExam("Intento de impresión detectado", "CRITICAL");
       };
+      const preventContextMenu = (e: MouseEvent) => {
+        e.preventDefault();
+      };
+
       document.addEventListener("copy", preventCopy);
       document.addEventListener("cut", preventCut);
       window.addEventListener("beforeprint", preventPrint);
+      document.addEventListener("contextmenu", preventContextMenu);
       return () => {
         document.head.removeChild(style);
         document.removeEventListener("copy", preventCopy);
         document.removeEventListener("cut", preventCut);
         window.removeEventListener("beforeprint", preventPrint);
+        document.removeEventListener("contextmenu", preventContextMenu);
       };
     }
   }, [examStarted]);
@@ -272,26 +278,46 @@ export default function SecureExamPlatform() {
     }
     if (examBlocked) return;
 
-    const interval = setInterval(() => {
-      const start = new Date(studentData.startTime);
-      const now = new Date();
-      const diff = now.getTime() - start.getTime();
-      const totalDuration = examData.limiteTiempo * 60 * 1000;
-      const remaining = totalDuration - diff;
+    // Calcular tiempo final una sola vez para evitar fluctuaciones
+    const startTime = new Date(studentData.startTime).getTime();
+    const duration = examData.limiteTiempo * 60 * 1000;
+    const endTime = startTime + duration;
+
+    const updateTimer = () => {
+      const now = Date.now();
+      const remaining = endTime - now;
 
       if (remaining <= 0) {
         setRemainingTime("00:00:00");
         blockExam("Tiempo finalizado", "INFO");
         return;
       }
+
       const remHours = Math.floor(remaining / (1000 * 60 * 60));
       const remMinutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
       const remSeconds = Math.floor((remaining % (1000 * 60)) / 1000);
-      setRemainingTime(
-        `${String(remHours).padStart(2, "0")}:${String(remMinutes).padStart(2,"0")}:${String(remSeconds).padStart(2, "0")}`
-      );
-    }, 1000);
-    return () => clearInterval(interval);
+      
+      const timeString = `${String(remHours).padStart(2, "0")}:${String(remMinutes).padStart(2,"0")}:${String(remSeconds).padStart(2, "0")}`;
+      // Solo actualizamos si el texto cambia, evitando renders innecesarios
+      setRemainingTime(prev => prev !== timeString ? timeString : prev);
+    };
+
+    // Sincronización precisa con el reloj del sistema
+    updateTimer();
+    const now = Date.now();
+    const msToNextSecond = 1000 - (now % 1000);
+    
+ 
+    let interval: any;
+    const timeout = setTimeout(() => {
+      updateTimer();
+      interval = setInterval(updateTimer, 1000);
+    }, msToNextSecond);
+
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
   }, [examStarted, studentData, examData, examBlocked]);
 
   // Guardar respuestas pendientes al cambiar panel
@@ -523,13 +549,6 @@ export default function SecureExamPlatform() {
         newSocket.disconnect();
       });
       newSocket.on("time_expired", () => blockExam("El tiempo del examen ha expirado", "INFO"));
-      newSocket.on("timer_tick", (data) => {
-        const seconds = data.remainingTimeSeconds;
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = seconds % 60;
-        setRemainingTime(`${String(hours).padStart(2, "0")}:${String(minutes).padStart(2,"0")}:${String(secs).padStart(2, "0")}`);
-      });
       newSocket.on("fraud_detected", (data) => addSecurityViolation(`Fraude: ${data.tipo_evento}`));
       newSocket.on("attempt_blocked", (data) => { setExamBlocked(true); setBlockReason(data.message); });
       newSocket.on("attempt_unlocked", () => { setExamBlocked(false); setBlockReason(""); });
@@ -607,6 +626,21 @@ export default function SecureExamPlatform() {
     if (panelIndex !== -1) {
       closePanel(panelIndex);
       return;
+    }
+
+    // Lógica para reemplazar herramientas si ya hay una abierta
+    const tools: PanelType[] = ["calculadora", "excel", "dibujo", "javascript", "python"];
+    if (tools.includes(panelType)) {
+      const existingToolIndex = openPanels.findIndex((p) => tools.includes(p));
+      if (existingToolIndex !== -1) {
+        const newPanels = [...openPanels];
+        newPanels[existingToolIndex] = panelType;
+        setOpenPanels(newPanels);
+        const newZooms = [...panelZooms];
+        newZooms[existingToolIndex] = 100;
+        setPanelZooms(newZooms);
+        return;
+      }
     }
 
     if (openPanels.length >= 3) { alert("Máximo 3 paneles"); return; }
