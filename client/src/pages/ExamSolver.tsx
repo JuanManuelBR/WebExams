@@ -28,6 +28,11 @@ import { io, Socket } from "socket.io-client";
 import ExamPanel from "../components/ExamenPreguntas";
 import MonitoreoSupervisado from "../components/ExamenAcceso";
 import EditorTexto from '../components/EditorTexto';
+import Calculadora from '../components/Calculadora';
+import HojaCalculo from '../components/HojaCalculo';
+import Lienzo from '../components/Lienzo';
+import EditorJavaScript from '../components/EditorJavaScript';
+import EditorPython from '../components/EditorPython';
 import logoUniversidad from "../../assets/logo-universidad.webp";
 import logoUniversidadNoche from "../../assets/logo-universidad-noche.webp";
 
@@ -149,6 +154,26 @@ export default function SecureExamPlatform() {
 
   const [studentData, setStudentData] = useState<StudentData | null>(null);
   const [examData, setExamData] = useState<ExamData | null>(null);
+
+  // Estado persistente para el editor de Python
+  const [pythonCells, setPythonCells] = useState<any[]>([
+    {
+      id: '1',
+      type: 'markdown',
+      content: '# Editor Python\n',
+      status: 'idle'
+    }
+  ]);
+
+  // Estado persistente para el editor de JavaScript
+  const [jsCells, setJsCells] = useState<any[]>([
+    {
+      id: '1',
+      type: 'markdown',
+      content: '# Editor JavaScript\n',
+      status: 'idle'
+    }
+  ]);
 
   // Estados para Modales de Confirmación
   const [showExitModal, setShowExitModal] = useState(false);
@@ -719,18 +744,71 @@ export default function SecureExamPlatform() {
   }, [isResizing, resizingIndex, layout, sidebarCollapsed, panelSizes, openPanels]);
 
   // ----------------------------------------------------------------------
-  // 5. RENDERIZADO DE PANELES
+  // 5. RENDERIZADO DE PANELES - ✅ AQUÍ ESTÁN LAS HERRAMIENTAS INTEGRADAS
   // ----------------------------------------------------------------------
-  const renderPanel = (panel: PanelType) => {
+  
+  // MANTENER EDITORES MONTADOS (Evita recargas al cambiar pestañas)
+  const [jsEditorMounted, setJsEditorMounted] = useState(false);
+  const [pythonEditorMounted, setPythonEditorMounted] = useState(false);
+
+  useEffect(() => {
+    if (openPanels.includes('javascript') && !jsEditorMounted) {
+      setJsEditorMounted(true);
+    }
+    if (openPanels.includes('python') && !pythonEditorMounted) {
+      setPythonEditorMounted(true);
+    }
+  }, [openPanels]);
+
+  const renderPanel = (panel: PanelType, zoomLevel: number = 100) => {
     switch (panel) {
-        case "exam": return <ExamPanel examData={examData} darkMode={darkMode} answers={answers} onAnswerChange={handleAnswerChange} />;
-        case "answer": return <div className="h-full w-full"><EditorTexto value={answerPanelContent} onChange={setAnswerPanelContent} darkMode={darkMode} fullHeight={true} maxLength={10000} /></div>;
-        case "calculadora": return <div className="h-full flex items-center justify-center"><div className="text-center"><Calculator className="w-16 h-16 mx-auto mb-4 opacity-50"/>Calculadora</div></div>;
-        case "excel": return <div className="h-full flex items-center justify-center"><div className="text-center"><FileSpreadsheet className="w-16 h-16 mx-auto mb-4 opacity-50"/>Hoja de Cálculo</div></div>;
-        case "dibujo": return <div className="h-full flex items-center justify-center"><div className="text-center"><Pencil className="w-16 h-16 mx-auto mb-4 opacity-50"/>Lienzo</div></div>;
+        case "exam": 
+          return <ExamPanel examData={examData} darkMode={darkMode} answers={answers} onAnswerChange={handleAnswerChange} />;
+        
+        case "answer": 
+          return (
+            <div className="h-full w-full">
+              <EditorTexto 
+                value={answerPanelContent} 
+                onChange={setAnswerPanelContent} 
+                darkMode={darkMode} 
+                fullHeight={true} 
+                maxLength={10000} 
+              />
+            </div>
+          );
+        
+        case "calculadora": 
+          return <Calculadora darkMode={darkMode} />;
+        
+        case "excel": 
+          return <HojaCalculo darkMode={darkMode} />;
+        
+        case "dibujo": 
+          return <Lienzo darkMode={darkMode} />;
+        
         case "javascript": 
-        case "python": return <div className="h-full flex items-center justify-center"><div className="text-center"><Code className="w-16 h-16 mx-auto mb-4 opacity-50"/>Editor de Código</div></div>;
-        default: return null;
+          return (
+            <EditorJavaScript 
+              darkMode={darkMode} 
+              initialCells={jsCells}
+              onSave={(data) => setJsCells(data.cells)}
+              zoomLevel={zoomLevel}
+            />
+          );
+        
+        case "python": 
+          return (
+            <EditorPython 
+              darkMode={darkMode} 
+              initialCells={pythonCells}
+              onSave={(data) => setPythonCells(data.cells)}
+              zoomLevel={zoomLevel}
+            />
+          );
+        
+        default: 
+          return null;
     }
   };
 
@@ -773,28 +851,27 @@ export default function SecureExamPlatform() {
           darkMode
             ? `
           ::-webkit-scrollbar {
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
           }
           
           ::-webkit-scrollbar-track {
-            background: #1e293b;
-            border-radius: 10px;
+            background: #0f172a;
           }
           
           ::-webkit-scrollbar-thumb {
-            background: #475569;
-            border-radius: 10px;
-            border: 2px solid #1e293b;
+            background: #334155;
+            border-radius: 5px;
+            border: 2px solid #0f172a;
           }
           
           ::-webkit-scrollbar-thumb:hover {
-            background: #64748b;
+            background: #475569;
           }
           
           * {
             scrollbar-width: thin;
-            scrollbar-color: #475569 #1e293b;
+            scrollbar-color: #334155 #0f172a;
           }
         `
             : `
@@ -803,9 +880,9 @@ export default function SecureExamPlatform() {
             scrollbar-width: thin;
             scrollbar-color: #cbd5e1 #f1f5f9;
           }
-          ::-webkit-scrollbar { width: 12px; height: 12px; }
-          ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
-          ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid #f1f5f9; }
+          ::-webkit-scrollbar { width: 10px; height: 10px; }
+          ::-webkit-scrollbar-track { background: #f1f5f9; }
+          ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 5px; border: 2px solid #f1f5f9; }
           ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         `
         }
@@ -1022,17 +1099,19 @@ export default function SecureExamPlatform() {
                   </div>
               ) : (
                   openPanels.map((panel, index) => (
-                      <React.Fragment key={index}>
+                      <React.Fragment key={panel}>
                           <div 
-                              draggable 
-                              onDragStart={() => handleDragStart(index)} 
                               onDragOver={(e) => handleDragOver(e, index)} 
                               onDrop={() => handleDrop(index)}
                               style={{ [layout === "vertical" ? "width" : "height"]: `${panelSizes[index]}%` }}
                               className={`flex flex-col rounded-xl border shadow-sm overflow-hidden ${darkMode ? "bg-slate-900/80 backdrop-blur-md border-slate-800" : "bg-white/80 backdrop-blur-md border-gray-200"}`}
                           >
                               {/* Panel Header */}
-                              <div className={`h-10 flex items-center justify-between px-4 border-b cursor-move ${darkMode ? "bg-slate-800/50 border-slate-800" : "bg-[#2c3e50] border-[#2c3e50]"}`}>
+                              <div 
+                                draggable 
+                                onDragStart={() => handleDragStart(index)}
+                                className={`h-10 flex items-center justify-between px-4 border-b cursor-move ${darkMode ? "bg-slate-800/50 border-slate-800" : "bg-[#2c3e50] border-[#2c3e50]"}`}
+                              >
                                   <div className="flex items-center gap-2">
                                       <GripVertical className={`w-4 h-4 ${darkMode ? "text-gray-400" : "text-white/50"}`} />
                                       <span className={`text-xs font-bold uppercase tracking-wider ${darkMode ? "text-gray-400" : "text-white"}`}>{panel}</span>
@@ -1044,8 +1123,15 @@ export default function SecureExamPlatform() {
                                   </div>
                               </div>
                               <div className="flex-1 overflow-hidden relative">
-                                  <div className="h-full w-full" style={{ transform: `scale(${panelZooms[index] / 100})`, transformOrigin: "top left", width: `${10000/panelZooms[index]}%`, height: `${10000/panelZooms[index]}%` }}>
-                                      {renderPanel(panel)}
+                                  <div 
+                                    className="h-full w-full" 
+                                    style={
+                                      panel === 'python' || panel === 'javascript'
+                                        ? {} // Sin zoom para editores persistentes
+                                        : { transform: `scale(${panelZooms[index] / 100})`, transformOrigin: "top left", width: `${10000/panelZooms[index]}%`, height: `${10000/panelZooms[index]}%` }
+                                    }
+                                  >
+                                      {renderPanel(panel, panelZooms[index])}
                                   </div>
                               </div>
                           </div>
