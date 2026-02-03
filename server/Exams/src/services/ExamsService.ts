@@ -298,13 +298,17 @@ export class ExamService {
           };
 
         case "test":
+          // Contar cuántas opciones son correctas
+          const cantidadRespuestasCorrectas =
+            q.options?.filter((opt: any) => opt.esCorrecta).length || 0;
+
           return {
             ...baseQuestion,
+            cantidadRespuestasCorrectas,
             options: q.options?.map((opt: any) => ({
               id: opt.id,
               texto: opt.texto,
-              // ❌ eliminar esCorrecta
-            })),
+                        })),
           };
 
         default:

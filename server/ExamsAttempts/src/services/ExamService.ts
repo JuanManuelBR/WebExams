@@ -14,6 +14,7 @@ import { CreateExamAnswerDto } from "@src/dtos/Create-ExamAnswer.dto";
 import { CreateExamEventDto } from "@src/dtos/Create-ExamEvent.dto";
 import { StartExamAttemptDto } from "@src/dtos/Start-ExamAttempt.dto";
 import { ResumeExamAttemptDto } from "@src/dtos/Resume-ExamAttempt.dto";
+import { GradingService } from "./GradingService";
 
 export class ExamService {
   static async startAttempt(data: StartExamAttemptDto, io: Server) {
@@ -461,9 +462,122 @@ export class ExamService {
   }
 
   static async calculateScore(attempt: ExamAttempt): Promise<number> {
-    // Implementar lógica de calificación según tipo de pregunta
-    // Por ahora retorna 0
-    return 0;
+    console.log("\n" + "🎓".repeat(30));
+    console.log("🎓 INICIANDO CALIFICACIÓN DEL INTENTO");
+    console.log("🎓".repeat(30));
+    console.log(`📋 Intento ID: ${attempt.id}`);
+    console.log(`👤 Estudiante: ${attempt.nombre_estudiante || "Sin nombre"}`);
+    console.log(`📧 Correo: ${attempt.correo_estudiante || "Sin correo"}`);
+    console.log(`📚 Examen ID: ${attempt.examen_id}`);
+    console.log(
+      `📝 Total respuestas guardadas: ${attempt.respuestas?.length || 0}`,
+    );
+
+    try {
+      // 1. Obtener la información completa del examen con sus preguntas
+      const exam = await ExamAttemptValidator.validateExamExistsById(
+        attempt.examen_id,
+      );
+
+      console.log(`\n📚 Examen: "${exam.nombre}"`);
+      console.log(`📊 Total de preguntas: ${exam.questions?.length || 0}`);
+
+      if (!exam.questions || exam.questions.length === 0) {
+        console.warn(`⚠️ El examen ${exam.id} no tiene preguntas`);
+        return 0;
+      }
+
+      let puntajeTotal = 0;
+      let puntajePosibleTotal = 0;
+
+      console.log("\n" + "📝".repeat(30));
+      console.log("RECORRIENDO PREGUNTAS DEL EXAMEN");
+      console.log("📝".repeat(30));
+
+      // 2. Iterar sobre cada pregunta del examen
+      for (let i = 0; i < exam.questions.length; i++) {
+        const question = exam.questions[i];
+
+        console.log(
+          `\n[${i + 1}/${exam.questions.length}] 📌 Pregunta ID: ${question.id}`,
+        );
+        console.log(`    Tipo: ${question.type.toUpperCase()}`);
+        console.log(`    Puntaje máximo: ${question.puntaje}`);
+        console.log(`    Enunciado: "${question.enunciado}"`);
+
+        puntajePosibleTotal += question.puntaje;
+
+        // 3. Buscar la respuesta del estudiante para esta pregunta
+        const studentAnswer = attempt.respuestas?.find(
+          (ans) => ans.pregunta_id === question.id,
+        );
+
+        if (!studentAnswer) {
+          console.log(`    ⚠️ Sin respuesta del estudiante`);
+        } else {
+          console.log(`    📥 Respuesta guardada: ${studentAnswer.respuesta}`);
+        }
+
+        // 4. Calificar según el tipo de pregunta
+        let puntajePregunta = 0;
+
+        switch (question.type) {
+          case "test":
+            puntajePregunta = GradingService.gradeTestQuestion(
+              question,
+              studentAnswer,
+            );
+            break;
+
+          case "open":
+            console.log(
+              `    ⏭️ Pregunta OPEN - Calificación pendiente de implementar`,
+            );
+            break;
+
+          case "fill_blanks":
+            console.log(
+              `    ⏭️ Pregunta FILL_BLANKS - Calificación pendiente de implementar`,
+            );
+            break;
+
+          case "match":
+            console.log(
+              `    ⏭️ Pregunta MATCH - Calificación pendiente de implementar`,
+            );
+            break;
+
+          default:
+            console.warn(
+              `    ⚠️ Tipo de pregunta desconocido: ${question.type}`,
+            );
+        }
+
+        puntajeTotal += puntajePregunta;
+        console.log(
+          `    💰 Puntaje acumulado hasta ahora: ${puntajeTotal.toFixed(5)}/${puntajePosibleTotal.toFixed(5)}`,
+        );
+      }
+
+      const porcentaje =
+        puntajePosibleTotal > 0
+          ? ((puntajeTotal / puntajePosibleTotal) * 100).toFixed(5)
+          : "0.00000";
+
+      console.log("\n" + "🏆".repeat(30));
+      console.log("🏆 CALIFICACIÓN FINALIZADA");
+      console.log("🏆".repeat(30));
+      console.log(`📊 Puntaje obtenido: ${puntajeTotal.toFixed(5)}`);
+      console.log(
+        `📊 Puntaje máximo posible: ${puntajePosibleTotal.toFixed(5)}`,
+      );
+      console.log(`📊 Porcentaje: ${porcentaje}%`);
+      console.log("🏆".repeat(30) + "\n");
+      return Math.round(puntajeTotal * 100000) / 100000;
+    } catch (error) {
+      console.error("❌ ERROR CRÍTICO al calcular puntaje:", error);
+      return 0;
+    }
   }
 
   static async unlockAttempt(intento_id: number, io: Server) {
