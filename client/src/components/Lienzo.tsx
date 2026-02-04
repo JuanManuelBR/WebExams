@@ -1013,8 +1013,6 @@ export default function Lienzo({ darkMode, initialData, onSave }: LienzoProps) {
     const drawEnd = (shortenEnd > 0 && lenE > shortenEnd) ? { x: end.x + (dxE/lenE)*shortenEnd, y: end.y + (dyE/lenE)*shortenEnd } : end;
 
     ctx.beginPath();
-    ctx.moveTo(start.x, start.y);
-    ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, end.x, end.y);
     ctx.moveTo(drawStart.x, drawStart.y);
     ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, drawEnd.x, drawEnd.y);
     ctx.stroke();
@@ -1026,8 +1024,9 @@ export default function Lienzo({ darkMode, initialData, onSave }: LienzoProps) {
     // Ángulo de salida en End (hacia atrás): vector end -> cp2
     const endAngle = Math.atan2(cp2.y - end.y, cp2.x - end.x);
 
-    if (startMarker !== 'None') drawSymbol(ctx, start, startAngle, startMarker, conn.color || (darkMode ? '#94a3b8' : '#64748b'), lineWidth);
-    if (endMarker !== 'None') drawSymbol(ctx, end, endAngle, endMarker, conn.color || (darkMode ? '#94a3b8' : '#64748b'), lineWidth);
+    const markerColor = isSelected ? '#3b82f6' : (conn.color || (darkMode ? '#94a3b8' : '#64748b'));
+    if (startMarker !== 'None') drawSymbol(ctx, start, startAngle, startMarker, markerColor, lineWidth);
+    if (endMarker !== 'None') drawSymbol(ctx, end, endAngle, endMarker, markerColor, lineWidth);
 
     // Dibujar Etiqueta (Texto en la línea)
     if (conn.label) {
@@ -1099,10 +1098,6 @@ export default function Lienzo({ darkMode, initialData, onSave }: LienzoProps) {
     ctx.strokeStyle = color;
     ctx.lineWidth = width / scale; // Mantener grosor visual consistente
 
-    // Offset para separar los marcadores ER del borde de la figura
-    const offset = ['CrowFoot', 'CrowFootOne', 'OneBar'].includes(symbol) ? 4 : 0;
-    if (offset > 0) ctx.translate(offset, 0);
-
     if (symbol === 'Arrow') {
         ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(12, 6); ctx.lineTo(12, -6); ctx.closePath(); ctx.fill();
     } else if (symbol === 'OpenArrow') {
@@ -1116,22 +1111,20 @@ export default function Lienzo({ darkMode, initialData, onSave }: LienzoProps) {
         ctx.fillStyle = fill;
         ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(12, 6); ctx.lineTo(24, 0); ctx.lineTo(12, -6); ctx.closePath(); ctx.fill(); ctx.stroke();
     } else if (symbol === 'CrowFoot') {
-        ctx.beginPath(); 
-        ctx.moveTo(16,0); ctx.lineTo(0, 10); 
-        ctx.moveTo(16,0); ctx.lineTo(0, -10); 
-        ctx.moveTo(16,0); ctx.lineTo(0, 0); 
+        ctx.beginPath();
+        ctx.moveTo(14, 0); ctx.lineTo(0, 10);
+        ctx.moveTo(14, 0); ctx.lineTo(0, -10);
         ctx.stroke();
     } else if (symbol === 'CrowFootOne') {
-        ctx.beginPath(); 
-        ctx.moveTo(16,0); ctx.lineTo(0, 10); 
-        ctx.moveTo(16,0); ctx.lineTo(0, -10); 
-        ctx.moveTo(16,0); ctx.lineTo(0, 0); 
-        ctx.moveTo(16, 10); ctx.lineTo(16, -10); // Barra
+        ctx.beginPath();
+        ctx.moveTo(14, 0); ctx.lineTo(0, 10);
+        ctx.moveTo(14, 0); ctx.lineTo(0, -10);
+        ctx.moveTo(14, 8); ctx.lineTo(14, -8); // Barra en la convergencia
         ctx.stroke();
     } else if (symbol === 'OneBar') {
         ctx.beginPath();
-        ctx.moveTo(10, 10); ctx.lineTo(10, -10); // Primera barra
-        ctx.moveTo(16, 10); ctx.lineTo(16, -10); // Segunda barra
+        ctx.moveTo(2, 8); ctx.lineTo(2, -8);
+        ctx.moveTo(8, 8); ctx.lineTo(8, -8);
         ctx.stroke();
     }
     
