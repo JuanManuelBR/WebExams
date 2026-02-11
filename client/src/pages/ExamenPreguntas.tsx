@@ -205,7 +205,9 @@ function QuestionCard({
         {question.nombreImagen && (
           <div className={`mb-6 rounded-xl overflow-hidden border flex justify-center p-4 ${darkMode ? "bg-slate-900/50 border-slate-700" : "bg-white border-gray-200"}`}>
             <img
-              src={`http://localhost:3001/api/images/${question.nombreImagen}`}
+              src={question.nombreImagen.startsWith('data:') 
+                ? question.nombreImagen 
+                : `http://localhost:3001/api/images/${question.nombreImagen}`}
               alt="Referencia visual"
               className="max-h-80 object-contain rounded-lg shadow-sm"
             />

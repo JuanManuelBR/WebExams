@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
+  ArrowLeft,
   Upload,
   Check,
   ChevronDown,
@@ -35,10 +37,16 @@ export default function CrearExamen({
   darkMode,
   onExamenCreado,
 }: CrearExamenProps) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const examenAEditar = location.state?.examenAEditar;
+  const isEditMode = !!examenAEditar;
+
   const [nombreExamen, setNombreExamen] = useState("");
   const [descripcionExamen, setDescripcionExamen] = useState("");
   const [tipoPregunta, setTipoPregunta] = useState<TipoPregunta | null>(null);
   const [archivoPDF, setArchivoPDF] = useState<File | null>(null);
+  const [pdfExistente, setPdfExistente] = useState<string | null>(null);
 
   const [preguntasAutomaticas, setPreguntasAutomaticas] = useState<Pregunta[]>(
     [],
@@ -128,6 +136,85 @@ export default function CrearExamen({
     javascript: false,
     python: false,
   });
+
+  // Efecto para cargar datos si estamos en modo edición
+  useEffect(() => {
+    if (examenAEditar) {
+      console.log("📝 Cargando datos para edición:", examenAEditar);
+      
+      setNombreExamen(examenAEditar.nombre || "");
+      setDescripcionExamen(examenAEditar.descripcionExamen || "");
+      
+      // Configurar tipo y contenido
+      if (examenAEditar.archivoPDF) {
+        setTipoPregunta("pdf");
+        setPdfExistente(examenAEditar.archivoPDF);
+      } else if (examenAEditar.questions && examenAEditar.questions.length > 0) {
+        setTipoPregunta("automatico");
+        // Mapear preguntas asegurando tipos compatibles
+        const preguntasMapeadas = examenAEditar.questions.map((p: any) => ({
+          ...p,
+          id: String(p.id), // Asegurar ID string para el editor
+          opciones: p.opciones?.map((o: any) => ({...o, id: String(o.id)})) || [],
+          paresConexion: p.paresConexion?.map((pc: any) => ({...pc, id: String(pc.id)})) || []
+        }));
+        setPreguntasAutomaticas(preguntasMapeadas);
+        setPreguntasAutomaticasTemp(preguntasMapeadas);
+        setTienePreguntasAutomaticas(true);
+        setPreguntasValidas(true); // Asumimos que un examen guardado es válido
+      }
+
+      // Fechas
+      if (examenAEditar.fechaInicio) {
+        setFechaInicioHabilitada(true);
+        setFechaInicio(new Date(examenAEditar.fechaInicio).toISOString().slice(0, 16));
+      }
+      if (examenAEditar.fechaCierre) {
+        setFechaCierreHabilitada(true);
+        setFechaCierre(new Date(examenAEditar.fechaCierre).toISOString().slice(0, 16));
+      }
+
+      // Tiempo
+      if (examenAEditar.limiteTiempo) {
+        setLimiteHabilitado(true);
+        setLimiteTiempo(examenAEditar.limiteTiempo.valor);
+        setOpcionTiempoAgotado(examenAEditar.opcionTiempoAgotado || "envio-automatico");
+      }
+
+      // Campos estudiante
+      if (examenAEditar.camposActivos) {
+        setCamposEstudiante(prev => prev.map(c => ({
+          ...c,
+          activo: examenAEditar.camposActivos.some((ca: any) => ca.id === c.id)
+        })));
+      }
+
+      // Herramientas
+      if (examenAEditar.herramientasActivas) {
+        const nuevasHerramientas = { ...herramientasActivas };
+        // Resetear
+        (Object.keys(nuevasHerramientas) as Array<keyof typeof herramientasActivas>).forEach(k => nuevasHerramientas[k] = false);
+        // Activar las que vengan
+        examenAEditar.herramientasActivas.forEach((h: string) => {
+          if (h in nuevasHerramientas) nuevasHerramientas[h as keyof typeof herramientasActivas] = true;
+        });
+        setHerramientasActivas(nuevasHerramientas);
+      }
+
+      // Seguridad
+      if (examenAEditar.seguridad) {
+        setConsecuenciaAbandono(examenAEditar.seguridad.consecuenciaAbandono);
+        if (examenAEditar.seguridad.contraseña) {
+          setContraseñaHabilitada(true);
+          setContraseñaExamen(examenAEditar.seguridad.contraseña);
+        }
+      }
+
+      // Marcar secciones como visitadas para permitir guardar
+      setSeccion4Visitada(true);
+      setSeccion5Visitada(true);
+    }
+  }, [examenAEditar]);
 
   const obtenerFechaMinima = () => {
     const now = new Date();
@@ -330,8 +417,7 @@ export default function CrearExamen({
     }
 
     if (tipoPregunta === "pdf" && !archivoPDF) {
-      alert("Por favor, seleccione un archivo PDF");
-      return;
+      if (!isEditMode || !pdfExistente) { alert("Por favor, seleccione un archivo PDF"); return; }
     }
 
     if (tipoPregunta === "automatico" && preguntasAutomaticas.length === 0) {
@@ -374,7 +460,7 @@ export default function CrearExamen({
         nombreExamen,
         descripcionExamen,
         tipoPregunta,
-        archivoPDF: tipoPregunta === "pdf" ? archivoPDF : null,
+        archivoPDF: tipoPregunta === "pdf" ? (archivoPDF || pdfExistente) : null,
         preguntasAutomaticas:
           tipoPregunta === "automatico" ? preguntasAutomaticas : undefined,
         camposActivos: camposEstudiante.filter((c) => c.activo),
@@ -399,10 +485,18 @@ export default function CrearExamen({
         archivoPDF: datosExamen.archivoPDF ? "FILE" : null,
       });
       
-      const resultado = await examsService.crearExamen(datosExamen, usuario.id);
+      let resultado;
+      if (isEditMode) {
+        console.log("🔄 [EDITAR EXAMEN] Actualizando examen ID:", examenAEditar.id);
+        // AQUÍ IRÁ LA LLAMADA AL BACKEND PARA ACTUALIZAR
+        // resultado = await examsService.actualizarExamen(examenAEditar.id, datosExamen);
+        resultado = { success: true, codigoExamen: examenAEditar.codigoExamen }; // Simulación
+      } else {
+        resultado = await examsService.crearExamen(datosExamen as any, usuario.id);
+      }
 
       if (resultado.success) {
-        console.log("✅ [CREAR EXAMEN] Examen creado exitosamente");
+        console.log(`✅ [${isEditMode ? "EDITAR" : "CREAR"} EXAMEN] Operación exitosa`);
         console.log("🔑 [CREAR EXAMEN] Código:", resultado.codigoExamen);
 
         setExamenCreado({
@@ -410,12 +504,12 @@ export default function CrearExamen({
           url: `${window.location.origin}/acceso-examen?code=${encodeURIComponent(resultado.codigoExamen)}`,
         });
       } else {
-        throw new Error(resultado.error || "Error al crear el examen");
+        throw new Error(resultado.error || `Error al ${isEditMode ? "actualizar" : "crear"} el examen`);
       }
     } catch (error: any) {
       console.error("❌ [CREAR EXAMEN] Error:", error);
       alert(
-        `Error al crear el examen: ${error.message || "Error desconocido"}`,
+        `Error al ${isEditMode ? "actualizar" : "crear"} el examen: ${error.message || "Error desconocido"}`,
       );
     } finally {
       setGuardando(false);
@@ -449,6 +543,31 @@ export default function CrearExamen({
 
   return (
     <div className="max-w-5xl mx-auto space-y-4">
+      {/* Header de navegación */}
+      {isEditMode && (
+      <div className={`flex items-center gap-4 p-4 rounded-xl border shadow-sm ${darkMode ? "border-slate-700 bg-slate-900" : "border-gray-200 bg-white"}`}>
+        <button
+          onClick={() => {
+            if (window.confirm("¿Está seguro que desea salir? Se perderán los cambios no guardados.")) {
+              navigate("/lista-examenes");
+            }
+          }}
+          className={`p-2 rounded-lg transition-colors ${
+            darkMode 
+              ? "hover:bg-slate-800 text-gray-400 hover:text-white" 
+              : "hover:bg-gray-100 text-gray-600 hover:text-gray-900"
+          }`}
+        >
+          <ArrowLeft className="w-6 h-6" />
+        </button>
+        <div>
+          <h1 className={`text-lg font-bold ${darkMode ? "text-white" : "text-gray-900"}`}>
+            Editar Examen
+          </h1>
+        </div>
+      </div>
+      )}
+
       <style>{`
         ${
           darkMode
@@ -729,6 +848,12 @@ export default function CrearExamen({
                             }
                           />
                         </label>
+                      </div>
+                    )}
+                    {/* Mostrar PDF existente si estamos editando y no se ha subido uno nuevo */}
+                    {tipoPregunta === "pdf" && tipo === "pdf" && isEditMode && pdfExistente && !archivoPDF && (
+                      <div className={`mt-2 text-sm ${darkMode ? "text-blue-400" : "text-blue-600"}`}>
+                        📄 Archivo actual: {pdfExistente.split('/').pop()}
                       </div>
                     )}
                     {tipoPregunta === "automatico" && tipo === "automatico" && (
@@ -1180,6 +1305,7 @@ export default function CrearExamen({
 
       {/* Botones Finales */}
       <div className="flex justify-end gap-3 pt-4">
+        {!isEditMode && (
         <button
           className="px-6 py-3 rounded-lg font-medium bg-gray-100 text-gray-900 hover:bg-gray-200 transition-colors"
           onClick={() => {
@@ -1195,6 +1321,7 @@ export default function CrearExamen({
         >
           Cancelar
         </button>
+        )}
         <button
           onClick={handleCrearExamen}
           disabled={
@@ -1234,7 +1361,7 @@ export default function CrearExamen({
               <span>Guardando...</span>
             </>
           ) : (
-            <span>Crear Examen</span>
+            <span>{isEditMode ? "Guardar Cambios" : "Crear Examen"}</span>
           )}
         </button>
       </div>

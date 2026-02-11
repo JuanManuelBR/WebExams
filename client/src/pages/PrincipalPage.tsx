@@ -9,6 +9,7 @@ import NotificationItem from "../components/NotificationItem";
 import MiPerfil from "./MiPerfil";
 import CrearExamen from "./CrearExamen";
 import HomeContent from "./Homecontent";
+import VerExamen from "./VerExamen";
 import VigilanciaExamenesLista from "./VigilanciaExamen";
 import logoUniversidad from "../../assets/logo-universidad.webp";
 import logoUniversidadNoche from "../../assets/logo-universidad-noche.webp";
@@ -438,7 +439,7 @@ export default function LMSDashboard() {
                 label="Lista de Exámenes"
                 collapsed={sidebarCollapsed}
                 darkMode={darkMode}
-                active={location.pathname === "/lista-examenes"}
+                active={["/lista-examenes", "/ver-examen", "/editar-examen"].includes(location.pathname)}
                 onClick={() => navigate("/lista-examenes")}
               />
               <NavItem
@@ -514,6 +515,13 @@ export default function LMSDashboard() {
                 onExamenCreado={() => navigate("/lista-examenes")}
               />
             } />
+            <Route path="editar-examen" element={
+              <CrearExamen
+                darkMode={darkMode}
+                onExamenCreado={() => navigate("/lista-examenes")}
+              />
+            } />
+            <Route path="ver-examen" element={<VerExamen darkMode={darkMode} />} />
             <Route path="lista-examenes" element={<ListaExamenes darkMode={darkMode} onCrearExamen={() => navigate("/nuevo-examen")} />} />
             <Route path="vigilancia" element={<VigilanciaExamenesLista darkMode={darkMode} usuarioData={usuarioData} />} />
             <Route path="mi-perfil" element={<MiPerfil darkMode={darkMode} />} />

@@ -1,5 +1,6 @@
 // src/components/ListaExamenes.tsx
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Copy,
   Trash2,
@@ -18,6 +19,7 @@ import {
   ArchiveRestore,
   RefreshCw,
   Loader2,
+  Pencil,
 } from "lucide-react";
 import {
   examsService,
@@ -41,6 +43,7 @@ export default function ListaExamenes({
   onVerDetalles,
   onCrearExamen,
 }: ListaExamenesProps) {
+  const navigate = useNavigate();
   const [examenes, setExamenes] = useState<ExamenConEstado[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -783,7 +786,9 @@ export default function ListaExamenes({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (onVerDetalles) onVerDetalles(examen);
+                            navigate("/ver-examen", {
+                              state: { examen }
+                            });
                           }}
                           className={`p-1.5 rounded-lg transition-all duration-150 ${
                             darkMode
@@ -793,6 +798,26 @@ export default function ListaExamenes({
                           title="Visualizar examen"
                         >
                           <Eye className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (examen.activoManual) return;
+                            navigate("/editar-examen", {
+                              state: { examenAEditar: examen }
+                            });
+                          }}
+                          className={`p-1.5 rounded-lg transition-all duration-150 ${
+                            examen.activoManual
+                              ? (darkMode ? "text-slate-500" : "text-gray-400")
+                              : (darkMode ? "hover:bg-white/10 active:scale-90 text-gray-300" : "hover:bg-black/5 active:scale-90 text-gray-600")
+                          }`}
+                          title={examen.activoManual ? "Desactiva el examen para editarlo" : "Editar examen"}
+                        >
+                          <Pencil className="w-4 h-4" />
                         </button>
                       </div>
                     </div>

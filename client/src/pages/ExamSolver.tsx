@@ -154,6 +154,9 @@ function TimerNotification({ alert, onClose, darkMode }: { alert: {message: stri
 }
 
 // --- COMPONENTE PRINCIPAL ---
+const ATTEMPTS_API_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3002";
+const EXAMS_API_URL = import.meta.env.VITE_EXAMS_URL || "http://localhost:3001";
+
 export default function SecureExamPlatform() {
   // ----------------------------------------------------------------------
   // 1. ESTADOS
@@ -483,7 +486,7 @@ export default function SecureExamPlatform() {
 
     setSavingStates((prev) => ({ ...prev, [preguntaId]: true }));
     try {
-      const response = await fetch("http://localhost:3002/api/exam/answer", {
+      const response = await fetch(`${ATTEMPTS_API_URL}/api/exam/answer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -530,7 +533,7 @@ export default function SecureExamPlatform() {
     
     if (studentData?.attemptId) {
         try {
-             await fetch("http://localhost:3002/api/exam/event", {
+             await fetch(`${ATTEMPTS_API_URL}/api/exam/event`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -593,7 +596,7 @@ export default function SecureExamPlatform() {
       
       if (studentData?.attemptId) {
           try {
-              await fetch(`http://localhost:3002/api/exam/attempt/${studentData.attemptId}/finish`, {
+              await fetch(`${ATTEMPTS_API_URL}/api/exam/attempt/${studentData.attemptId}/finish`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" }
               });
@@ -654,7 +657,7 @@ export default function SecureExamPlatform() {
 
       console.log("🚀 Creando intento con:", attemptPayload);
 
-      const res = await fetch("http://localhost:3002/api/exam/attempt/start", {
+      const res = await fetch(`${ATTEMPTS_API_URL}/api/exam/attempt/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(attemptPayload),
@@ -672,7 +675,7 @@ export default function SecureExamPlatform() {
       console.log("📘 Cargando preguntas del examen...");
       
       const examDetailsRes = await fetch(
-        `http://localhost:3001/api/exams/forAttempt/${studentData.examCode}`
+        `${EXAMS_API_URL}/api/exams/forAttempt/${studentData.examCode}`
       );
 
       if (!examDetailsRes.ok) throw new Error("Error al cargar detalles del examen");
@@ -699,26 +702,42 @@ export default function SecureExamPlatform() {
       setStudentData(updatedStudentData);
       localStorage.setItem("studentData", JSON.stringify(updatedStudentData));
 
-      const newSocket = io("http://localhost:3002", { transports: ["websocket", "polling"] });
+      const newSocket = io(ATTEMPTS_API_URL, {
+        transports: ["websocket", "polling"],
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+      });
 
       newSocket.on("connect", () => {
         console.log("✅ Conectado al WebSocket");
+        // Re-join en cada conexión (incluye reconexiones)
         newSocket.emit("join_attempt", {
           attemptId: attempt.id,
           sessionId: examInProgress.id_sesion,
         });
       });
 
-      // Listeners del socket (restaurados)
       newSocket.on("session_conflict", (data) => {
         blockExam(data.message, "CRITICAL");
         newSocket.disconnect();
       });
-      newSocket.on("time_expired", () => blockExam("El tiempo del examen ha expirado", "INFO"));
+      newSocket.on("time_expired", () => {
+        setExamFinished(true);
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        }
+      });
       newSocket.on("fraud_detected", (data) => addSecurityViolation(`Fraude: ${data.tipo_evento}`));
       newSocket.on("attempt_blocked", (data) => { setExamBlocked(true); setBlockReason(data.message); });
       newSocket.on("attempt_unlocked", () => { setExamBlocked(false); setBlockReason(""); });
-      newSocket.on("attempt_finished", (data) => blockExam(`Examen finalizado. Puntaje: ${data.puntaje}`, "INFO"));
+      newSocket.on("attempt_finished", () => {
+        setExamFinished(true);
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        }
+      });
 
       setSocket(newSocket);
       setExamStarted(true);
