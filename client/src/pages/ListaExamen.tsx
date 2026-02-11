@@ -1,5 +1,6 @@
 // src/components/ListaExamenes.tsx
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Copy,
   Trash2,
@@ -41,6 +42,7 @@ export default function ListaExamenes({
   onVerDetalles,
   onCrearExamen,
 }: ListaExamenesProps) {
+  const navigate = useNavigate();
   const [examenes, setExamenes] = useState<ExamenConEstado[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -783,7 +785,9 @@ export default function ListaExamenes({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (onVerDetalles) onVerDetalles(examen);
+                            navigate("/ver-examen", {
+                              state: { examen }
+                            });
                           }}
                           className={`p-1.5 rounded-lg transition-all duration-150 ${
                             darkMode

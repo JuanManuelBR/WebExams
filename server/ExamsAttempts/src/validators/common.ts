@@ -1,6 +1,7 @@
 import { AppDataSource } from "@src/data-source/AppDataSource";
 import { plainToInstance } from "class-transformer";
 import { validate, ValidationError } from "class-validator";
+import { HttpError } from "@src/utils/errors";
 
 export type FormattedError = {
   property: string;
@@ -55,9 +56,7 @@ export async function validateDTO<T extends object>(
 }
 
 export function throwHttpError(message: string, status: number): never {
-  const e: any = new Error(message);
-  e.status = status;
-  throw e;
+  throw new HttpError(message, status);
 }
 
 export function validateRangoFechas(fechai: string, fechaf: string) {
@@ -72,11 +71,9 @@ export function validateRangoFechas(fechai: string, fechaf: string) {
   }
 }
 
-export function throwValidationErrors(errors: FormattedError[]) {
+export function throwValidationErrors(errors: FormattedError[]): never {
   const message = errors
     .map((e) => `${e.property}: ${e.constraints.join(", ")}`)
     .join("; ");
-  const e: any = new Error(`Errores de validación: ${message}`);
-  e.status = 400;
-  throw e;
+  throw new HttpError(`Errores de validación: ${message}`, 400);
 }

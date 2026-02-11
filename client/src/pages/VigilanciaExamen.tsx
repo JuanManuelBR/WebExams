@@ -96,6 +96,10 @@ export default function VigilanciaExamenesLista({
   const [filtrosPorExamen, setFiltrosPorExamen] = useState<{ [key: number]: FiltroEstado }>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Refs para evitar stale closures en callbacks del WebSocket
+  const estudianteSeleccionadoRef = useRef<ExamAttempt | null>(null);
+  useEffect(() => { estudianteSeleccionadoRef.current = estudianteSeleccionado; }, [estudianteSeleccionado]);
+
   // ============================================
   // CARGAR DATOS
   // ============================================
@@ -129,86 +133,103 @@ export default function VigilanciaExamenesLista({
   useEffect(() => {
     if (!examenActual) return;
 
-    // Puerto 3002 es el microservicio ExamsAttempts donde está el WebSocket
     const socketUrl = import.meta.env.VITE_SOCKET_URL || "http://localhost:3002";
-    const newSocket = io(socketUrl, { transports: ["websocket", "polling"], reconnection: true });
+    const newSocket = io(socketUrl, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+    });
+    const examId = examenActual.id;
 
     newSocket.on("connect", () => {
       console.log("🔌 Conectado al WebSocket de vigilancia");
-      newSocket.emit("join_exam_monitoring", examenActual.id);
+      newSocket.emit("join_exam_monitoring", examId);
     });
 
-    // Nuevo estudiante empezó el examen
-    newSocket.on("student_started_exam", (data: { attemptId: number; estudiante: any; fecha_inicio: string }) => {
-      console.log("📝 Nuevo estudiante empezó:", data);
-      cargarIntentosExamen(examenActual.id, true);
+    // Nuevo estudiante empezó el examen - agregar directamente sin recargar
+    newSocket.on("student_started_exam", (data: { attemptId: number; estudiante: { nombre: string; correo: string; identificacion: string }; fecha_inicio: string }) => {
+      const nuevoEstudiante: ExamAttempt = {
+        id: data.attemptId,
+        nombre_estudiante: data.estudiante?.nombre || "Sin nombre",
+        correo_estudiante: data.estudiante?.correo || null,
+        estado: "active",
+        tiempoTranscurrido: "0 min",
+        progreso: 0,
+        alertas: 0,
+        alertasNoLeidas: 0,
+      };
+
+      setExamAttempts((prev) => {
+        const intentos = prev[examId] || [];
+        // Evitar duplicados
+        if (intentos.some((i) => i.id === data.attemptId)) return prev;
+        return { ...prev, [examId]: [nuevoEstudiante, ...intentos] };
+      });
     });
 
     // Estudiante terminó el examen
     newSocket.on("student_finished_exam", (data: { attemptId: number; estudiante: any; puntaje: number }) => {
-      console.log("✅ Estudiante terminó:", data);
       setExamAttempts((prev) => {
-        const intentos = prev[examenActual.id] || [];
+        const intentos = prev[examId] || [];
         const nuevos = intentos.map((att) =>
           att.id === data.attemptId
             ? { ...att, estado: "submitted", calificacion: data.puntaje }
             : att
         );
-        return { ...prev, [examenActual.id]: nuevos };
+        return { ...prev, [examId]: nuevos };
       });
 
-      if (estudianteSeleccionado?.id === data.attemptId) {
+      if (estudianteSeleccionadoRef.current?.id === data.attemptId) {
         setEstudianteSeleccionado((prev) => prev ? { ...prev, estado: "submitted", calificacion: data.puntaje } : null);
       }
     });
 
     // Estudiante abandonó el examen
     newSocket.on("student_abandoned_exam", (data: { attemptId: number; estudiante: any; fecha_abandono: string }) => {
-      console.log("🚪 Estudiante abandonó:", data);
       setExamAttempts((prev) => {
-        const intentos = prev[examenActual.id] || [];
+        const intentos = prev[examId] || [];
         const nuevos = intentos.map((att) =>
           att.id === data.attemptId
             ? { ...att, estado: "abandonado" }
             : att
         );
-        return { ...prev, [examenActual.id]: nuevos };
+        return { ...prev, [examId]: nuevos };
       });
 
-      if (estudianteSeleccionado?.id === data.attemptId) {
+      if (estudianteSeleccionadoRef.current?.id === data.attemptId) {
         setEstudianteSeleccionado((prev) => prev ? { ...prev, estado: "abandonado" } : null);
       }
     });
 
     // Progreso actualizado
     newSocket.on("progress_updated", (data: { attemptId: number; progreso: number }) => {
-      console.log("📊 Progreso actualizado:", data);
       setExamAttempts((prev) => {
-        const intentos = prev[examenActual.id] || [];
+        const intentos = prev[examId] || [];
         const nuevos = intentos.map((att) =>
           att.id === data.attemptId
             ? { ...att, progreso: data.progreso }
             : att
         );
-        return { ...prev, [examenActual.id]: nuevos };
+        return { ...prev, [examId]: nuevos };
       });
 
-      if (estudianteSeleccionado?.id === data.attemptId) {
+      if (estudianteSeleccionadoRef.current?.id === data.attemptId) {
         setEstudianteSeleccionado((prev) => prev ? { ...prev, progreso: data.progreso } : null);
       }
     });
 
     // Nueva alerta de fraude
     newSocket.on("new_alert", (data: { attemptId: number; event: any }) => {
-      console.log("🚨 Nueva alerta:", data);
       setExamAttempts((prev) => {
-        const intentos = prev[examenActual.id] || [];
+        const intentos = prev[examId] || [];
         const nuevos = intentos.map((att) => att.id === data.attemptId ?
            { ...att, alertas: (att.alertas || 0) + 1, alertasNoLeidas: (att.alertasNoLeidas || 0) + 1 } : att);
-        return { ...prev, [examenActual.id]: nuevos };
+        return { ...prev, [examId]: nuevos };
       });
 
-      if (estudianteSeleccionado?.id === data.attemptId) {
+      if (estudianteSeleccionadoRef.current?.id === data.attemptId) {
          setEstudianteSeleccionado((prev) => prev ? { ...prev, alertas: (prev.alertas||0)+1, alertasNoLeidas: (prev.alertasNoLeidas||0)+1 } : null);
          cargarAlertasEstudiante(data.attemptId);
       }
@@ -216,17 +237,16 @@ export default function VigilanciaExamenesLista({
 
     // Alerta de fraude con consecuencia
     newSocket.on("fraud_alert", (data: { attemptId: number; blocked: boolean; estudiante: any }) => {
-      console.log("⚠️ Alerta de fraude:", data);
       if (data.blocked) {
         setExamAttempts((prev) => {
-          const intentos = prev[examenActual.id] || [];
+          const intentos = prev[examId] || [];
           const nuevos = intentos.map((att) =>
             att.id === data.attemptId ? { ...att, estado: "blocked" } : att
           );
-          return { ...prev, [examenActual.id]: nuevos };
+          return { ...prev, [examId]: nuevos };
         });
 
-        if (estudianteSeleccionado?.id === data.attemptId) {
+        if (estudianteSeleccionadoRef.current?.id === data.attemptId) {
           setEstudianteSeleccionado((prev) => prev ? { ...prev, estado: "blocked" } : null);
         }
       }
@@ -234,48 +254,45 @@ export default function VigilanciaExamenesLista({
 
     // Intento bloqueado
     newSocket.on("attempt_blocked_notification", (data: { attemptId: number; estudiante: any }) => {
-      console.log("🔒 Intento bloqueado:", data);
       setExamAttempts((prev) => {
-        const intentos = prev[examenActual.id] || [];
+        const intentos = prev[examId] || [];
         const nuevos = intentos.map((att) =>
           att.id === data.attemptId ? { ...att, estado: "blocked" } : att
         );
-        return { ...prev, [examenActual.id]: nuevos };
+        return { ...prev, [examId]: nuevos };
       });
 
-      if (estudianteSeleccionado?.id === data.attemptId) {
+      if (estudianteSeleccionadoRef.current?.id === data.attemptId) {
         setEstudianteSeleccionado((prev) => prev ? { ...prev, estado: "blocked" } : null);
       }
     });
 
     // Alertas marcadas como leídas
     newSocket.on("alerts_read", (data: { attemptId: number }) => {
-      console.log("✓ Alertas leídas:", data);
       setExamAttempts((prev) => {
-        const intentos = prev[examenActual.id] || [];
+        const intentos = prev[examId] || [];
         const nuevos = intentos.map((att) =>
           att.id === data.attemptId ? { ...att, alertasNoLeidas: 0 } : att
         );
-        return { ...prev, [examenActual.id]: nuevos };
+        return { ...prev, [examId]: nuevos };
       });
 
-      if (estudianteSeleccionado?.id === data.attemptId) {
+      if (estudianteSeleccionadoRef.current?.id === data.attemptId) {
         setEstudianteSeleccionado((prev) => prev ? { ...prev, alertasNoLeidas: 0 } : null);
       }
     });
 
     // Intento desbloqueado
     newSocket.on("attempt_unlocked_notification", (data: { attemptId: number; estudiante: any }) => {
-      console.log("🔓 Intento desbloqueado:", data);
       setExamAttempts((prev) => {
-        const intentos = prev[examenActual.id] || [];
+        const intentos = prev[examId] || [];
         const nuevos = intentos.map((att) =>
           att.id === data.attemptId ? { ...att, estado: "active" } : att
         );
-        return { ...prev, [examenActual.id]: nuevos };
+        return { ...prev, [examId]: nuevos };
       });
 
-      if (estudianteSeleccionado?.id === data.attemptId) {
+      if (estudianteSeleccionadoRef.current?.id === data.attemptId) {
         setEstudianteSeleccionado((prev) => prev ? { ...prev, estado: "active" } : null);
       }
     });
@@ -286,7 +303,7 @@ export default function VigilanciaExamenesLista({
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      newSocket.emit("leave_exam_monitoring", examenActual.id);
+      newSocket.emit("leave_exam_monitoring", examId);
       newSocket.disconnect();
     };
   }, [examenActual?.id]);

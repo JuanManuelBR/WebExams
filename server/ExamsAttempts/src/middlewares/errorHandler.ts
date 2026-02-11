@@ -13,6 +13,13 @@ export function errorHandler(
     });
   }
 
+  // Manejar errores con status (ej: throwValidationErrors de common.ts)
+  if (err.status && typeof err.status === "number") {
+    return res.status(err.status).json({
+      message: err.message,
+    });
+  }
+
   console.error(err);
 
   return res.status(500).json({
