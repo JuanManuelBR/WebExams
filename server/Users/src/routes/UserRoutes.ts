@@ -15,6 +15,7 @@ const router = Router();
 
 // Autenticación
 router.post("/login", UserController.login);
+router.post("/login-google", UserController.loginWithGoogle);
 router.post("/logout", UserController.logout);
 
 // ✅ NUEVO: Heartbeat (sin autenticación para que funcione con sendBeacon)

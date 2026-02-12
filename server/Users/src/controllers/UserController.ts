@@ -137,6 +137,38 @@ export class UserController {
     }
   }
 
+  static async loginWithGoogle(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { firebaseIdToken } = req.body;
+
+      if (!firebaseIdToken) {
+        return res.status(400).json({ message: "Token de Firebase requerido" });
+      }
+
+      const { message, token, usuario } = await user_service.loginWithFirebaseToken(firebaseIdToken);
+
+      res.cookie("token", token, {
+        httpOnly: true,
+        expires: new Date(Date.now() + 900000),
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 12 * 60 * 60 * 1000,
+        priority: "high",
+      });
+
+      await user_service.setUserActive(usuario.id, true);
+
+      return res.status(200).json({
+        message,
+        usuario,
+      });
+    } catch (error: any) {
+      console.error("Error en login con Google:", error.message);
+      return res.status(400).json({ message: error.message });
+    }
+  }
+
   static async logout(req: AuthenticatedRequest, res: Response) {
     try {
       // Obtener userId del body
