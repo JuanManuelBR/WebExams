@@ -302,6 +302,13 @@ export class UserService {
     try {
       const existingUser = await this.getUserByEmail(data.email);
       console.log("✅ Usuario existente encontrado");
+
+      // Actualizar foto de perfil si viene una nueva y el usuario no tenía
+      if (data.foto_perfil && !existingUser.foto_perfil) {
+        existingUser.foto_perfil = data.foto_perfil;
+        await this.user_repository.save(existingUser);
+      }
+
       return existingUser;
     } catch (error: any) {
       if (error.statusCode === 404) {

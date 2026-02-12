@@ -339,6 +339,7 @@ export default function LMSDashboard() {
                   src={usuarioData.picture || usuarioData.foto_perfil}
                   alt="Profile"
                   className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
                 />
               ) : (
                 <User className="w-6 h-6 text-white" />

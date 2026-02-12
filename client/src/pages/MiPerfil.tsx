@@ -95,7 +95,7 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
 
       const data: UserData = await response.json();
       console.log('✅ Datos recibidos:', data);
-      
+
       setFormData({
         nombres: data.nombres || '',
         apellidos: data.apellidos || '',
@@ -103,8 +103,8 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
         contrasena: '',
         confirmar_nueva_contrasena: ''
       });
-      
-      setProfileImage(data.foto_perfil || '');
+
+      setProfileImage(data.foto_perfil || usuarioData.picture || '');
     } catch (error: any) {
       console.error('❌ Error completo al cargar perfil:', error);
       alert(`Error al cargar los datos del perfil: ${error.message}`);
@@ -293,7 +293,7 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
             <div className="relative inline-block mb-6">
               <div className="w-32 h-32 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
                 {profileImage ? (
-                  <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+                  <img src={profileImage} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
                   <User className="w-16 h-16 text-white" />
                 )}
