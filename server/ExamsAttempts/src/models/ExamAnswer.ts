@@ -31,5 +31,6 @@ export class ExamAnswer {
   @Column({ type: "double", nullable: true, default: null })
   puntaje?: number | null;
 
-
+  @Column({ type: "varchar", nullable: true, length: 1000 })
+  retroalimentacion?: string;
 }

@@ -1,4 +1,4 @@
-import { IsNumber, IsString, IsDate, IsNotEmpty } from "class-validator";
+import { IsNumber, IsString, IsDate, IsNotEmpty, IsOptional } from "class-validator";
 import { Type } from "class-transformer";
 
 export class CreateExamAnswerDto {
@@ -18,4 +18,8 @@ export class CreateExamAnswerDto {
   @IsNumber({}, {})
   @IsNotEmpty({message: "Falta el id del intento"})
   intento_id!: number;
+
+  @IsOptional()
+  @IsString()
+  retroalimentacion?: string;
 }

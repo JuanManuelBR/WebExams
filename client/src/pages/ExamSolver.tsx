@@ -168,6 +168,7 @@ export default function SecureExamPlatform() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [examFinished, setExamFinished] = useState(false);
+  const [wasForced, setWasForced] = useState(false);
   
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem("darkMode");
@@ -740,6 +741,20 @@ export default function SecureExamPlatform() {
         }
       });
 
+      newSocket.on("forced_finish", (data) => {
+        console.log("⚠️ Examen forzado a terminar por el profesor", data);
+        setWasForced(true);
+        setExamFinished(true);
+
+        // Salir de pantalla completa
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        }
+
+        // Desconectar el socket
+        newSocket.disconnect();
+      });
+
       setSocket(newSocket);
       setExamStarted(true);
       
@@ -1000,12 +1015,21 @@ export default function SecureExamPlatform() {
     return (
       <div className={`min-h-screen flex flex-col items-center justify-center p-4 ${darkMode ? "bg-slate-900 text-white" : "bg-gray-50 text-gray-900"}`}>
         <div className="text-center space-y-6 max-w-lg">
-            <div className={`mx-auto w-20 h-20 rounded-full flex items-center justify-center ${darkMode ? "bg-emerald-900/30 text-emerald-400" : "bg-emerald-100 text-emerald-600"}`}>
+            <div className={`mx-auto w-20 h-20 rounded-full flex items-center justify-center ${
+              wasForced
+                ? darkMode ? "bg-amber-900/30 text-amber-400" : "bg-amber-100 text-amber-600"
+                : darkMode ? "bg-emerald-900/30 text-emerald-400" : "bg-emerald-100 text-emerald-600"
+            }`}>
                 <CheckCircle2 className="w-10 h-10" />
             </div>
-            <h1 className="text-3xl font-bold">¡Examen Entregado!</h1>
+            <h1 className="text-3xl font-bold">
+              {wasForced ? "¡Examen Finalizado por el Profesor!" : "¡Examen Entregado!"}
+            </h1>
             <p className={`text-lg ${darkMode ? "text-slate-400" : "text-gray-600"}`}>
-                Tus respuestas han sido guardadas correctamente.
+                {wasForced
+                  ? "El profesor ha finalizado el examen para todos los estudiantes. Tus respuestas han sido guardadas correctamente."
+                  : "Tus respuestas han sido guardadas correctamente."
+                }
                 <br />
                 Ya puedes cerrar esta ventana.
             </p>

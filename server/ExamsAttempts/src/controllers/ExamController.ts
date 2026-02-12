@@ -6,6 +6,7 @@ import { CreateExamAnswerDto } from "@src/dtos/Create-ExamAnswer.dto";
 import { CreateExamEventDto } from "@src/dtos/Create-ExamEvent.dto";
 import { StartExamAttemptDto } from "@src/dtos/Start-ExamAttempt.dto";
 import { ResumeExamAttemptDto } from "@src/dtos/Resume-ExamAttempt.dto";
+import { UpdateManualGradeDto } from "@src/dtos/Update-ManualGrade.dto";
 
 export class ExamController {
   static async startAttempt(req: Request, res: Response, next: NextFunction) {
@@ -189,6 +190,55 @@ export class ExamController {
 
       const details = await ExamService.getAttemptDetails(intento_id);
       res.status(200).json(details);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async updateManualGrade(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const respuesta_id = Number(req.params.respuesta_id);
+
+      if (isNaN(respuesta_id)) {
+        return res.status(400).json({ message: "ID de respuesta inválido" });
+      }
+
+      const errors = await validateDTO(UpdateManualGradeDto, req.body);
+      if (errors.length) throwValidationErrors(errors);
+
+      const result = await ExamService.updateManualGrade(
+        respuesta_id,
+        req.body.puntaje,
+        req.body.retroalimentacion,
+        req.app.get("io"),
+      );
+      res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async forceFinishActiveAttempts(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const examId = Number(req.params.examId);
+
+      if (isNaN(examId)) {
+        return res.status(400).json({ message: "ID de examen inválido" });
+      }
+
+      const result = await ExamService.forceFinishActiveAttempts(
+        examId,
+        req.app.get("io"),
+      );
+      res.status(200).json(result);
     } catch (err) {
       next(err);
     }

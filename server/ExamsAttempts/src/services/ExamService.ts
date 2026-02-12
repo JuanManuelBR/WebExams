@@ -179,6 +179,9 @@ export class ExamService {
     if (existingAnswer) {
       existingAnswer.respuesta = data.respuesta;
       existingAnswer.fecha_respuesta = data.fecha_respuesta;
+      if (data.retroalimentacion !== undefined) {
+        existingAnswer.retroalimentacion = data.retroalimentacion;
+      }
       answer = await repo.save(existingAnswer);
       io.to(`attempt_${data.intento_id}`).emit("answer_updated", answer);
     } else {
@@ -781,6 +784,227 @@ export class ExamService {
   }
 
   /**
+   * Actualiza manualmente la calificación y retroalimentación de una respuesta
+   * Usado por el profesor para calificar preguntas que requieren revisión manual
+   */
+  static async updateManualGrade(
+    respuesta_id: number,
+    puntaje?: number,
+    retroalimentacion?: string,
+    io?: Server,
+  ) {
+    const answerRepo = AppDataSource.getRepository(ExamAnswer);
+    const attemptRepo = AppDataSource.getRepository(ExamAttempt);
+
+    const answer = await answerRepo.findOne({
+      where: { id: respuesta_id },
+    });
+
+    if (!answer) {
+      throwHttpError("Respuesta no encontrada", 404);
+    }
+
+    // Si se proporciona puntaje, validar que esté en el rango válido
+    if (puntaje !== undefined) {
+      // Obtener el intento para acceder al examen
+      const attempt = await attemptRepo.findOne({
+        where: { id: answer.intento_id },
+      });
+
+      if (!attempt) {
+        throwHttpError("Intento no encontrado", 404);
+      }
+
+      // Obtener información del examen para validar el puntaje máximo
+      const exam = await ExamAttemptValidator.validateExamExistsById(
+        attempt.examen_id,
+      );
+
+      // Buscar la pregunta específica
+      const question = exam.questions?.find(
+        (q: any) => q.id === answer.pregunta_id,
+      );
+
+      if (!question) {
+        throwHttpError("Pregunta no encontrada en el examen", 404);
+      }
+
+      // Validar que el puntaje no sea negativo (ya validado en DTO, pero por seguridad)
+      if (puntaje < 0) {
+        throwHttpError("El puntaje no puede ser negativo", 400);
+      }
+
+      // Validar que el puntaje no exceda el máximo de la pregunta
+      if (puntaje > question.puntaje) {
+        throwHttpError(
+          `El puntaje no puede exceder el máximo de la pregunta (${question.puntaje} puntos)`,
+          400,
+        );
+      }
+
+      answer.puntaje = puntaje;
+    }
+
+    // Actualizar retroalimentación si se proporciona
+    if (retroalimentacion !== undefined) {
+      answer.retroalimentacion = retroalimentacion;
+    }
+
+    await answerRepo.save(answer);
+
+    // Recalcular el puntaje total del intento
+    const attempt = await attemptRepo.findOne({
+      where: { id: answer.intento_id },
+      relations: ["respuestas"],
+    });
+
+    if (attempt) {
+      const puntajeTotal = attempt.respuestas?.reduce(
+        (sum, r) => sum + (r.puntaje || 0),
+        0,
+      ) || 0;
+
+      attempt.puntaje = puntajeTotal;
+
+      // Recalcular porcentaje y nota final
+      const { porcentaje, notaFinal } = GradingService.calculateFinalGrade(
+        puntajeTotal,
+        attempt.puntajeMaximo,
+      );
+
+      attempt.porcentaje = porcentaje;
+      attempt.notaFinal = notaFinal;
+
+      await attemptRepo.save(attempt);
+
+      // Notificar al profesor sobre la actualización
+      if (io) {
+        io.to(`exam_${attempt.examen_id}`).emit("grade_updated", {
+          attemptId: attempt.id,
+          respuestaId: respuesta_id,
+          puntaje,
+          retroalimentacion,
+          puntajeTotal: attempt.puntaje,
+        });
+      }
+    }
+
+    return answer;
+  }
+
+  /**
+   * Fuerza el envío de todos los intentos activos de un examen
+   * Finaliza y califica todos los intentos activos con las respuestas que tengan hasta el momento
+   */
+  static async forceFinishActiveAttempts(examId: number, io: Server) {
+    const attemptRepo = AppDataSource.getRepository(ExamAttempt);
+    const progressRepo = AppDataSource.getRepository(ExamInProgress);
+
+    console.log(`\n🔴 FORZANDO ENVÍO DE INTENTOS ACTIVOS - Examen ID: ${examId}`);
+
+    // Buscar todos los intentos activos del examen
+    const activeAttempts = await attemptRepo.find({
+      where: {
+        examen_id: examId,
+        estado: AttemptState.ACTIVE,
+      },
+      relations: ["respuestas"],
+    });
+
+    if (activeAttempts.length === 0) {
+      console.log("⚠️ No hay intentos activos para finalizar");
+      return {
+        message: "No hay intentos activos para finalizar",
+        finalizados: 0,
+        detalles: [],
+      };
+    }
+
+    console.log(`📋 Total de intentos activos encontrados: ${activeAttempts.length}`);
+
+    const resultados = [];
+
+    // Finalizar cada intento activo
+    for (const attempt of activeAttempts) {
+      try {
+        console.log(`\n📝 Procesando intento ${attempt.id} - Estudiante: ${attempt.nombre_estudiante || "Sin nombre"}`);
+
+        // Obtener el ExamInProgress asociado
+        const examInProgress = await progressRepo.findOne({
+          where: { intento_id: attempt.id },
+        });
+
+        if (!examInProgress) {
+          console.warn(`⚠️ No se encontró ExamInProgress para el intento ${attempt.id}`);
+          continue;
+        }
+
+        // Calificar el intento con las respuestas que tenga hasta ahora
+        const puntaje = await this.calculateScore(attempt);
+
+        // Actualizar el intento
+        attempt.puntaje = puntaje;
+        attempt.fecha_fin = new Date();
+        attempt.estado = AttemptState.FINISHED;
+
+        // Actualizar el ExamInProgress
+        examInProgress.estado = AttemptState.FINISHED;
+        examInProgress.fecha_fin = new Date();
+
+        await attemptRepo.save(attempt);
+        await progressRepo.save(examInProgress);
+
+        console.log(`✅ Intento ${attempt.id} finalizado - Puntaje: ${puntaje.toFixed(2)}/${attempt.puntajeMaximo}`);
+
+        // Notificar al estudiante que su examen fue forzado a terminar
+        // Esto desconectará al estudiante del WebSocket y lo sacará del examen
+        io.to(`attempt_${attempt.id}`).emit("forced_finish", {
+          message: "El profesor ha finalizado el examen para todos los estudiantes",
+          puntaje,
+          puntajeMaximo: attempt.puntajeMaximo,
+          porcentaje: attempt.porcentaje,
+          notaFinal: attempt.notaFinal,
+          attemptId: attempt.id,
+        });
+
+        resultados.push({
+          intentoId: attempt.id,
+          estudiante: {
+            nombre: attempt.nombre_estudiante,
+            correo: attempt.correo_estudiante,
+            identificacion: attempt.identificacion_estudiante,
+          },
+          puntaje,
+          puntajeMaximo: attempt.puntajeMaximo,
+          porcentaje: attempt.porcentaje,
+          notaFinal: attempt.notaFinal,
+          respuestasGuardadas: attempt.respuestas?.length || 0,
+        });
+      } catch (error) {
+        console.error(`❌ Error al finalizar intento ${attempt.id}:`, error);
+        resultados.push({
+          intentoId: attempt.id,
+          error: "Error al finalizar el intento",
+        });
+      }
+    }
+
+    // Notificar al profesor sobre los intentos finalizados
+    io.to(`exam_${examId}`).emit("forced_finish_completed", {
+      totalFinalizados: resultados.length,
+      detalles: resultados,
+    });
+
+    console.log(`\n✅ Proceso completado - ${resultados.length} intentos finalizados`);
+
+    return {
+      message: `${resultados.length} intentos activos han sido finalizados exitosamente`,
+      finalizados: resultados.length,
+      detalles: resultados,
+    };
+  }
+
+  /**
    * Obtiene toda la información detallada de un intento de examen
    * Incluye: intento, respuestas con puntajes, eventos, preguntas correctas
    */
@@ -878,6 +1102,7 @@ export class ExamService {
               respuestaParsed: respuestaParsed, // ✅ Ya parseada, sin escapes
               puntajeObtenido: respuestaEstudiante.puntaje || 0,
               fecha_respuesta: respuestaEstudiante.fecha_respuesta,
+              retroalimentacion: respuestaEstudiante.retroalimentacion,
             }
           : null,
       };
