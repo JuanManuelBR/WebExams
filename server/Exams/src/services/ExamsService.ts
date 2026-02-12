@@ -549,6 +549,7 @@ export class ExamService {
       nombre: exam.nombre,
       descripcion: exam.descripcion,
       codigoExamen: exam.codigoExamen,
+      archivoPDF: exam.archivoPDF || null,
       fecha_creacion: exam.fecha_creacion,
       estado: exam.estado,
       horaApertura: exam.horaApertura,

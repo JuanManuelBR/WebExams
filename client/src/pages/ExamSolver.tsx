@@ -62,6 +62,7 @@ interface ExamData {
   incluirPython: boolean;
   descripcion: string;
   questions: any;
+  archivoPDF?: string | null;
 }
 
 type PanelType =
@@ -857,7 +858,7 @@ export default function SecureExamPlatform() {
          return;
     }
 
-    if (openPanels.length >= 3) { alert("Máximo 3 paneles"); return; }
+    if (openPanels.length >= 2) { alert("Máximo 2 paneles"); return; }
     const newPanels = [...openPanels, panelType];
     setOpenPanels(newPanels);
     
@@ -1191,14 +1192,16 @@ export default function SecureExamPlatform() {
                   darkMode={darkMode} 
                   onClick={() => openPanel("exam")} 
               />
-              <SidebarNavItem 
-                  icon={Pencil} 
-                  label="Responder" 
-                  active={openPanels.includes("answer")} 
-                  collapsed={sidebarCollapsed} 
-                  darkMode={darkMode} 
-                  onClick={() => openPanel("answer")} 
-              />
+              {examData?.archivoPDF && (
+                <SidebarNavItem
+                    icon={Pencil}
+                    label="Responder"
+                    active={openPanels.includes("answer")}
+                    collapsed={sidebarCollapsed}
+                    darkMode={darkMode}
+                    onClick={() => openPanel("answer")}
+                />
+              )}
 
               {!sidebarCollapsed && <p className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider ${darkMode ? "text-slate-500" : "text-gray-400"}`}>Herramientas</p>}
               

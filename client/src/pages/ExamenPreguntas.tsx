@@ -22,6 +22,7 @@ interface ExamData {
   limiteTiempo: number;
   descripcion: string;
   questions: Question[];
+  archivoPDF?: string | null;
 }
 
 interface ExamPanelProps {
@@ -30,6 +31,8 @@ interface ExamPanelProps {
   answers: Record<number, any>;
   onAnswerChange: (preguntaId: number, respuesta: any, delayMs?: number) => void;
 }
+
+const EXAMS_API_URL = import.meta.env.VITE_EXAMS_URL || "http://localhost:3001";
 
 // --- CONSTANTES DE COLOR ---
 const QUESTION_COLORS = [
@@ -78,8 +81,8 @@ export default function ExamPanel({
           z-index: -9999 !important;
         }
       `}</style>
-      <div className={`h-full overflow-auto transition-colors duration-300 ${darkMode ? "bg-slate-900 text-gray-100" : "bg-white text-gray-900"}`}>
-        
+      <div className={`h-full flex flex-col transition-colors duration-300 ${darkMode ? "bg-slate-900 text-gray-100" : "bg-white text-gray-900"}`}>
+
         {!examData ? (
           <div className="h-full flex items-center justify-center">
             <div className="flex flex-col items-center gap-4 animate-pulse">
@@ -89,54 +92,98 @@ export default function ExamPanel({
               </p>
             </div>
           </div>
-        ) : (
-          <div className="max-w-5xl mx-auto p-6 md:p-10">
-            {/* Header del Examen */}
-            <header className={`mb-10 border-b pb-8 ${darkMode ? "border-slate-700" : "border-gray-200"}`}>
-              <h1 className={`text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r mb-3 tracking-tight ${darkMode ? "from-blue-400 to-teal-400" : "from-blue-500 to-teal-500"}`}>
-                {examData.nombre}
-              </h1>
-              <div className="flex flex-wrap items-center gap-6 text-sm md:text-base">
-                <div className={`flex items-center gap-2 font-semibold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  {examData.nombreProfesor}
+        ) : examData.archivoPDF ? (
+          /* --- MODO PDF: Mismo layout que preguntas pero con PDF embebido --- */
+          <div className="flex-1 overflow-auto">
+            <div className="max-w-5xl mx-auto p-6 md:p-10">
+              <header className={`mb-10 border-b pb-8 ${darkMode ? "border-slate-700" : "border-gray-200"}`}>
+                <h1 className={`text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r mb-3 tracking-tight ${darkMode ? "from-blue-400 to-teal-400" : "from-blue-500 to-teal-500"}`}>
+                  {examData.nombre}
+                </h1>
+                <div className="flex flex-wrap items-center gap-6 text-sm md:text-base">
+                  <div className={`flex items-center gap-2 font-semibold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    {examData.nombreProfesor}
+                  </div>
+                  <div className={`flex items-center gap-2 ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {examData.limiteTiempo || 0} minutos
+                  </div>
                 </div>
-                <div className={`flex items-center gap-2 ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {examData.limiteTiempo || 0} minutos
-                </div>
-              </div>
+                {examData.descripcion && (
+                  <div className={`mt-6 p-5 rounded-xl border shadow-sm ${darkMode ? "bg-slate-800/50 border-slate-800" : "bg-white border-gray-200"}`}>
+                    <h4 className={`text-sm font-bold uppercase tracking-wider mb-2 ${darkMode ? "text-teal-500" : "text-teal-600"}`}>
+                      Instrucciones
+                    </h4>
+                    <div
+                      className={`prose max-w-none font-serif leading-relaxed opacity-90 ${darkMode ? "prose-invert" : "prose-slate"}`}
+                      dangerouslySetInnerHTML={{ __html: examData.descripcion }}
+                    />
+                  </div>
+                )}
+              </header>
 
-              {/* Descripción */}
-              {examData.descripcion && (
-                <div className={`mt-6 p-5 rounded-xl border shadow-sm ${darkMode ? "bg-slate-800/50 border-slate-800" : "bg-white border-gray-200"}`}>
-                  <h4 className={`text-sm font-bold uppercase tracking-wider mb-2 ${darkMode ? "text-teal-500" : "text-teal-600"}`}>
-                    Instrucciones
-                  </h4>
-                  <div
-                    className={`prose max-w-none font-serif leading-relaxed opacity-90 ${darkMode ? "prose-invert" : "prose-slate"}`}
-                    dangerouslySetInnerHTML={{ __html: examData.descripcion }}
-                  />
-                </div>
-              )}
-            </header>
-
-            {/* Lista de Preguntas */}
-            <div className="space-y-12">
-              {examData.questions?.map((question, index) => (
-                <QuestionCard
-                  key={question.id}
-                  question={question}
-                  index={index}
-                  answer={answers[question.id]}
-                  onAnswerChange={onAnswerChange}
-                  darkMode={darkMode}
+              {/* PDF embebido */}
+              <div className={`rounded-xl border overflow-hidden shadow-sm ${darkMode ? "border-slate-700" : "border-gray-200"}`}>
+                <iframe
+                  src={`${EXAMS_API_URL}/api/pdfs/${examData.archivoPDF}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
+                  className="w-full border-0"
+                  style={{ height: "70vh" }}
+                  title="Examen PDF"
                 />
-              ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* --- MODO PREGUNTAS: Layout original con scroll --- */
+          <div className="flex-1 overflow-auto">
+            <div className="max-w-5xl mx-auto p-6 md:p-10">
+              <header className={`mb-10 border-b pb-8 ${darkMode ? "border-slate-700" : "border-gray-200"}`}>
+                <h1 className={`text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r mb-3 tracking-tight ${darkMode ? "from-blue-400 to-teal-400" : "from-blue-500 to-teal-500"}`}>
+                  {examData.nombre}
+                </h1>
+                <div className="flex flex-wrap items-center gap-6 text-sm md:text-base">
+                  <div className={`flex items-center gap-2 font-semibold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    {examData.nombreProfesor}
+                  </div>
+                  <div className={`flex items-center gap-2 ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {examData.limiteTiempo || 0} minutos
+                  </div>
+                </div>
+                {examData.descripcion && (
+                  <div className={`mt-6 p-5 rounded-xl border shadow-sm ${darkMode ? "bg-slate-800/50 border-slate-800" : "bg-white border-gray-200"}`}>
+                    <h4 className={`text-sm font-bold uppercase tracking-wider mb-2 ${darkMode ? "text-teal-500" : "text-teal-600"}`}>
+                      Instrucciones
+                    </h4>
+                    <div
+                      className={`prose max-w-none font-serif leading-relaxed opacity-90 ${darkMode ? "prose-invert" : "prose-slate"}`}
+                      dangerouslySetInnerHTML={{ __html: examData.descripcion }}
+                    />
+                  </div>
+                )}
+              </header>
+              <div className="space-y-12">
+                {examData.questions?.map((question, index) => (
+                  <QuestionCard
+                    key={question.id}
+                    question={question}
+                    index={index}
+                    answer={answers[question.id]}
+                    onAnswerChange={onAnswerChange}
+                    darkMode={darkMode}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         )}
