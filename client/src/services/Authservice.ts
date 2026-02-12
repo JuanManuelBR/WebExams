@@ -102,29 +102,57 @@ export const usersService = {
   loginUser: async (email: string, password: string): Promise<{ usuario: BackendUser, token: string }> => {
     try {
       console.log('📤 [API] Haciendo login en backend para:', email);
-      
+
       const response = await usersApi.post("/login", {
         email: email,
         contrasena: password
       });
-      
+
       console.log('✅ [API] Login backend exitoso');
       console.log('🍪 [API] Cookies después del login:', document.cookie);
-      
+
       return {
         usuario: response.data.usuario,
         token: response.data.token
       };
     } catch (error: any) {
       console.error('❌ [API] Error en login backend:', error.response?.data || error.message);
-      
+
       const backendMessage =
-        error.response?.data?.message || 
+        error.response?.data?.message ||
         error.response?.data?.error ||
         error.response?.data?.detail;
 
       throw new Error(
         backendMessage || error.message || "Error al iniciar sesión"
+      );
+    }
+  },
+
+  loginWithGoogleToken: async (firebaseIdToken: string): Promise<{ usuario: BackendUser, token: string }> => {
+    try {
+      console.log('📤 [API] Login con Google token en backend...');
+
+      const response = await usersApi.post("/login-google", {
+        firebaseIdToken
+      });
+
+      console.log('✅ [API] Login Google backend exitoso');
+
+      return {
+        usuario: response.data.usuario,
+        token: response.data.token
+      };
+    } catch (error: any) {
+      console.error('❌ [API] Error en login Google backend:', error.response?.data || error.message);
+
+      const backendMessage =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.response?.data?.detail;
+
+      throw new Error(
+        backendMessage || error.message || "Error al iniciar sesión con Google"
       );
     }
   },
@@ -321,19 +349,17 @@ export const authService = {
       const backendUser = await usersService.findOrCreateUser(backendPayload);
       console.log('✅ [REGISTRO GOOGLE] Usuario en backend (MySQL)');
 
-      // ✅ 3. HACER LOGIN PARA OBTENER LA COOKIE
-      console.log('🔄 [REGISTRO GOOGLE] Obteniendo cookie del backend...');
+      // 3. HACER LOGIN CON FIREBASE TOKEN PARA OBTENER LA COOKIE
+      console.log('🔄 [REGISTRO GOOGLE] Obteniendo cookie del backend con Firebase token...');
       try {
-        const tempPassword = `google-oauth-${firebaseUser.uid}`;
-        await usersService.loginUser(email, tempPassword);
+        const idToken = await firebaseUser.getIdToken();
+        await usersService.loginWithGoogleToken(idToken);
         console.log('✅ [REGISTRO GOOGLE] Cookie obtenida correctamente');
       } catch (loginError: any) {
         console.error('❌ [REGISTRO GOOGLE] No se pudo obtener cookie:', loginError.message);
-        
-        // Fallback: actualizar último acceso manualmente
+
         try {
           await usersService.updateLastAccess(backendUser.id);
-          console.log('⚠️ [REGISTRO GOOGLE] Último acceso actualizado (sin cookie)');
         } catch (accessError) {
           console.error('❌ [REGISTRO GOOGLE] Error actualizando último acceso:', accessError);
         }
@@ -465,10 +491,10 @@ export const authService = {
 
       console.log('✅ [LOGIN GOOGLE] Usuario encontrado');
 
-      // Hacer login en el backend para obtener la cookie
+      // Hacer login con Firebase token para obtener la cookie
       try {
-        const tempPassword = `google-oauth-${firebaseUser.uid}`;
-        await usersService.loginUser(email, tempPassword);
+        const idToken = await firebaseUser.getIdToken();
+        await usersService.loginWithGoogleToken(idToken);
         console.log('✅ [LOGIN GOOGLE] Cookie obtenida del backend');
       } catch (loginError: any) {
         console.warn('⚠️ No se pudo obtener cookie, actualizando último acceso manualmente');

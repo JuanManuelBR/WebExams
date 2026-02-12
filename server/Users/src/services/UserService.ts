@@ -13,6 +13,7 @@ import { throwHttpError } from "@src/utils/errors";
 import { AddUserDto } from "@src/dtos/Add-user.dto";
 import { CommonValidator } from "@src/validators/common";
 import { EditUserDto } from "@src/dtos/Edit-user.dto";
+import { firebaseAdmin } from "@src/firebase-admin";
 
 const EXAMS_MS_URL = process.env.EXAMS_MS_URL;
 
@@ -32,34 +33,9 @@ export class UserService {
       throw new Error("No se encontró un usuario con ese correo");
     }
 
-    // Si es usuario de Google, no validar contraseña
+    // Rechazar usuarios de Google en el login con contraseña
     if (usuario.login_method === 'google') {
-      console.log('ℹ️ Usuario de Google, omitiendo validación de contraseña');
-      
-      if (!JWT_SECRET) {
-        throw new Error("JWT_SECRET no está configurado");
-      }
-
-      const payload = {
-        id: usuario.id,
-        email: usuario.email,
-        nombres: usuario.nombres,
-        apellidos: usuario.apellidos
-      };
-
-      const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "1h" });
-
-
-      // Actualizar último acceso (activo se actualiza en el controller)
-      await this.user_repository.update(usuario.id, {
-        ultimo_acceso: new Date()
-      });
-
-      return {
-        message: "Login exitoso",
-        token,
-        usuario: payload,
-      };
+      throw new Error("Este usuario está registrado con Google. Por favor inicia sesión con Google.");
     }
 
     // Para usuarios de email, validar contraseña
@@ -90,6 +66,56 @@ export class UserService {
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "1h" });
 
     // Actualizar último acceso (activo se actualiza en el controller)
+    await this.user_repository.update(usuario.id, {
+      ultimo_acceso: new Date()
+    });
+
+    return {
+      message: "Login exitoso",
+      token,
+      usuario: payload,
+    };
+  }
+
+  async loginWithFirebaseToken(firebaseIdToken: string) {
+    if (!firebaseIdToken) {
+      throw new Error("Token de Firebase requerido");
+    }
+
+    // Verificar el token con Firebase Admin
+    let decodedToken;
+    try {
+      decodedToken = await firebaseAdmin.auth().verifyIdToken(firebaseIdToken);
+    } catch (error: any) {
+      throw new Error("Token de Firebase inválido o expirado");
+    }
+
+    const email = decodedToken.email;
+    if (!email) {
+      throw new Error("El token de Firebase no contiene un email");
+    }
+
+    const usuario = await this.user_repository.findOne({
+      where: { email },
+    });
+
+    if (!usuario) {
+      throw new Error("No se encontró un usuario con ese correo. Regístrate primero.");
+    }
+
+    if (!JWT_SECRET) {
+      throw new Error("JWT_SECRET no está configurado");
+    }
+
+    const payload = {
+      id: usuario.id,
+      email: usuario.email,
+      nombres: usuario.nombres,
+      apellidos: usuario.apellidos
+    };
+
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "1h" });
+
     await this.user_repository.update(usuario.id, {
       ultimo_acceso: new Date()
     });
