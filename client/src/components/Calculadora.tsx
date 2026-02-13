@@ -9,6 +9,7 @@ import { evaluate, format, derivative, simplify, rationalize } from 'mathjs';
 
 interface CalculadoraProps {
   darkMode: boolean;
+  initialState?: any;
   onSave?: (data: any) => void;
 }
 
@@ -47,29 +48,29 @@ interface ButtonProps {
 }
 
 const Button = React.memo(({ children, onClick, className = '', variant = 'default', disabled = false, darkMode }: ButtonProps) => {
-  const baseClass = `relative overflow-hidden h-11 md:h-12 rounded-xl font-semibold transition-transform duration-75 active:scale-95 flex items-center justify-center shadow-sm select-none border border-transparent ${
+  const baseClass = `relative overflow-hidden h-14 md:h-16 rounded-xl font-bold text-xl transition-transform duration-75 active:scale-95 flex items-center justify-center shadow-sm select-none border border-transparent ${
     disabled ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-105'
   }`;
   
   const variants: Record<ButtonVariant, string> = {
     default: darkMode 
-      ? 'bg-slate-800 text-slate-200 text-base md:text-lg' 
-      : 'bg-white text-gray-700 border-gray-100 text-base md:text-lg',
+      ? 'bg-slate-800 text-slate-200 text-xl' 
+      : 'bg-white text-gray-700 border-gray-100 text-xl',
     operator: darkMode
-      ? 'bg-blue-900/20 text-blue-400 text-base md:text-lg'
-      : 'bg-blue-50 text-blue-600 text-base md:text-lg',
+      ? 'bg-blue-900/20 text-blue-400 text-xl'
+      : 'bg-blue-50 text-blue-600 text-xl',
     function: darkMode
-      ? 'bg-slate-700 text-slate-300 text-base md:text-lg'
-      : 'bg-gray-100 text-gray-700 text-base md:text-lg',
+      ? 'bg-slate-700 text-slate-300 text-lg'
+      : 'bg-gray-100 text-gray-700 text-lg',
     scientific: darkMode
-      ? 'bg-purple-900/20 text-purple-300 text-xs'
-      : 'bg-purple-50 text-purple-700 text-xs',
+      ? 'bg-purple-900/20 text-purple-300 text-base'
+      : 'bg-purple-50 text-purple-700 text-base',
     equal: darkMode 
-      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20 text-base md:text-lg' 
-      : 'bg-blue-600 text-white shadow-lg shadow-blue-200 text-base md:text-lg',
+      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20 text-2xl' 
+      : 'bg-blue-600 text-white shadow-lg shadow-blue-200 text-2xl',
     clear: darkMode 
-      ? 'bg-red-900/20 text-red-400 text-base md:text-lg' 
-      : 'bg-red-50 text-red-600 text-base md:text-lg',
+      ? 'bg-red-900/20 text-red-400 text-xl' 
+      : 'bg-red-50 text-red-600 text-xl',
     memory: darkMode
       ? 'bg-transparent text-xs text-slate-400 hover:bg-slate-800'
       : 'bg-transparent text-xs text-gray-500 hover:bg-gray-100'
@@ -86,16 +87,16 @@ const Button = React.memo(({ children, onClick, className = '', variant = 'defau
   );
 });
 
-export default function Calculadora({ darkMode, onSave }: CalculadoraProps) {
-  const [display, setDisplay] = useState('0');
+export default function Calculadora({ darkMode, initialState, onSave }: CalculadoraProps) {
+  const [display, setDisplay] = useState(initialState?.display || '0');
   const [resultPreview, setResultPreview] = useState('');
-  const [history, setHistory] = useState<{expr: string, res: string}[]>([]);
-  const [memory, setMemory] = useState<number>(0);
-  const [scope, setScope] = useState<any>({});
-  const [ans, setAns] = useState<string>('0');
-  const [mode, setMode] = useState<'basic' | 'scientific'>('basic');
-  const [scientificTab, setScientificTab] = useState<'trig' | 'algebra' | 'calculus'>('trig');
-  const [angleUnit, setAngleUnit] = useState<'RAD' | 'DEG'>('RAD');
+  const [history, setHistory] = useState<{expr: string, res: string}[]>(initialState?.history || []);
+  const [memory, setMemory] = useState<number>(initialState?.memory || 0);
+  const [scope, setScope] = useState<any>(initialState?.scope || {});
+  const [ans, setAns] = useState<string>(initialState?.ans || '0');
+  const [mode, setMode] = useState<'basic' | 'scientific'>(initialState?.mode || 'basic');
+  const [scientificTab, setScientificTab] = useState<'trig' | 'algebra' | 'calculus'>(initialState?.scientificTab || 'trig');
+  const [angleUnit, setAngleUnit] = useState<'RAD' | 'DEG'>(initialState?.angleUnit || 'RAD');
   const [lastWasResult, setLastWasResult] = useState(false);
   const [cursor, setCursor] = useState<number>(1);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -153,6 +154,22 @@ export default function Calculadora({ darkMode, onSave }: CalculadoraProps) {
       }, 100);
     }
   }, [history]);
+
+  // Guardar estado automáticamente cuando cambia
+  useEffect(() => {
+    if (onSave) {
+      onSave({
+        display,
+        history,
+        memory,
+        scope,
+        ans,
+        mode,
+        scientificTab,
+        angleUnit
+      });
+    }
+  }, [display, history, memory, scope, ans, mode, scientificTab, angleUnit, onSave]);
 
   // Auto-scroll del display para seguir el cursor
   useEffect(() => {
@@ -268,17 +285,6 @@ export default function Calculadora({ darkMode, onSave }: CalculadoraProps) {
       setCursor(formattedResult.length);
       setResultPreview('');
       setLastWasResult(true);
-      
-      if (onSave) {
-        onSave({
-          display: formattedResult,
-          history: [...history, { expr: display, res: formattedResult }].slice(-50),
-          memory,
-          scope: newScope,
-          mode,
-          angleUnit
-        });
-      }
     } catch (error) {
       setDisplay('Error');
       setTimeout(() => setDisplay('0'), 1500);
@@ -473,7 +479,7 @@ export default function Calculadora({ darkMode, onSave }: CalculadoraProps) {
                 style={{ scrollBehavior: 'smooth' }}
               >
                   <div className="text-xs absolute top-1.5 left-2.5 opacity-50">{resultPreview}</div>
-                  <div className="text-xl md:text-2xl font-mono tracking-tight whitespace-nowrap min-h-[1.75rem] md:min-h-[2rem] flex justify-end items-center">
+                  <div className="text-3xl md:text-4xl font-mono tracking-tight whitespace-nowrap min-h-[2.5rem] md:min-h-[3rem] flex justify-end items-center">
                       {display.slice(0, cursor)}<span className="w-0.5 h-6 md:h-7 bg-blue-500 animate-pulse mx-0.5"></span>{display.slice(cursor)}
                   </div>
               </div>
