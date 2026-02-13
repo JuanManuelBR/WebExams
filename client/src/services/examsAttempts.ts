@@ -43,4 +43,9 @@ export const examsAttemptsService = {
       throw error;
     }
   },
+
+  async forceFinishExam(examId: number) {
+    const response = await examsAttemptsApi.post(`/${examId}/force-finish`);
+    return response.data;
+  },
 };

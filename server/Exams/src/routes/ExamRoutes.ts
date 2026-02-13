@@ -32,6 +32,12 @@ router.patch(
   ExamsController.updateExamStatus,
 );
 
+router.patch(
+  "/:id/archive",
+  authenticateToken,
+  ExamsController.archiveExam,
+);
+
 router.delete("/:id/single", authenticateToken, ExamsController.deleteExamById);
 
 export default router;

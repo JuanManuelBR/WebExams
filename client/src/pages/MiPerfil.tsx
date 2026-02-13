@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { User, Mail, Save, X, FileEdit, Lock, AlertCircle } from 'lucide-react';
+import ModalConfirmacion from "../components/ModalConfirmacion";
 
 interface MiPerfilProps {
   darkMode: boolean;
@@ -33,6 +34,10 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
     color: ''
   });
 
+  const [modal, setModal] = useState<{ visible: boolean; tipo: "exito" | "error" | "advertencia" | "info" | "confirmar"; titulo: string; mensaje: string; onConfirmar: () => void }>({ visible: false, tipo: "info", titulo: "", mensaje: "", onConfirmar: () => {} });
+  const mostrarModal = (tipo: "exito" | "error" | "advertencia" | "info" | "confirmar", titulo: string, mensaje: string, onConfirmar: () => void) => setModal({ visible: true, tipo, titulo, mensaje, onConfirmar });
+  const cerrarModal = () => setModal(prev => ({ ...prev, visible: false }));
+
   useEffect(() => {
     fetchUserProfile();
   }, []);
@@ -45,8 +50,7 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
       console.log('📦 Usuario en localStorage:', usuarioStorage);
       
       if (!usuarioStorage) {
-        alert('No hay sesión activa. Por favor inicia sesión nuevamente.');
-        window.location.href = '/login';
+        mostrarModal("error", "Sin sesión", "No hay sesión activa. Por favor inicia sesión nuevamente.", () => { cerrarModal(); window.location.href = '/login'; });
         return;
       }
 
@@ -56,8 +60,7 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
       const id = usuarioData.id;
       
       if (!id) {
-        alert('No se encontró el ID del usuario. Por favor inicia sesión nuevamente.');
-        window.location.href = '/login';
+        mostrarModal("error", "Error de usuario", "No se encontró el ID del usuario. Por favor inicia sesión nuevamente.", () => { cerrarModal(); window.location.href = '/login'; });
         return;
       }
       
@@ -81,9 +84,7 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
       console.log('📡 Respuesta del servidor:', response.status, response.statusText);
 
       if (response.status === 401) {
-        alert('Tu sesión ha expirado. Por favor inicia sesión nuevamente.');
-        localStorage.removeItem('usuario');
-        window.location.href = '/login';
+        mostrarModal("error", "Sesión expirada", "Tu sesión ha expirado. Por favor inicia sesión nuevamente.", () => { cerrarModal(); localStorage.removeItem('usuario'); window.location.href = '/login'; });
         return;
       }
 
@@ -107,7 +108,7 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
       setProfileImage(data.foto_perfil || usuarioData.picture || '');
     } catch (error: any) {
       console.error('❌ Error completo al cargar perfil:', error);
-      alert(`Error al cargar los datos del perfil: ${error.message}`);
+      mostrarModal("error", "Error", `Error al cargar los datos del perfil: ${error.message}`, cerrarModal);
     } finally {
       setIsLoading(false);
     }
@@ -165,21 +166,21 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
 
   const handleSave = async () => {
     if (!userId) {
-      alert('No se encontró el ID del usuario');
+      mostrarModal("error", "Error", "No se encontró el ID del usuario", cerrarModal);
       return;
     }
 
     if (formData.contrasena) {
       if (formData.contrasena !== formData.confirmar_nueva_contrasena) {
-        alert('Las contraseñas no coinciden');
+        mostrarModal("advertencia", "Contraseña", "Las contraseñas no coinciden", cerrarModal);
         return;
       }
       if (formData.contrasena.length < 8) {
-        alert('La contraseña debe tener al menos 8 caracteres');
+        mostrarModal("advertencia", "Contraseña", "La contraseña debe tener al menos 8 caracteres", cerrarModal);
         return;
       }
       if (passwordStrength.score < 3) {
-        alert('La contraseña debe ser al menos "Aceptable" (amarillo). Usa mayúsculas, minúsculas, números y caracteres especiales.');
+        mostrarModal("advertencia", "Contraseña débil", "La contraseña debe ser al menos \"Aceptable\". Usa mayúsculas, minúsculas, números y caracteres especiales.", cerrarModal);
         return;
       }
     }
@@ -249,11 +250,11 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
       setProfileImage(data.foto_perfil || '');
       setPasswordStrength({ score: 0, label: '', color: '' });
       setIsEditing(false);
-      alert('Cambios guardados exitosamente');
+      mostrarModal("exito", "Guardado", "Cambios guardados exitosamente", cerrarModal);
       
     } catch (error: any) {
       console.error('Error al guardar:', error);
-      alert(error.message || 'Error al guardar los cambios');
+      mostrarModal("error", "Error", error.message || "Error al guardar los cambios", cerrarModal);
     } finally {
       setIsLoading(false);
     }
@@ -557,6 +558,12 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
           </div>
         </div>
       </div>
+
+      <ModalConfirmacion
+        {...modal}
+        darkMode={darkMode}
+        onCancelar={cerrarModal}
+      />
     </div>
   );
 }

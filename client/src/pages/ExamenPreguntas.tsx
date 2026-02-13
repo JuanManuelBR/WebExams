@@ -212,10 +212,15 @@ function QuestionCard({
   // Verificar si la pregunta tiene respuesta
   const isAnswered = React.useMemo(() => {
     if (answer === undefined || answer === null) return false;
+
+    if (question.type === 'match') {
+      return Array.isArray(answer) && answer.length === (question.pares?.length || 0);
+    }
+
     if (Array.isArray(answer)) return answer.length > 0; // Para test, match, fill_blanks
     if (typeof answer === 'string') return answer.trim().length > 0; // Para open
     return false;
-  }, [answer]);
+  }, [answer, question]);
 
   return (
     <div className={`group relative rounded-2xl shadow-sm border transition-all duration-300 overflow-hidden ${darkMode ? "bg-slate-800/60 border-slate-800 hover:border-blue-700/80" : "bg-white border-gray-200 hover:shadow-lg hover:border-blue-300"}`}>
@@ -399,7 +404,6 @@ function FillBlanksQuestion({ question, answer, onChange, darkMode }: any) {
                   onChange(question.id, newRespuestas, 2000);
                 }}
                 className={`w-32 px-2 py-1 text-center border-b-2 outline-none rounded-t transition-colors font-medium ${darkMode ? "bg-slate-800 border-slate-600 focus:border-blue-400 text-blue-400" : "bg-gray-50 border-gray-300 focus:border-blue-500 text-blue-600"}`}
-                placeholder="..."
               />
             </span>
           )}

@@ -33,6 +33,13 @@ export class ExamAttemptValidator {
   }
 
   static validateExamState(exam: any) {
+    if (exam.estado === "archivado") {
+      throwHttpError(
+        "No se puede presentar el examen porque ha sido archivado",
+        403,
+      );
+    }
+
     if (exam.estado !== "open") {
       throwHttpError(
         "No se puede presentar el examen porque está cerrado",

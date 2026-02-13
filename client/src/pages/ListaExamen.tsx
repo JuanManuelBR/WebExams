@@ -26,6 +26,7 @@ import {
   obtenerUsuarioActual,
   type ExamenCreado,
 } from "../services/examsService";
+import ModalConfirmacion from "../components/ModalConfirmacion";
 
 interface ListaExamenesProps {
   darkMode: boolean;
@@ -61,6 +62,10 @@ export default function ListaExamenes({
   );
   const [correoDestino, setCorreoDestino] = useState("");
   const [compartiendoExito, setCompartiendoExito] = useState(false);
+
+  const [modal, setModal] = useState<{ visible: boolean; tipo: "exito" | "error" | "advertencia" | "info" | "confirmar"; titulo: string; mensaje: string; onConfirmar: () => void; onCancelar?: () => void }>({ visible: false, tipo: "info", titulo: "", mensaje: "", onConfirmar: () => {} });
+  const mostrarModal = (tipo: "exito" | "error" | "advertencia" | "info" | "confirmar", titulo: string, mensaje: string, onConfirmar: () => void, onCancelar?: () => void) => setModal({ visible: true, tipo, titulo, mensaje, onConfirmar, onCancelar });
+  const cerrarModal = () => setModal(prev => ({ ...prev, visible: false }));
 
   useEffect(() => {
     cargarExamenes();
@@ -134,7 +139,7 @@ export default function ListaExamenes({
       );
     } catch (error: any) {
       console.error("Error al cambiar estado:", error);
-      alert(error.message || "Error al cambiar el estado del examen");
+      mostrarModal("error", "Error", error.message || "Error al cambiar el estado del examen", cerrarModal);
     }
   };
 
@@ -147,7 +152,7 @@ export default function ListaExamenes({
 
   const regenerarCodigo = (codigoActual: string) => {
     console.warn("⚠️ Regenerar código no implementado en el backend");
-    alert("Esta funcionalidad estará disponible próximamente");
+    mostrarModal("info", "Próximamente", "Esta funcionalidad estará disponible próximamente", cerrarModal);
   };
 
   const copiarEnlaceExamen = (codigo: string) => {
@@ -158,14 +163,23 @@ export default function ListaExamenes({
     });
   };
 
-  const archivarExamen = (codigo: string) => {
-    setExamenes((prev) =>
-      prev.map((ex) =>
-        ex.codigoExamen === codigo
-          ? { ...ex, archivado: true, activoManual: false }
-          : ex,
-      ),
-    );
+  const archivarExamen = (examen: ExamenConEstado) => {
+    const confirmarArchivo = () => {
+      setExamenes((prev) =>
+        prev.map((ex) =>
+          ex.codigoExamen === examen.codigoExamen
+            ? { ...ex, archivado: true, activoManual: false, estado: "closed" }
+            : ex,
+        ),
+      );
+      cerrarModal();
+    };
+
+    if (examen.activoManual) {
+      mostrarModal("advertencia", "Archivar examen", "Al archivar este examen se inhabilitará automáticamente. ¿Deseas continuar?", confirmarArchivo, cerrarModal);
+    } else {
+      confirmarArchivo();
+    }
     setMenuAbierto(null);
   };
 
@@ -187,13 +201,13 @@ export default function ListaExamenes({
 
   const enviarExamenPorCorreo = () => {
     if (!correoDestino.trim()) {
-      alert("Por favor ingresa un correo electrónico");
+      mostrarModal("advertencia", "Campo requerido", "Por favor ingresa un correo electrónico", cerrarModal);
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(correoDestino)) {
-      alert("Por favor ingresa un correo electrónico válido");
+      mostrarModal("advertencia", "Correo inválido", "Por favor ingresa un correo electrónico válido", cerrarModal);
       return;
     }
 
@@ -207,31 +221,34 @@ export default function ListaExamenes({
     }, 2000);
   };
 
-  const confirmarEliminar = async (id: number, nombre: string) => {
-    if (!window.confirm(`¿Eliminar "${nombre}"?`)) return;
+  const confirmarEliminar = (id: number, nombre: string) => {
+    mostrarModal("confirmar", "Eliminar examen", `¿Eliminar "${nombre}"?`, async () => {
+      cerrarModal();
+      try {
+        const usuario = obtenerUsuarioActual();
+        if (!usuario) {
+          mostrarModal("error", "Error", "No se pudo obtener información del usuario", cerrarModal);
+          return;
+        }
 
-    try {
-      const usuario = obtenerUsuarioActual();
-      if (!usuario) {
-        alert("Error: No se pudo obtener información del usuario");
-        return;
+        console.log("🗑️ [LISTA] Eliminando examen...");
+        const success = await examsService.eliminarExamen(id, usuario.id);
+
+        if (success) {
+          setExamenes((prev) => prev.filter((ex) => ex.id !== id));
+          console.log("✅ [LISTA] Examen eliminado");
+        } else {
+          mostrarModal("error", "Error", "No se pudo eliminar el examen", cerrarModal);
+        }
+      } catch (error) {
+        console.error("❌ [LISTA] Error al eliminar:", error);
+        mostrarModal("error", "Error", "Error al eliminar el examen", cerrarModal);
       }
-
-      console.log("🗑️ [LISTA] Eliminando examen...");
-      const success = await examsService.eliminarExamen(id, usuario.id);
-
-      if (success) {
-        setExamenes((prev) => prev.filter((ex) => ex.id !== id));
-        console.log("✅ [LISTA] Examen eliminado");
-      } else {
-        alert("No se pudo eliminar el examen");
-      }
-    } catch (error) {
-      console.error("❌ [LISTA] Error al eliminar:", error);
-      alert("Error al eliminar el examen");
-    }
-
-    setMenuAbierto(null);
+      setMenuAbierto(null);
+    }, () => {
+      cerrarModal();
+      setMenuAbierto(null);
+    });
   };
 
   const formatearFecha = (fecha: string) => {
@@ -687,7 +704,7 @@ export default function ListaExamenes({
                           if (!isInactive)
                             copiarSoloCodigo(examen.codigoExamen);
                         }}
-                        className={`px-3.5 py-1.5 rounded-lg border text-base font-mono font-bold transition-all duration-200 shadow-sm ${
+                        className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg border text-base font-mono font-bold transition-all duration-200 shadow-sm ${
                           codigoCopiado === examen.codigoExamen
                             ? "bg-emerald-500 border-emerald-500 text-white"
                             : isInactive
@@ -705,7 +722,25 @@ export default function ListaExamenes({
                             <Check className="w-4 h-4 text-white" /> Copiado
                           </span>
                         ) : (
-                          examen.codigoExamen
+                          <>
+                            <span>{examen.codigoExamen}</span>
+                            {!isInactive && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  regenerarCodigo(examen.codigoExamen);
+                                }}
+                                className={`p-1 -mr-1 rounded-md transition-all duration-150 ${
+                                  darkMode
+                                    ? "hover:bg-white/10 text-teal-500/70 hover:text-teal-300"
+                                    : "hover:bg-black/5 text-gray-400 hover:text-gray-700"
+                                }`}
+                                title="Regenerar código"
+                              >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
 
@@ -755,28 +790,6 @@ export default function ListaExamenes({
                           title={isInactive ? "" : "Ver código grande"}
                         >
                           <Search
-                            className={`w-4 h-4 ${isInactive ? (darkMode ? "text-slate-600" : "text-gray-400") : ""}`}
-                          />
-                        </button>
-                      </div>
-
-                      <div className="flex items-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!isInactive)
-                              regenerarCodigo(examen.codigoExamen);
-                          }}
-                          className={`p-1.5 rounded-lg transition-all duration-150 ${
-                            isInactive
-                              ? ""
-                              : darkMode
-                                ? "hover:bg-white/10 active:scale-90 text-gray-300"
-                                : "hover:bg-black/5 active:scale-90 text-gray-600"
-                          }`}
-                          title={isInactive ? "" : "Regenerar código"}
-                        >
-                          <RefreshCw
                             className={`w-4 h-4 ${isInactive ? (darkMode ? "text-slate-600" : "text-gray-400") : ""}`}
                           />
                         </button>
@@ -914,7 +927,7 @@ export default function ListaExamenes({
                             ) : (
                               <button
                                 onClick={() =>
-                                  archivarExamen(examen.codigoExamen)
+                                  archivarExamen(examen)
                                 }
                                 className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors ${
                                   darkMode
@@ -955,6 +968,12 @@ export default function ListaExamenes({
           })
         )}
       </div>
+
+      <ModalConfirmacion
+        {...modal}
+        darkMode={darkMode}
+        onCancelar={modal.onCancelar || cerrarModal}
+      />
     </div>
   );
 }

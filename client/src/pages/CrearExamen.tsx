@@ -18,6 +18,7 @@ import VisorPDF from "../components/VisorPDF";
 import CrearPreguntas, { type Pregunta } from "../components/CrearPreguntas";
 import ModalExamenCreado from "../components/ModalExamenCreado";
 import { examsService, obtenerUsuarioActual } from "../services/examsService";
+import ModalConfirmacion from "../components/ModalConfirmacion";
 
 interface CrearExamenProps {
   darkMode: boolean;
@@ -103,7 +104,7 @@ export default function CrearExamen({
   const [fechaInicioHabilitada, setFechaInicioHabilitada] = useState(false);
   const [fechaCierreHabilitada, setFechaCierreHabilitada] = useState(false);
   const [limiteHabilitado, setLimiteHabilitado] = useState(false);
-  const [limiteTiempo, setLimiteTiempo] = useState(30);
+  const [limiteTiempo, setLimiteTiempo] = useState<number | string>(30);
   const [opcionTiempoAgotado, setOpcionTiempoAgotado] =
     useState<OpcionTiempoAgotado>("");
 
@@ -129,12 +130,17 @@ export default function CrearExamen({
   const [mostrarTooltipHerramientas, setMostrarTooltipHerramientas] = useState(false);
   const [mostrarTooltipSeguridad, setMostrarTooltipSeguridad] = useState(false);
 
+  const [modal, setModal] = useState<{ visible: boolean; tipo: "exito" | "error" | "advertencia" | "info" | "confirmar"; titulo: string; mensaje: string; onConfirmar: () => void; onCancelar?: () => void }>({ visible: false, tipo: "info", titulo: "", mensaje: "", onConfirmar: () => {} });
+  const mostrarModal = (tipo: "exito" | "error" | "advertencia" | "info" | "confirmar", titulo: string, mensaje: string, onConfirmar: () => void, onCancelar?: () => void) => setModal({ visible: true, tipo, titulo, mensaje, onConfirmar, onCancelar });
+  const cerrarModal = () => setModal(prev => ({ ...prev, visible: false }));
+
   const [herramientasActivas, setHerramientasActivas] = useState({
     dibujo: false,
     calculadora: false,
     excel: false,
     javascript: false,
     python: false,
+    java: false,
   });
 
   // Efecto para cargar datos si estamos en modo edición
@@ -370,6 +376,7 @@ export default function CrearExamen({
       excel: false,
       javascript: false,
       python: false,
+      java: false,
     });
     setSeccion1Abierta(true);
     setSeccion2Abierta(false);
@@ -387,61 +394,63 @@ export default function CrearExamen({
 
   const handleCrearExamen = async () => {
     if (!nombreExamen.trim()) {
-      alert("Por favor, ingrese el nombre del examen");
+      mostrarModal("advertencia", "Campo requerido", "Por favor, ingrese el nombre del examen", cerrarModal);
       return;
     }
 
     if (!tipoPregunta) {
-      alert("Por favor, seleccione un tipo de pregunta");
+      mostrarModal("advertencia", "Campo requerido", "Por favor, seleccione un tipo de pregunta", cerrarModal);
       return;
     }
 
     if (!camposEstudiante.some((c) => c.activo)) {
-      alert("Por favor, seleccione al menos un dato del estudiante");
+      mostrarModal("advertencia", "Campo requerido", "Por favor, seleccione al menos un dato del estudiante", cerrarModal);
       return;
     }
 
     if (!seccion4Visitada) {
-      alert("Por favor, revise la sección de Tiempo");
+      mostrarModal("advertencia", "Sección pendiente", "Por favor, revise la sección de Tiempo", cerrarModal);
       return;
     }
 
     if (!seccion5Visitada) {
-      alert("Por favor, revise la sección de Herramientas");
+      mostrarModal("advertencia", "Sección pendiente", "Por favor, revise la sección de Herramientas", cerrarModal);
       return;
     }
 
     if (!consecuenciaAbandono) {
-      alert("Por favor, seleccione una consecuencia de abandono");
+      mostrarModal("advertencia", "Campo requerido", "Por favor, seleccione una consecuencia de abandono", cerrarModal);
       return;
     }
 
     if (tipoPregunta === "pdf" && !archivoPDF) {
-      if (!isEditMode || !pdfExistente) { alert("Por favor, seleccione un archivo PDF"); return; }
+      if (!isEditMode || !pdfExistente) { mostrarModal("advertencia", "Campo requerido", "Por favor, seleccione un archivo PDF", cerrarModal); return; }
     }
 
     if (tipoPregunta === "automatico" && preguntasAutomaticas.length === 0) {
-      alert("Por favor, agregue al menos una pregunta");
+      mostrarModal("advertencia", "Campo requerido", "Por favor, agregue al menos una pregunta", cerrarModal);
       return;
     }
 
     if (contraseñaHabilitada) {
       if (!contraseñaExamen.trim()) {
-        alert("Por favor, ingrese una contraseña para el examen");
+        mostrarModal("advertencia", "Campo requerido", "Por favor, ingrese una contraseña para el examen", cerrarModal);
         return;
       }
 
       if (contraseñaExamen.length < 5 || contraseñaExamen.length > 10) {
-        alert("La contraseña debe tener entre 5 y 10 caracteres");
+        mostrarModal("advertencia", "Contraseña inválida", "La contraseña debe tener entre 5 y 10 caracteres", cerrarModal);
         return;
       }
     }
 
 
-    // ✅ NUEVA VALIDACIÓN: Verificar opcionTiempoAgotado si límite está habilitado
-    if (limiteHabilitado && !opcionTiempoAgotado) {
-      alert("Por favor, seleccione qué hacer cuando se agote el tiempo");
-      return;
+    // ✅ NUEVA VALIDACIÓN: Verificar límite de tiempo y opción de tiempo agotado
+    if (limiteHabilitado) {
+      if (!opcionTiempoAgotado) {
+        mostrarModal("advertencia", "Campo requerido", "Por favor, seleccione qué hacer cuando se agote el tiempo", cerrarModal);
+        return;
+      }
     }
     setGuardando(true);
 
@@ -450,9 +459,7 @@ export default function CrearExamen({
 
       const usuario = obtenerUsuarioActual();
       if (!usuario) {
-        alert(
-          "No se pudo obtener la información del usuario. Por favor, inicie sesión nuevamente.",
-        );
+        mostrarModal("error", "Error de sesión", "No se pudo obtener la información del usuario. Por favor, inicie sesión nuevamente.", cerrarModal);
         return;
       }
 
@@ -467,7 +474,7 @@ export default function CrearExamen({
         fechaInicio: fechaInicioHabilitada ? fechaInicio : null,
         fechaCierre: fechaCierreHabilitada ? fechaCierre : null,
         limiteTiempo: limiteHabilitado
-          ? { valor: limiteTiempo, unidad: "minutos" as const }
+          ? { valor: (limiteTiempo && Number(limiteTiempo) > 0) ? Number(limiteTiempo) : 30, unidad: "minutos" as const }
           : null,
         opcionTiempoAgotado: limiteHabilitado ? opcionTiempoAgotado : "envio-automatico",
         seguridad: {
@@ -508,9 +515,7 @@ export default function CrearExamen({
       }
     } catch (error: any) {
       console.error("❌ [CREAR EXAMEN] Error:", error);
-      alert(
-        `Error al ${isEditMode ? "actualizar" : "crear"} el examen: ${error.message || "Error desconocido"}`,
-      );
+      mostrarModal("error", "Error", `Error al ${isEditMode ? "actualizar" : "crear"} el examen: ${error.message || "Error desconocido"}`, cerrarModal);
     } finally {
       setGuardando(false);
     }
@@ -548,9 +553,10 @@ export default function CrearExamen({
       <div className={`flex items-center gap-4 p-4 rounded-xl border shadow-sm ${darkMode ? "border-slate-700 bg-slate-900" : "border-gray-200 bg-white"}`}>
         <button
           onClick={() => {
-            if (window.confirm("¿Está seguro que desea salir? Se perderán los cambios no guardados.")) {
+            mostrarModal("confirmar", "Salir sin guardar", "¿Está seguro que desea salir? Se perderán los cambios no guardados.", () => {
+              cerrarModal();
               navigate("/lista-examenes");
-            }
+            }, cerrarModal);
           }}
           className={`p-2 rounded-lg transition-colors ${
             darkMode 
@@ -1093,6 +1099,7 @@ export default function CrearExamen({
                   value={fechaCierre}
                   onChange={(e) => handleFechaCierreChange(e.target.value)}
                   onBlur={validarFechaCierre}
+                  min={fechaInicioHabilitada ? fechaInicio : obtenerFechaMinima()}
                   className={`w-full px-4 py-2.5 rounded-lg border ${
                     darkMode
                       ? "bg-slate-800 border-slate-700 text-white [color-scheme:dark]"
@@ -1133,8 +1140,13 @@ export default function CrearExamen({
                   <input
                     type="number"
                     value={limiteTiempo}
-                    onChange={(e) => setLimiteTiempo(Number(e.target.value))}
-                    className={`w-28 px-4 py-2.5 rounded-lg border ${darkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-gray-300"}`}
+                    onChange={(e) => setLimiteTiempo(e.target.value === "" ? "" : Number(e.target.value))}
+                    onBlur={() => {
+                      if (!limiteTiempo || Number(limiteTiempo) <= 0) {
+                        setLimiteTiempo(30);
+                      }
+                    }}
+                    className={`w-28 px-4 py-2.5 rounded-lg border [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${darkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-gray-300"}`}
                   />
                   <span
                     className={`text-sm font-medium ${darkMode ? "text-gray-300" : "text-gray-700"}`}
@@ -1309,13 +1321,10 @@ export default function CrearExamen({
         <button
           className="px-6 py-3 rounded-lg font-medium bg-gray-100 text-gray-900 hover:bg-gray-200 transition-colors"
           onClick={() => {
-            if (
-              window.confirm(
-                "¿Está seguro que desea cancelar? Se perderán todos los datos.",
-              )
-            ) {
+            mostrarModal("confirmar", "Cancelar creación", "¿Está seguro que desea cancelar? Se perderán todos los datos.", () => {
+              cerrarModal();
               resetearFormulario();
-            }
+            }, cerrarModal);
           }}
           disabled={guardando}
         >
@@ -1468,6 +1477,12 @@ export default function CrearExamen({
         darkMode={darkMode}
         onCerrar={cerrarVistaPreviaPDF}
         onElegirOtro={elegirOtroPDF}
+      />
+
+      <ModalConfirmacion
+        {...modal}
+        darkMode={darkMode}
+        onCancelar={modal.onCancelar || cerrarModal}
       />
     </div>
   );

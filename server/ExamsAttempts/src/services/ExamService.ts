@@ -179,6 +179,9 @@ export class ExamService {
     if (existingAnswer) {
       existingAnswer.respuesta = data.respuesta;
       existingAnswer.fecha_respuesta = data.fecha_respuesta;
+      if (data.retroalimentacion !== undefined) {
+        existingAnswer.retroalimentacion = data.retroalimentacion;
+      }
       answer = await repo.save(existingAnswer);
       io.to(`attempt_${data.intento_id}`).emit("answer_updated", answer);
     } else {
@@ -634,9 +637,13 @@ export class ExamService {
     await progressRepo.save(examInProgress);
     await attemptRepo.save(attempt);
 
+    console.log(`✅ Intento ${intento_id} desbloqueado exitosamente`);
+
     // Notificar al estudiante
     io.to(`attempt_${intento_id}`).emit("attempt_unlocked", {
       message: "Tu examen ha sido desbloqueado por el profesor",
+      attemptId: intento_id,
+      estado: AttemptState.ACTIVE,
     });
 
     // Notificar al profesor que el desbloqueo fue exitoso
@@ -645,10 +652,22 @@ export class ExamService {
       estudiante: {
         nombre: attempt.nombre_estudiante,
         correo: attempt.correo_estudiante,
+        identificacion: attempt.identificacion_estudiante,
       },
+      estado: AttemptState.ACTIVE,
     });
 
-    return examInProgress;
+    return {
+      message: "Intento desbloqueado exitosamente",
+      codigo_acceso: examInProgress.codigo_acceso,
+      estado: AttemptState.ACTIVE,
+      attemptId: intento_id,
+      estudiante: {
+        nombre: attempt.nombre_estudiante,
+        correo: attempt.correo_estudiante,
+        identificacion: attempt.identificacion_estudiante,
+      },
+    };
   }
 
   static async getActiveAttemptsByExam(examId: number) {
@@ -781,6 +800,411 @@ export class ExamService {
   }
 
   /**
+   * Actualiza manualmente la calificación y retroalimentación de una respuesta
+   * Usado por el profesor para calificar preguntas que requieren revisión manual
+   */
+  static async updateManualGrade(
+    respuesta_id: number,
+    puntaje?: number,
+    retroalimentacion?: string,
+    io?: Server,
+  ) {
+    const answerRepo = AppDataSource.getRepository(ExamAnswer);
+    const attemptRepo = AppDataSource.getRepository(ExamAttempt);
+
+    const answer = await answerRepo.findOne({
+      where: { id: respuesta_id },
+    });
+
+    if (!answer) {
+      throwHttpError("Respuesta no encontrada", 404);
+    }
+
+    // Si se proporciona puntaje, validar que esté en el rango válido
+    if (puntaje !== undefined) {
+      // Obtener el intento para acceder al examen
+      const attempt = await attemptRepo.findOne({
+        where: { id: answer.intento_id },
+      });
+
+      if (!attempt) {
+        throwHttpError("Intento no encontrado", 404);
+      }
+
+      // Obtener información del examen para validar el puntaje máximo
+      const exam = await ExamAttemptValidator.validateExamExistsById(
+        attempt.examen_id,
+      );
+
+      // Buscar la pregunta específica
+      const question = exam.questions?.find(
+        (q: any) => q.id === answer.pregunta_id,
+      );
+
+      if (!question) {
+        throwHttpError("Pregunta no encontrada en el examen", 404);
+      }
+
+      // Validar que el puntaje no sea negativo (ya validado en DTO, pero por seguridad)
+      if (puntaje < 0) {
+        throwHttpError("El puntaje no puede ser negativo", 400);
+      }
+
+      // Validar que el puntaje no exceda el máximo de la pregunta
+      if (puntaje > question.puntaje) {
+        throwHttpError(
+          `El puntaje no puede exceder el máximo de la pregunta (${question.puntaje} puntos)`,
+          400,
+        );
+      }
+
+      answer.puntaje = puntaje;
+    }
+
+    // Actualizar retroalimentación si se proporciona
+    if (retroalimentacion !== undefined) {
+      answer.retroalimentacion = retroalimentacion;
+    }
+
+    await answerRepo.save(answer);
+
+    // Recalcular el puntaje total del intento
+    const attempt = await attemptRepo.findOne({
+      where: { id: answer.intento_id },
+      relations: ["respuestas"],
+    });
+
+    if (attempt) {
+      const puntajeTotal = attempt.respuestas?.reduce(
+        (sum, r) => sum + (r.puntaje || 0),
+        0,
+      ) || 0;
+
+      attempt.puntaje = puntajeTotal;
+
+      // Recalcular porcentaje y nota final
+      const { porcentaje, notaFinal } = GradingService.calculateFinalGrade(
+        puntajeTotal,
+        attempt.puntajeMaximo,
+      );
+
+      attempt.porcentaje = porcentaje;
+      attempt.notaFinal = notaFinal;
+
+      await attemptRepo.save(attempt);
+
+      // Notificar al profesor sobre la actualización
+      if (io) {
+        io.to(`exam_${attempt.examen_id}`).emit("grade_updated", {
+          attemptId: attempt.id,
+          respuestaId: respuesta_id,
+          puntaje,
+          retroalimentacion,
+          puntajeTotal: attempt.puntaje,
+        });
+      }
+    }
+
+    return answer;
+  }
+
+  /**
+   * Fuerza el envío de todos los intentos activos de un examen
+   * Finaliza y califica todos los intentos activos con las respuestas que tengan hasta el momento
+   */
+  static async forceFinishActiveAttempts(examId: number, io: Server) {
+    const attemptRepo = AppDataSource.getRepository(ExamAttempt);
+    const progressRepo = AppDataSource.getRepository(ExamInProgress);
+
+    console.log(`\n🔴 FORZANDO ENVÍO DE INTENTOS ACTIVOS - Examen ID: ${examId}`);
+
+    // Buscar todos los intentos activos del examen
+    const activeAttempts = await attemptRepo.find({
+      where: {
+        examen_id: examId,
+        estado: AttemptState.ACTIVE,
+      },
+      relations: ["respuestas"],
+    });
+
+    if (activeAttempts.length === 0) {
+      console.log("⚠️ No hay intentos activos para finalizar");
+      return {
+        message: "No hay intentos activos para finalizar",
+        finalizados: 0,
+        detalles: [],
+      };
+    }
+
+    console.log(`📋 Total de intentos activos encontrados: ${activeAttempts.length}`);
+
+    const resultados = [];
+
+    // Finalizar cada intento activo
+    for (const attempt of activeAttempts) {
+      try {
+        console.log(`\n📝 Procesando intento ${attempt.id} - Estudiante: ${attempt.nombre_estudiante || "Sin nombre"}`);
+
+        // Obtener el ExamInProgress asociado
+        const examInProgress = await progressRepo.findOne({
+          where: { intento_id: attempt.id },
+        });
+
+        if (!examInProgress) {
+          console.warn(`⚠️ No se encontró ExamInProgress para el intento ${attempt.id}`);
+          continue;
+        }
+
+        // Calificar el intento con las respuestas que tenga hasta ahora
+        const puntaje = await this.calculateScore(attempt);
+
+        // Actualizar el intento
+        attempt.puntaje = puntaje;
+        attempt.fecha_fin = new Date();
+        attempt.estado = AttemptState.FINISHED;
+
+        // Actualizar el ExamInProgress
+        examInProgress.estado = AttemptState.FINISHED;
+        examInProgress.fecha_fin = new Date();
+
+        await attemptRepo.save(attempt);
+        await progressRepo.save(examInProgress);
+
+        console.log(`✅ Intento ${attempt.id} finalizado - Puntaje: ${puntaje.toFixed(2)}/${attempt.puntajeMaximo}`);
+
+        // Notificar al estudiante que su examen fue forzado a terminar
+        // Esto desconectará al estudiante del WebSocket y lo sacará del examen
+        io.to(`attempt_${attempt.id}`).emit("forced_finish", {
+          message: "El profesor ha finalizado el examen para todos los estudiantes",
+          puntaje,
+          puntajeMaximo: attempt.puntajeMaximo,
+          porcentaje: attempt.porcentaje,
+          notaFinal: attempt.notaFinal,
+          attemptId: attempt.id,
+        });
+
+        resultados.push({
+          intentoId: attempt.id,
+          estudiante: {
+            nombre: attempt.nombre_estudiante,
+            correo: attempt.correo_estudiante,
+            identificacion: attempt.identificacion_estudiante,
+          },
+          puntaje,
+          puntajeMaximo: attempt.puntajeMaximo,
+          porcentaje: attempt.porcentaje,
+          notaFinal: attempt.notaFinal,
+          respuestasGuardadas: attempt.respuestas?.length || 0,
+        });
+      } catch (error) {
+        console.error(`❌ Error al finalizar intento ${attempt.id}:`, error);
+        resultados.push({
+          intentoId: attempt.id,
+          error: "Error al finalizar el intento",
+        });
+      }
+    }
+
+    // Notificar al profesor sobre los intentos finalizados
+    io.to(`exam_${examId}`).emit("forced_finish_completed", {
+      totalFinalizados: resultados.length,
+      detalles: resultados,
+    });
+
+    console.log(`\n✅ Proceso completado - ${resultados.length} intentos finalizados`);
+
+    return {
+      message: `${resultados.length} intentos activos han sido finalizados exitosamente`,
+      finalizados: resultados.length,
+      detalles: resultados,
+    };
+  }
+
+  /**
+   * Fuerza el envío de un intento específico
+   * Finaliza y califica el intento con las respuestas que tenga hasta el momento
+   */
+  static async forceFinishSingleAttempt(attemptId: number, io: Server) {
+    const attemptRepo = AppDataSource.getRepository(ExamAttempt);
+    const progressRepo = AppDataSource.getRepository(ExamInProgress);
+
+    console.log(`\n🔴 FORZANDO ENVÍO DE INTENTO - ID: ${attemptId}`);
+
+    // Buscar el intento específico
+    const attempt = await attemptRepo.findOne({
+      where: { id: attemptId },
+      relations: ["respuestas"],
+    });
+
+    if (!attempt) {
+      throwHttpError("Intento no encontrado", 404);
+    }
+
+    // Verificar que el intento esté activo
+    if (attempt.estado !== AttemptState.ACTIVE) {
+      throwHttpError(
+        `El intento ya está en estado ${attempt.estado}. Solo se pueden forzar intentos activos.`,
+        400
+      );
+    }
+
+    console.log(`📝 Procesando intento ${attempt.id} - Estudiante: ${attempt.nombre_estudiante || "Sin nombre"}`);
+
+    // Obtener el ExamInProgress asociado
+    const examInProgress = await progressRepo.findOne({
+      where: { intento_id: attempt.id },
+    });
+
+    if (!examInProgress) {
+      throwHttpError(
+        `No se encontró ExamInProgress para el intento ${attempt.id}`,
+        404
+      );
+    }
+
+    // Calificar el intento con las respuestas que tenga hasta ahora
+    const puntaje = await this.calculateScore(attempt);
+
+    // Actualizar el intento
+    attempt.puntaje = puntaje;
+    attempt.fecha_fin = new Date();
+    attempt.estado = AttemptState.FINISHED;
+
+    // Actualizar el ExamInProgress
+    examInProgress.estado = AttemptState.FINISHED;
+    examInProgress.fecha_fin = new Date();
+
+    await attemptRepo.save(attempt);
+    await progressRepo.save(examInProgress);
+
+    console.log(`✅ Intento ${attempt.id} finalizado - Puntaje: ${puntaje.toFixed(2)}/${attempt.puntajeMaximo}`);
+
+    // Notificar al estudiante que su examen fue forzado a terminar
+    io.to(`attempt_${attempt.id}`).emit("forced_finish", {
+      message: "El profesor ha finalizado tu examen",
+      puntaje,
+      puntajeMaximo: attempt.puntajeMaximo,
+      porcentaje: attempt.porcentaje,
+      notaFinal: attempt.notaFinal,
+      attemptId: attempt.id,
+    });
+
+    // Notificar al profesor (room del examen)
+    io.to(`exam_${attempt.examen_id}`).emit("single_attempt_forced_finish", {
+      intentoId: attempt.id,
+      estudiante: {
+        nombre: attempt.nombre_estudiante,
+        correo: attempt.correo_estudiante,
+        identificacion: attempt.identificacion_estudiante,
+      },
+      puntaje,
+      puntajeMaximo: attempt.puntajeMaximo,
+      porcentaje: attempt.porcentaje,
+      notaFinal: attempt.notaFinal,
+    });
+
+    return {
+      message: "Intento finalizado exitosamente",
+      intentoId: attempt.id,
+      estudiante: {
+        nombre: attempt.nombre_estudiante,
+        correo: attempt.correo_estudiante,
+        identificacion: attempt.identificacion_estudiante,
+      },
+      puntaje,
+      puntajeMaximo: attempt.puntajeMaximo,
+      porcentaje: attempt.porcentaje,
+      notaFinal: attempt.notaFinal,
+      respuestasGuardadas: attempt.respuestas?.length || 0,
+    };
+  }
+
+  /**
+   * Elimina completamente un intento y todos sus datos relacionados
+   * Elimina: respuestas, eventos, ExamInProgress y el intento
+   */
+  static async deleteAttempt(attemptId: number, io?: Server) {
+    return await AppDataSource.transaction(async (manager) => {
+      const attemptRepo = manager.getRepository(ExamAttempt);
+      const answerRepo = manager.getRepository(ExamAnswer);
+      const eventRepo = manager.getRepository(ExamEvent);
+      const progressRepo = manager.getRepository(ExamInProgress);
+
+      console.log(`\n🗑️ ELIMINANDO INTENTO - ID: ${attemptId}`);
+
+      // 1. Buscar el intento
+      const attempt = await attemptRepo.findOne({
+        where: { id: attemptId },
+      });
+
+      if (!attempt) {
+        throwHttpError("Intento no encontrado", 404);
+      }
+
+      const examId = attempt.examen_id;
+      const studentInfo = {
+        nombre: attempt.nombre_estudiante,
+        correo: attempt.correo_estudiante,
+        identificacion: attempt.identificacion_estudiante,
+      };
+
+      // 2. Contar y eliminar respuestas
+      const answersCount = await answerRepo.count({
+        where: { intento_id: attemptId },
+      });
+      await answerRepo.delete({ intento_id: attemptId });
+      console.log(`  ✓ Eliminadas ${answersCount} respuesta(s)`);
+
+      // 3. Contar y eliminar eventos
+      const eventsCount = await eventRepo.count({
+        where: { intento_id: attemptId },
+      });
+      await eventRepo.delete({ intento_id: attemptId });
+      console.log(`  ✓ Eliminados ${eventsCount} evento(s)`);
+
+      // 4. Eliminar ExamInProgress
+      const progressDeleted = await progressRepo.delete({ intento_id: attemptId });
+      console.log(`  ✓ Eliminado ExamInProgress (${progressDeleted.affected || 0} registro(s))`);
+
+      // 5. Eliminar el intento
+      await attemptRepo.delete({ id: attemptId });
+      console.log(`  ✓ Eliminado intento ID: ${attemptId}`);
+
+      console.log(`✅ Intento eliminado completamente\n`);
+
+      // 6. Notificar vía WebSocket si se proporcionó io
+      if (io) {
+        // Notificar al estudiante (si está conectado)
+        io.to(`attempt_${attemptId}`).emit("attempt_deleted", {
+          message: "Tu intento ha sido eliminado por el profesor",
+          attemptId,
+        });
+
+        // Notificar al profesor
+        io.to(`exam_${examId}`).emit("attempt_deleted_notification", {
+          attemptId,
+          estudiante: studentInfo,
+          deletedData: {
+            respuestas: answersCount,
+            eventos: eventsCount,
+          },
+        });
+      }
+
+      return {
+        message: "Intento eliminado exitosamente",
+        attemptId,
+        estudiante: studentInfo,
+        deletedData: {
+          respuestas: answersCount,
+          eventos: eventsCount,
+          examInProgress: progressDeleted.affected || 0,
+        },
+      };
+    });
+  }
+
+  /**
    * Obtiene toda la información detallada de un intento de examen
    * Incluye: intento, respuestas con puntajes, eventos, preguntas correctas
    */
@@ -878,6 +1302,7 @@ export class ExamService {
               respuestaParsed: respuestaParsed, // ✅ Ya parseada, sin escapes
               puntajeObtenido: respuestaEstudiante.puntaje || 0,
               fecha_respuesta: respuestaEstudiante.fecha_respuesta,
+              retroalimentacion: respuestaEstudiante.retroalimentacion,
             }
           : null,
       };
@@ -1093,6 +1518,57 @@ export class ExamService {
         fecha_envio: e.fecha_envio,
         leido: e.leido,
       })),
+    };
+  }
+
+  /**
+   * Elimina todos los eventos/alertas de un intento específico
+   */
+  static async deleteAttemptEvents(attemptId: number, io?: Server) {
+    const eventRepo = AppDataSource.getRepository(ExamEvent);
+    const attemptRepo = AppDataSource.getRepository(ExamAttempt);
+
+    console.log(`\n🗑️ ELIMINANDO EVENTOS - Intento ID: ${attemptId}`);
+
+    // Verificar que el intento existe
+    const attempt = await attemptRepo.findOne({
+      where: { id: attemptId },
+    });
+
+    if (!attempt) {
+      throwHttpError("Intento no encontrado", 404);
+    }
+
+    // Obtener la cantidad de eventos antes de eliminar
+    const eventCount = await eventRepo.count({
+      where: { intento_id: attemptId },
+    });
+
+    console.log(`📋 Eventos a eliminar: ${eventCount}`);
+
+    // Eliminar todos los eventos del intento
+    await eventRepo.delete({ intento_id: attemptId });
+
+    console.log(`✅ ${eventCount} eventos eliminados exitosamente`);
+
+    // Notificar a través de WebSocket si está disponible
+    if (io) {
+      // Notificar al profesor en la sala del examen
+      io.to(`exam_${attempt.examen_id}`).emit("events_deleted", {
+        attemptId,
+        deletedCount: eventCount,
+      });
+
+      // Notificar en la sala del intento específico
+      io.to(`attempt_${attemptId}`).emit("events_cleared", {
+        message: "Las alertas han sido eliminadas",
+      });
+    }
+
+    return {
+      message: `Se eliminaron ${eventCount} evento(s) del intento`,
+      deletedCount: eventCount,
+      attemptId,
     };
   }
 }

@@ -99,6 +99,7 @@ export class ExamService {
         incluirHojaExcel: data.incluirHojaExcel,
         incluirJavascript: data.incluirJavascript,
         incluirPython: data.incluirPython,
+        incluirJava: data.incluirJava,
         horaApertura: data.horaApertura || null,
         horaCierre: data.horaCierre || null,
         limiteTiempo: data.limiteTiempo,
@@ -128,6 +129,17 @@ export class ExamService {
           }
           return q;
         });
+
+        // Actualizar flag tienePreguntasAbiertas
+        const tienePreguntasAbiertas = preguntas_guardadas.some(
+          (q: any) => q.type === "open"
+        );
+        examen_guardado.tienePreguntasAbiertas = tienePreguntasAbiertas;
+        await manager.save(Exam, examen_guardado);
+      } else {
+        // Si no hay preguntas, el flag debe estar en false
+        examen_guardado.tienePreguntasAbiertas = false;
+        await manager.save(Exam, examen_guardado);
       }
 
       if (cambioEstadoAutomatico) {
@@ -284,6 +296,12 @@ export class ExamService {
           }
           return q;
         });
+
+        // Actualizar flag tienePreguntasAbiertas basado en las preguntas guardadas
+        const tienePreguntasAbiertas = preguntasGuardadas.some(
+          (q: any) => q.type === "open"
+        );
+        existingExam.tienePreguntasAbiertas = tienePreguntasAbiertas;
       }
 
       // 3. ACTUALIZAR CAMPOS DEL EXAMEN
@@ -312,6 +330,8 @@ export class ExamService {
         existingExam.incluirJavascript = data.incluirJavascript;
       if (data.incluirPython !== undefined)
         existingExam.incluirPython = data.incluirPython;
+      if (data.incluirJava !== undefined)
+        existingExam.incluirJava = data.incluirJava;
       if (data.horaApertura !== undefined)
         existingExam.horaApertura = data.horaApertura;
       if (data.horaCierre !== undefined)
@@ -415,6 +435,7 @@ export class ExamService {
       incluirHojaExcel: examen.incluirHojaExcel,
       incluirJavascript: examen.incluirJavascript,
       incluirPython: examen.incluirPython,
+      incluirJava: examen.incluirJava,
       nombreProfesor: nombreProfesor,
       limiteTiempo: examen.limiteTiempo,
     };
@@ -568,6 +589,7 @@ export class ExamService {
       incluirHojaExcel: exam.incluirHojaExcel,
       incluirJavascript: exam.incluirJavascript,
       incluirPython: exam.incluirPython,
+      incluirJava: exam.incluirJava,
 
       questions: sanitizedQuestions,
       nombreProfesor: nombreProfesor,
@@ -629,6 +651,36 @@ export class ExamService {
     }
 
     return await this.examRepo.save(exam);
+  }
+
+  async archiveExam(
+    examId: number,
+    profesorId: number,
+    cookies?: string,
+  ): Promise<Exam> {
+    await examenValidator.verificarProfesor(profesorId, cookies);
+
+    const exam = await this.examRepo.findOne({ where: { id: examId } });
+    if (!exam) {
+      throwHttpError("Examen no encontrado", 404);
+    }
+
+    // Verificar que el profesor es dueño del examen
+    if (exam.id_profesor !== profesorId) {
+      throwHttpError("No tienes permiso para archivar este examen", 403);
+    }
+
+    // Verificar que el examen no esté ya archivado
+    if (exam.estado === ExamenState.ARCHIVED) {
+      throwHttpError("El examen ya está archivado", 400);
+    }
+
+    console.log(`📦 Archivando examen ID: ${examId}`);
+    exam.estado = ExamenState.ARCHIVED;
+    const archivedExam = await this.examRepo.save(exam);
+    console.log(`✅ Examen ${examId} archivado exitosamente`);
+
+    return archivedExam;
   }
 
   async deleteExamById(

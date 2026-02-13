@@ -60,6 +60,9 @@ export class Exam {
   @Column({ type: "boolean" })
   incluirPython!: boolean;
 
+  @Column({ type: "boolean" })
+  incluirJava!: boolean;
+
   @Column({ type: "datetime", nullable: true })
   horaApertura?: Date | null;
 
@@ -83,6 +86,9 @@ export class Exam {
 
   @Column({ type: "boolean", default: false })
   cambioEstadoAutomatico!: boolean;
+
+  @Column({ type: "boolean", default: false })
+  tienePreguntasAbiertas!: boolean;
 
   @OneToMany(() => Question, (question) => question.exam, {
     onDelete: "CASCADE",

@@ -36,7 +36,7 @@ export class UpdateExamDto {
   contrasena?: string;
 
   @IsIn(Object.values(ExamenState), {
-    message: "El formato del estado del examen es incorrecto, debe ser open o closed",
+    message: "El formato del estado del examen es incorrecto, debe ser open, closed o archivado",
   })
   @IsOptional()
   estado?: ExamenState;
@@ -72,6 +72,10 @@ export class UpdateExamDto {
   @IsBoolean({ message: "incluirPython debe ser true o false" })
   @IsOptional()
   incluirPython?: boolean;
+
+  @IsBoolean({ message: "incluirJava debe ser true o false" })
+  @IsOptional()
+  incluirJava?: boolean;
 
   @IsBoolean({ message: "necesitaContrasena debe ser true o false" })
   @IsOptional()

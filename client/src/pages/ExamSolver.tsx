@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { Navigate } from "react-router-dom";
 import {
   Moon,
   Sun,
@@ -22,7 +23,8 @@ import {
   FileText,
   LayoutGrid,
   CheckCircle2,
-  LogOut
+  LogOut,
+  Coffee
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import ExamPanel from "./ExamenPreguntas";
@@ -33,6 +35,7 @@ import HojaCalculo from '../components/HojaCalculo';
 import Lienzo from '../components/Lienzo';
 import EditorJavaScript from '../components/EditorJavaScript';
 import EditorPython from '../components/EditorPython';
+import EditorJava from '../components/EditorJava';
 import logoUniversidad from "../../assets/logo-universidad.webp";
 import logoUniversidadNoche from "../../assets/logo-universidad-noche.webp";
 
@@ -60,6 +63,7 @@ interface ExamData {
   incluirHojaExcel: boolean;
   incluirJavascript: boolean;
   incluirPython: boolean;
+  incluirJava: boolean;
   descripcion: string;
   questions: any;
   archivoPDF?: string | null;
@@ -72,7 +76,8 @@ type PanelType =
   | "calculadora"
   | "excel"
   | "javascript"
-  | "python";
+  | "python"
+  | "java";
 type Layout = "horizontal" | "vertical";
 
 // --- INDICADOR DE GUARDADO ---
@@ -165,9 +170,12 @@ export default function SecureExamPlatform() {
   const [examStarted, setExamStarted] = useState(false);
   const [examBlocked, setExamBlocked] = useState(false);
   const [blockReason, setBlockReason] = useState("");
+  const [showUnlockScreen, setShowUnlockScreen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [examFinished, setExamFinished] = useState(false);
+  const [wasForced, setWasForced] = useState(false);
+  const [wasAbandoned, setWasAbandoned] = useState(false);
   
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem("darkMode");
@@ -217,6 +225,7 @@ export default function SecureExamPlatform() {
 
   const fullscreenRef = useRef<HTMLDivElement>(null);
   const integrityCheckRef = useRef<number>(0);
+  const examFinishedRef = useRef(false);
 
   const [studentData, setStudentData] = useState<StudentData | null>(null);
   const [examData, setExamData] = useState<ExamData | null>(null);
@@ -241,6 +250,16 @@ export default function SecureExamPlatform() {
     }
   ]);
 
+  // Estado persistente para el editor de Java
+  const [javaCells, setJavaCells] = useState<any[]>([
+    {
+      id: '1',
+      type: 'markdown',
+      content: '# Editor Java\n',
+      status: 'idle'
+    }
+  ]);
+
   // Estado persistente para Lienzo (Dibujo)
   const [lienzoState, setLienzoState] = useState<any>(null);
 
@@ -253,7 +272,7 @@ export default function SecureExamPlatform() {
       if (type === "dibujo") return 50; // Lienzo requiere 60% mínimo
       // Si hay 3 paneles, relajamos un poco los mínimos para que quepan
       if (type === "exam") return 50;
-      if (type === "python" || type === "javascript") return panelCount === 3 ? 30 : 40;
+      if (type === "python" || type === "javascript" || type === "java") return panelCount === 3 ? 30 : 40;
       if (type === "answer") return 30;
       return 20; // Calculadora, Excel, etc.
   };
@@ -276,19 +295,23 @@ export default function SecureExamPlatform() {
   // 2. EFECTOS LÓGICOS (Carga, Seguridad, Timer)
   // ----------------------------------------------------------------------
 
+  // Detectar restauración desde bfcache (historial del navegador) y forzar reload
+  useEffect(() => {
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        window.location.reload();
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
   useEffect(() => {
     const storedStudentData = localStorage.getItem("studentData");
     const storedExamData = localStorage.getItem("currentExam");
 
-    if (storedStudentData) {
-      const parsedStudent = JSON.parse(storedStudentData);
-      setStudentData(parsedStudent);
-    }
-
-    if (storedExamData) {
-      const parsedExam = JSON.parse(storedExamData);
-      setExamData(parsedExam);
-    }
+    if (storedStudentData) setStudentData(JSON.parse(storedStudentData));
+    if (storedExamData) setExamData(JSON.parse(storedExamData));
   }, []);
 
   // Verificación de integridad
@@ -476,6 +499,18 @@ export default function SecureExamPlatform() {
   // 3. FUNCIONES DE ACCIÓN (StartExam, Save, Block)
   // ----------------------------------------------------------------------
 
+  const limpiarDatosExamen = () => {
+    // localStorage
+    localStorage.removeItem("studentData");
+    localStorage.removeItem("currentExam");
+    // sessionStorage
+    sessionStorage.clear();
+    // Cookies del dominio
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c.trim().split("=")[0] + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+    });
+  };
+
   const addSecurityViolation = (violation: string) => {
     setSecurityViolations((prev) => [...prev, `${new Date().toLocaleTimeString()}: ${violation}`]);
   };
@@ -553,12 +588,31 @@ export default function SecureExamPlatform() {
 
   // Función para cerrar la página / salir
   const handleCloseApp = () => {
+      examFinishedRef.current = true;
+      if (studentData?.attemptId) {
+        if (socket) socket.emit("leave_attempt", studentData.attemptId);
+        fetch(`${ATTEMPTS_API_URL}/api/exam/attempt/${studentData.attemptId}/abandon`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          keepalive: true,
+        }).catch(() => {});
+      }
+
+      // Salir de pantalla completa
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+
+      // Mostrar pantalla de abandono en vez de redirigir
+      setWasAbandoned(true);
+      setExamFinished(true);
+      limpiarDatosExamen();
+
       try {
           window.close();
       } catch (e) {
           console.log("No se pudo cerrar la ventana automáticamente");
       }
-      window.location.href = '/';
   };
 
   // Calcular preguntas sin responder
@@ -602,8 +656,10 @@ export default function SecureExamPlatform() {
                   headers: { "Content-Type": "application/json" }
               });
               // Mostrar pantalla de finalización
+              examFinishedRef.current = true;
               setExamFinished(true);
-              
+              limpiarDatosExamen();
+
               // Salir de pantalla completa
               if (document.fullscreenElement) {
                   document.exitFullscreen().catch(() => {});
@@ -732,12 +788,39 @@ export default function SecureExamPlatform() {
       });
       newSocket.on("fraud_detected", (data) => addSecurityViolation(`Fraude: ${data.tipo_evento}`));
       newSocket.on("attempt_blocked", (data) => { setExamBlocked(true); setBlockReason(data.message); });
-      newSocket.on("attempt_unlocked", () => { setExamBlocked(false); setBlockReason(""); });
+      newSocket.on("attempt_unlocked", (data) => {
+        console.log("✅ Examen desbloqueado por el profesor", data);
+        setExamBlocked(false);
+        setBlockReason("");
+        setShowUnlockScreen(true);
+
+        // Traer la ventana al frente y darle foco
+        try {
+          window.focus();
+        } catch (err) {
+          console.warn("⚠️ No se pudo dar foco a la ventana:", err);
+        }
+      });
       newSocket.on("attempt_finished", () => {
         setExamFinished(true);
         if (document.fullscreenElement) {
           document.exitFullscreen().catch(() => {});
         }
+      });
+
+      newSocket.on("forced_finish", (data) => {
+        console.log("⚠️ Examen forzado a terminar por el profesor", data);
+        setWasForced(true);
+        setExamFinished(true);
+        limpiarDatosExamen();
+
+        // Salir de pantalla completa
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        }
+
+        // Desconectar el socket
+        newSocket.disconnect();
       });
 
       setSocket(newSocket);
@@ -796,19 +879,31 @@ export default function SecureExamPlatform() {
       if (examStarted && !examBlocked && !isSubmitting && !examFinished) blockExam("Pérdida de foco detectada", "CRITICAL");
     };
 
+    const handleBeforeUnload = () => {
+      if (examStarted && !examFinishedRef.current && studentData?.attemptId) {
+        fetch(`${ATTEMPTS_API_URL}/api/exam/attempt/${studentData.attemptId}/abandon`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          keepalive: true,
+        }).catch(() => {});
+      }
+    };
+
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     window.addEventListener("keydown", handleKeyDown, { capture: true });
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleBlur);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       window.removeEventListener("keydown", handleKeyDown, { capture: true });
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
       clearTimeout(fullscreenTimeout);
     };
-  }, [examStarted, examBlocked, isSubmitting, examFinished]);
+  }, [examStarted, examBlocked, isSubmitting, examFinished, studentData]);
 
   const handleEscapeFromBlock = () => {
     if (document.fullscreenElement) document.exitFullscreen();
@@ -822,7 +917,7 @@ export default function SecureExamPlatform() {
     }
 
     // Lógica para reemplazar herramientas si ya hay una abierta
-    const tools: PanelType[] = ["calculadora", "excel", "dibujo", "javascript", "python"];
+    const tools: PanelType[] = ["calculadora", "excel", "dibujo", "javascript", "python", "java"];
     if (tools.includes(panelType)) {
       const existingToolIndex = openPanels.findIndex((p) => tools.includes(p));
       if (existingToolIndex !== -1) {
@@ -986,6 +1081,16 @@ export default function SecureExamPlatform() {
               zoomLevel={zoomLevel}
             />
           );
+
+        case "java":
+          return (
+            <EditorJava
+              darkMode={darkMode}
+              initialCells={javaCells}
+              onSave={(data: any) => setJavaCells(data.cells)}
+              zoomLevel={zoomLevel}
+            />
+          );
         
         default: 
           return null;
@@ -996,16 +1101,43 @@ export default function SecureExamPlatform() {
   // 6. RENDERIZADO PRINCIPAL (Layout Dashboard)
   // ----------------------------------------------------------------------
 
+  // Guard: si no hay datos de sesión y el examen no está activo, redirigir a acceso
+  if (!examStarted && !examFinished && !localStorage.getItem("studentData")) {
+    return <Navigate to="/acceso-examen" replace />;
+  }
+
   if (examFinished) {
     return (
-      <div className={`min-h-screen flex flex-col items-center justify-center p-4 ${darkMode ? "bg-slate-900 text-white" : "bg-gray-50 text-gray-900"}`}>
+      <div className={`min-h-screen flex flex-col items-center justify-center p-4 ${
+        wasAbandoned
+          ? darkMode ? "bg-red-950 text-white" : "bg-red-50 text-gray-900"
+          : darkMode ? "bg-slate-900 text-white" : "bg-gray-50 text-gray-900"
+      }`}>
         <div className="text-center space-y-6 max-w-lg">
-            <div className={`mx-auto w-20 h-20 rounded-full flex items-center justify-center ${darkMode ? "bg-emerald-900/30 text-emerald-400" : "bg-emerald-100 text-emerald-600"}`}>
-                <CheckCircle2 className="w-10 h-10" />
+            <div className={`mx-auto w-20 h-20 rounded-full flex items-center justify-center ${
+              wasAbandoned
+                ? darkMode ? "bg-red-900/50 text-red-400" : "bg-red-100 text-red-600"
+                : wasForced
+                  ? darkMode ? "bg-amber-900/30 text-amber-400" : "bg-amber-100 text-amber-600"
+                  : darkMode ? "bg-emerald-900/30 text-emerald-400" : "bg-emerald-100 text-emerald-600"
+            }`}>
+                {wasAbandoned ? <AlertTriangle className="w-10 h-10" /> : <CheckCircle2 className="w-10 h-10" />}
             </div>
-            <h1 className="text-3xl font-bold">¡Examen Entregado!</h1>
+            <h1 className={`text-3xl font-bold ${wasAbandoned ? (darkMode ? "text-red-400" : "text-red-700") : ""}`}>
+              {wasAbandoned
+                ? "Examen Abandonado"
+                : wasForced
+                  ? "¡Examen Finalizado por el Profesor!"
+                  : "¡Examen Entregado!"
+              }
+            </h1>
             <p className={`text-lg ${darkMode ? "text-slate-400" : "text-gray-600"}`}>
-                Tus respuestas han sido guardadas correctamente.
+                {wasAbandoned
+                  ? "Has abandonado el examen. Solo podrás reanudarlo si tu profesor lo autoriza."
+                  : wasForced
+                    ? "El profesor ha finalizado el examen para todos los estudiantes. Tus respuestas han sido guardadas correctamente."
+                    : "Tus respuestas han sido guardadas correctamente."
+                }
                 <br />
                 Ya puedes cerrar esta ventana.
             </p>
@@ -1033,6 +1165,51 @@ export default function SecureExamPlatform() {
                 <h1 className="text-2xl font-bold text-gray-900">Examen Bloqueado</h1>
                 <p className="text-gray-600 mb-6">{blockReason}</p>
                 <button onClick={handleEscapeFromBlock} className="px-6 py-3 bg-red-600 text-white rounded-lg font-bold">Salir de Pantalla Completa</button>
+            </div>
+        </div>
+    );
+  }
+
+  if (showUnlockScreen) {
+    return (
+        <div
+          ref={fullscreenRef}
+          className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-600 to-emerald-700 p-4"
+        >
+            <div className="bg-white rounded-xl shadow-2xl p-10 text-center max-w-lg animate-in zoom-in duration-500">
+                <CheckCircle2 className="w-20 h-20 text-green-600 mx-auto mb-6 animate-bounce"/>
+                <h1 className="text-3xl font-bold text-gray-900 mb-4">¡Examen Desbloqueado!</h1>
+                <p className="text-gray-600 mb-8 text-lg">
+                    El profesor ha desbloqueado tu examen. Puedes continuar respondiendo donde lo dejaste.
+                </p>
+                <button
+                    type="button"
+                    onClick={async () => {
+                      console.log("🔵 Botón clickeado - Intentando activar pantalla completa");
+                      // Activar pantalla completa
+                      if (fullscreenRef.current) {
+                        try {
+                          await fullscreenRef.current.requestFullscreen();
+                          console.log("✅ Pantalla completa reactivada exitosamente");
+                          // Ocultar pantalla de desbloqueo después de activar pantalla completa
+                          setTimeout(() => {
+                            setShowUnlockScreen(false);
+                          }, 500);
+                        } catch (err) {
+                          console.error("❌ Error al reactivar pantalla completa:", err);
+                          // Intentar de todas formas ocultar la pantalla
+                          setShowUnlockScreen(false);
+                        }
+                      } else {
+                        console.warn("⚠️ fullscreenRef.current es null");
+                        setShowUnlockScreen(false);
+                      }
+                    }}
+                    className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-lg shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all hover:scale-105 flex items-center gap-3 mx-auto"
+                >
+                    <Maximize2 className="w-6 h-6" />
+                    Continuar Examen
+                </button>
             </div>
         </div>
     );
@@ -1082,21 +1259,22 @@ export default function SecureExamPlatform() {
           }
       `}</style>
 
+
       {/* --- MODALES DE CONFIRMACIÓN --- */}
       {showExitModal && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className={`w-full max-w-md p-6 rounded-2xl shadow-2xl transform transition-all scale-100 ${darkMode ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-100"}`}>
+              <div className={`w-full max-w-md p-6 rounded-2xl shadow-2xl transform transition-all scale-100 border-2 ${darkMode ? "bg-slate-800 border-red-800" : "bg-white border-red-200"}`}>
                   <div className="flex flex-col items-center text-center gap-4">
                       <div className={`p-3 rounded-full ${darkMode ? "bg-red-900/30 text-red-400" : "bg-red-50 text-red-600"}`}>
-                          <LogOut className="w-8 h-8" />
+                          <AlertTriangle className="w-8 h-8" />
                       </div>
-                      <h3 className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-900"}`}>¿Salir del examen?</h3>
+                      <h3 className={`text-xl font-bold ${darkMode ? "text-red-400" : "text-red-700"}`}>¿Estás seguro de abandonar el examen?</h3>
                       <p className={`text-sm ${darkMode ? "text-slate-400" : "text-gray-600"}`}>
-                          Si abandonas ahora, <strong>no se enviarán tus respuestas</strong> y perderás todo el progreso. ¿Estás seguro de que quieres salir?
+                          Solo podrás reanudarlo si tu profesor lo autoriza.
                       </p>
                       <div className="flex gap-3 w-full mt-2">
-                          <button onClick={() => setShowExitModal(false)} className={`flex-1 py-2.5 rounded-xl font-medium transition-colors ${darkMode ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm"}`}>Cancelar</button>
-                          <button onClick={handleCloseApp} className="flex-1 py-2.5 rounded-xl font-medium bg-red-600 text-white hover:bg-red-700 transition-colors shadow-lg shadow-red-900/20">Sí, salir</button>
+                          <button onClick={() => setShowExitModal(false)} className={`flex-1 py-2.5 rounded-xl font-medium transition-colors ${darkMode ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm"}`}>Volver al examen</button>
+                          <button onClick={handleCloseApp} className="flex-1 py-2.5 rounded-xl font-medium bg-red-600 text-white hover:bg-red-700 transition-colors shadow-lg shadow-red-900/20">Sí, abandonar</button>
                       </div>
                   </div>
               </div>
@@ -1209,16 +1387,19 @@ export default function SecureExamPlatform() {
                   <SidebarNavItem icon={Calculator} label="Calculadora" active={openPanels.includes("calculadora")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("calculadora")} />
               )}
               {examData?.incluirHojaExcel && (
-                  <SidebarNavItem icon={FileSpreadsheet} label="Excel" active={openPanels.includes("excel")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("excel")} />
+                  <SidebarNavItem icon={FileSpreadsheet} label="Hoja de cálculo" active={openPanels.includes("excel")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("excel")} />
               )}
               {examData?.incluirHerramientaDibujo && (
                   <SidebarNavItem icon={Pencil} label="Dibujo" active={openPanels.includes("dibujo")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("dibujo")} />
               )}
               {examData?.incluirJavascript && (
-                  <SidebarNavItem icon={Code} label="JavaScript" active={openPanels.includes("javascript")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("javascript")} />
+                  <SidebarNavItem icon={Code} label="JavaScript/HTML" active={openPanels.includes("javascript")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("javascript")} />
               )}
               {examData?.incluirPython && (
                   <SidebarNavItem icon={Code} label="Python" active={openPanels.includes("python")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("python")} />
+              )}
+              {examData?.incluirJava && (
+                  <SidebarNavItem icon={Coffee} label="Java" active={openPanels.includes("java")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("java")} />
               )}
           </nav>
 
@@ -1234,14 +1415,14 @@ export default function SecureExamPlatform() {
                   title="Entregar Examen"
               >
                   <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-                  {!sidebarCollapsed && <span className="font-bold text-sm">Entregar</span>}
+                  {!sidebarCollapsed && <span className="font-bold text-lg">Entregar</span>}
               </button>
 
               {/* Botón Salir */}
               <div className={`${sidebarCollapsed ? "flex justify-center" : "px-1"}`}>
                    <button onClick={() => setShowExitModal(true)} className={`flex items-center rounded-lg p-2 transition-colors w-full ${sidebarCollapsed ? "justify-center" : "gap-3"} ${darkMode ? "text-red-400 hover:bg-red-900/20" : "text-red-600 hover:bg-red-50"}`}>
                       <LogOut className="w-5 h-5" />
-                      {!sidebarCollapsed && <span className="text-sm font-medium">Salir</span>}
+                      {!sidebarCollapsed && <span className="text-lg font-medium">Salir</span>}
                    </button>
               </div>
           </div>
@@ -1262,11 +1443,11 @@ export default function SecureExamPlatform() {
               <div className="flex items-center gap-4">
                   {/* Info Hora y Batería */}
                   <div className={`hidden md:flex items-center gap-5 px-5 py-2 rounded-xl border ${darkMode ? "bg-slate-900/50 backdrop-blur-sm border-slate-700" : "bg-white/50 backdrop-blur-sm border-gray-200/50 shadow-md"}`}>
-                      <span className={`font-mono text-xl font-bold tracking-widest ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+                      <span className={`tabular-nums text-lg font-bold tracking-widest ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
                           {currentTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                       </span>
                       <div className={`w-px h-6 ${darkMode ? "bg-slate-700" : "bg-gray-300"}`}></div>
-                      <div className={`flex items-center gap-2 font-mono text-lg font-bold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+                      <div className={`flex items-center gap-2 tabular-nums text-lg font-bold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
                           <span>{batteryLevel ?? "--"}%</span>
                           {isCharging ? (
                               <BatteryCharging className="w-6 h-6 text-emerald-500"/>
@@ -1281,7 +1462,7 @@ export default function SecureExamPlatform() {
                           (darkMode ? "text-blue-400" : "text-blue-700")
                       }`}>
                           <Clock className="w-5 h-5" />
-                          <span className={`font-mono text-xl font-bold ${
+                          <span className={`tabular-nums text-lg font-bold ${
                               timerStatus === 'critical' ? "text-red-500" : 
                               timerStatus === 'warning' ? "text-amber-500" : 
                               (darkMode ? "text-white" : "text-slate-800")
@@ -1338,7 +1519,7 @@ export default function SecureExamPlatform() {
                                   <div 
                                     className="h-full w-full" 
                                     style={
-                                      panel === 'python' || panel === 'javascript'
+                                      panel === 'python' || panel === 'javascript' || panel === 'java'
                                         ? {} // Sin zoom para editores persistentes
                                         : { transform: `scale(${panelZooms[index] / 100})`, transformOrigin: "top left", width: `${10000/panelZooms[index]}%`, height: `${10000/panelZooms[index]}%` }
                                     }
@@ -1377,7 +1558,7 @@ function SidebarNavItem({ icon: Icon, label, active, collapsed, darkMode, onClic
     return (
         <button
             onClick={onClick}
-            className={`w-full flex items-center rounded-lg text-sm transition-all duration-200 group ${
+            className={`w-full flex items-center rounded-lg text-lg transition-all duration-200 group ${
                 collapsed ? "justify-center p-2" : "px-3 py-2.5 gap-3"
             } ${
                 active

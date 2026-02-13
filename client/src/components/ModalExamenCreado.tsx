@@ -1,6 +1,7 @@
 // components/ModalExamenCreado.tsx
 import { X, Copy, Share2, Check } from 'lucide-react';
 import { useState } from 'react';
+import ModalConfirmacion from "./ModalConfirmacion";
 
 interface ModalExamenCreadoProps {
   mostrar: boolean;
@@ -19,6 +20,7 @@ export default function ModalExamenCreado({
 }: ModalExamenCreadoProps) {
   const [codigoCopiado, setCodigoCopiado] = useState(false);
   const [urlCopiada, setUrlCopiada] = useState(false);
+  const [modalInfo, setModalInfo] = useState(false);
 
   if (!mostrar) return null;
 
@@ -49,7 +51,7 @@ export default function ModalExamenCreado({
       }
     } else {
       copiarAlPortapapeles(texto, 'url');
-      alert('Información copiada al portapapeles');
+      setModalInfo(true);
     }
   };
 
@@ -162,6 +164,15 @@ export default function ModalExamenCreado({
           </button>
         </div>
       </div>
+
+      <ModalConfirmacion
+        visible={modalInfo}
+        tipo="exito"
+        titulo="Copiado"
+        mensaje="Información copiada al portapapeles"
+        darkMode={darkMode}
+        onConfirmar={() => setModalInfo(false)}
+      />
     </div>
   );
 }

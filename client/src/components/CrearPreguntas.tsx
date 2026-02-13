@@ -727,7 +727,7 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
               )}
 
               {pregunta.palabrasSeleccionadas && pregunta.palabrasSeleccionadas.length >= 10 && (
-                <p className={`text-xs ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
+                <p className={`text-sm ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
                   ⚠️ Máximo de 10 espacios alcanzado
                 </p>
               )}
@@ -821,7 +821,7 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                     }`}
                   >
                     <div className="text-sm font-medium">Manual</div>
-                    <div className={`text-xs mt-1 ${
+                    <div className={`text-sm mt-1 ${
                       pregunta.metodoEvaluacion === 'manual'
                         ? darkMode ? 'text-blue-300' : 'text-blue-600'
                         : darkMode ? 'text-gray-500' : 'text-gray-500'
@@ -843,7 +843,7 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                     }`}
                   >
                     <div className="text-sm font-medium">Palabras clave</div>
-                    <div className={`text-xs mt-1 ${
+                    <div className={`text-sm mt-1 ${
                       pregunta.metodoEvaluacion === 'palabras-clave'
                         ? darkMode ? 'text-green-300' : 'text-green-600'
                         : darkMode ? 'text-gray-500' : 'text-gray-500'
@@ -865,7 +865,7 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                     }`}
                   >
                     <div className="text-sm font-medium">Respuesta exacta</div>
-                    <div className={`text-xs mt-1 ${
+                    <div className={`text-sm mt-1 ${
                       pregunta.metodoEvaluacion === 'texto-exacto'
                         ? darkMode ? 'text-purple-300' : 'text-purple-600'
                         : darkMode ? 'text-gray-500' : 'text-gray-500'
@@ -945,12 +945,12 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                   )}
 
                   {pregunta.palabrasClave && pregunta.palabrasClave.length >= 15 && (
-                    <p className={`text-xs mt-2 ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
+                    <p className={`text-sm mt-2 ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
                       ⚠️ Máximo de 15 palabras clave alcanzado
                     </p>
                   )}
 
-                  <p className={`text-xs mt-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <p className={`text-sm mt-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                     💡 El sistema buscará estas palabras en la respuesta del estudiante. 
                     Se otorgarán puntos proporcionales según cuántas palabras clave se encuentren.
                   </p>
@@ -985,20 +985,20 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                   {pregunta.textoExacto && pregunta.textoExacto.trim() !== '' ? (
                     <div className="flex items-center gap-2 mt-2">
                       <Check className="w-4 h-4 text-green-500" />
-                      <span className={`text-xs ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
+                      <span className={`text-sm ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
                         Respuesta configurada ({pregunta.textoExacto.length}/1000 caracteres)
                       </span>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 mt-2">
                       <AlertCircle className="w-4 h-4 text-yellow-500" />
-                      <span className={`text-xs ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
+                      <span className={`text-sm ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
                         Define la respuesta esperada (máximo 1000 caracteres)
                       </span>
                     </div>
                   )}
 
-                  <p className={`text-xs mt-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <p className={`text-sm mt-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                     💡 La respuesta del estudiante debe coincidir exactamente con este texto 
                     (se ignorarán espacios extra y mayúsculas/minúsculas).
                   </p>
@@ -1354,13 +1354,13 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
         }`}
       >
         {/* Indicador de Vista Previa / Edición */}
-        <div className={`absolute top-0 right-0 px-4 py-2 rounded-bl-2xl text-xs font-medium flex items-center gap-2 transition-colors z-10 ${
+        <div className={`absolute top-0 right-0 px-4 py-2 rounded-bl-2xl text-sm font-medium flex items-center gap-2 transition-colors z-10 ${
             darkMode 
               ? "bg-slate-700 text-slate-300 group-hover:bg-blue-600 group-hover:text-white" 
               : "bg-gray-100 text-gray-500 group-hover:bg-blue-500 group-hover:text-white"
         }`}>
             <span>Vista previa</span>
-            <Pencil className="w-3 h-3" />
+            <Pencil className="w-4 h-4" />
         </div>
 
         {/* Barra lateral de estado (decorativa) con color dinámico */}
@@ -1383,16 +1383,16 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
               />
               
               <div className="flex flex-wrap gap-2 mt-3">
-                <span className={`inline-block text-xs font-semibold px-2 py-1 rounded ${darkMode ? "bg-slate-700/50 text-slate-400" : "bg-white text-slate-500 border border-gray-100"}`}>
+                <span className={`inline-block text-sm font-semibold px-3 py-1.5 rounded ${darkMode ? "bg-slate-700/50 text-slate-400" : "bg-white text-slate-500 border border-gray-100"}`}>
                   {pregunta.puntos} {pregunta.puntos === 1 ? "punto" : "puntos"}
                 </span>
                 {!configurada && (
-                  <span className={`inline-block text-xs font-semibold px-2 py-1 rounded ${darkMode ? "bg-yellow-900/30 text-yellow-400 border border-yellow-700/50" : "bg-yellow-50 text-yellow-700 border border-yellow-200"}`}>
+                  <span className={`inline-block text-sm font-semibold px-3 py-1.5 rounded ${darkMode ? "bg-yellow-900/30 text-yellow-400 border border-yellow-700/50" : "bg-yellow-50 text-yellow-700 border border-yellow-200"}`}>
                     ⚠️ Sin configurar
                   </span>
                 )}
                 {pregunta.calificacionParcial && (
-                  <span className={`inline-block text-xs font-semibold px-2 py-1 rounded ${darkMode ? "bg-teal-900/30 text-teal-400 border border-teal-700/50" : "bg-teal-50 text-teal-700 border border-teal-200"}`}>
+                  <span className={`inline-block text-sm font-semibold px-3 py-1.5 rounded ${darkMode ? "bg-teal-900/30 text-teal-400 border border-teal-700/50" : "bg-teal-50 text-teal-700 border border-teal-200"}`}>
                     📊 Parcial
                   </span>
                 )}
@@ -1420,21 +1420,12 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                     key={option.id}
                     className={`
                       flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-200
-                      ${
-                        option.esCorrecta
-                          ? (darkMode ? "border-emerald-500 bg-emerald-900/20" : "border-emerald-500 bg-emerald-50")
-                          : (darkMode ? "border-slate-700 bg-slate-800/40" : "border-gray-200 bg-white")
-                      }
+                      ${darkMode ? "border-slate-700 bg-slate-800/40" : "border-gray-200 bg-white"}
                     `}
                   >
                     <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
-                      option.esCorrecta
-                        ? "bg-emerald-500 border-emerald-500"
-                        : (darkMode ? "border-slate-500" : "border-gray-300")
+                      darkMode ? "border-slate-500" : "border-gray-300"
                     }`}>
-                      {option.esCorrecta && (
-                        <Check className="w-3 h-3 text-white" />
-                      )}
                     </div>
                     <span className={`flex-1 font-medium ${darkMode ? "text-slate-300" : "text-slate-700"}`}>
                       {option.texto}
@@ -1455,7 +1446,6 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                           type="text"
                           disabled
                           className={`w-32 px-2 py-1 text-center border-b-2 outline-none rounded-t font-medium ${darkMode ? "bg-slate-800 border-slate-600 text-slate-400" : "bg-gray-50 border-gray-300 text-gray-500"}`}
-                          placeholder="..."
                         />
                       </span>
                     )}
@@ -1498,15 +1488,15 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
             )}
 
             {pregunta.tipo === 'abierta' && (
-              <div className="relative">
+              <div className="flex flex-col gap-3">
                 <textarea
                   disabled
                   className={`w-full min-h-[140px] p-4 rounded-xl border-2 outline-none resize-y placeholder-slate-400 ${darkMode ? "bg-slate-800/70 border-slate-700 text-slate-200" : "bg-gray-50 border-gray-200 text-slate-700"}`}
                   placeholder="El estudiante escribirá su respuesta aquí..."
                 />
                 {pregunta.metodoEvaluacion !== 'manual' && (
-                  <div className="absolute bottom-3 right-3">
-                    <span className={`text-xs px-2 py-1 rounded-full border ${
+                  <div className="flex justify-end">
+                    <span className={`text-sm px-3 py-1.5 rounded-full border ${
                       pregunta.metodoEvaluacion === 'palabras-clave'
                         ? (darkMode ? "bg-green-900/30 text-green-400 border-green-700" : "bg-green-100 text-green-700 border-green-300")
                         : (darkMode ? "bg-purple-900/30 text-purple-400 border-purple-700" : "bg-purple-100 text-purple-700 border-purple-300")

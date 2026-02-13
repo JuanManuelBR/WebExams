@@ -6,6 +6,7 @@ import examRouter from "@src/routes/ExamRoutes"
 //import UserRoutes from "./routes/UserRoutes";
 import cookieParser from "cookie-parser";
 import { errorHandler } from "./middlewares/errorHandler";
+import { setupSwagger } from "./config/swagger";
 
 // Llamar express
 const app = express();
@@ -18,6 +19,10 @@ app.use(cors({
   origin: '*', // o el puerto donde corre tu HTML
   credentials: true
 }));
+
+// Configurar Swagger
+setupSwagger(app);
+
 app.use("/api/exam", examRouter);
 
 app.use(errorHandler);
