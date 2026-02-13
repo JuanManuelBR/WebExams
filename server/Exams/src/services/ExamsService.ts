@@ -648,6 +648,36 @@ export class ExamService {
     return await this.examRepo.save(exam);
   }
 
+  async archiveExam(
+    examId: number,
+    profesorId: number,
+    cookies?: string,
+  ): Promise<Exam> {
+    await examenValidator.verificarProfesor(profesorId, cookies);
+
+    const exam = await this.examRepo.findOne({ where: { id: examId } });
+    if (!exam) {
+      throwHttpError("Examen no encontrado", 404);
+    }
+
+    // Verificar que el profesor es dueño del examen
+    if (exam.id_profesor !== profesorId) {
+      throwHttpError("No tienes permiso para archivar este examen", 403);
+    }
+
+    // Verificar que el examen no esté ya archivado
+    if (exam.estado === ExamenState.ARCHIVED) {
+      throwHttpError("El examen ya está archivado", 400);
+    }
+
+    console.log(`📦 Archivando examen ID: ${examId}`);
+    exam.estado = ExamenState.ARCHIVED;
+    const archivedExam = await this.examRepo.save(exam);
+    console.log(`✅ Examen ${examId} archivado exitosamente`);
+
+    return archivedExam;
+  }
+
   async deleteExamById(
     examId: number,
     profesorId: number,

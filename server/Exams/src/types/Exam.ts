@@ -3,6 +3,7 @@
 export enum ExamenState {
   OPEN = "open",
   CLOSED = "closed",
+  ARCHIVED = "archivado",
 }
 
 export enum TiempoAgotado {

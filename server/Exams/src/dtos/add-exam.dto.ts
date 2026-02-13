@@ -39,7 +39,7 @@ export class add_exam_dto {
 
   @IsIn(Object.values(ExamenState), {
     message:
-      "El formato del estado del examen es incorrecto, debe ser open o closed",
+      "El formato del estado del examen es incorrecto, debe ser open, closed o archivado",
   })
   @IsNotEmpty({ message: "El estado del examen es obligatorio" })
   estado!: ExamenState;

@@ -36,7 +36,7 @@ export class UpdateExamDto {
   contrasena?: string;
 
   @IsIn(Object.values(ExamenState), {
-    message: "El formato del estado del examen es incorrecto, debe ser open o closed",
+    message: "El formato del estado del examen es incorrecto, debe ser open, closed o archivado",
   })
   @IsOptional()
   estado?: ExamenState;

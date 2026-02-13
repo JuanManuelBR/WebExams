@@ -229,8 +229,8 @@ export class ExamsController {
         throwHttpError("ID de examen inválido", 400);
       }
 
-      if (!["open", "closed"].includes(estado)) {
-        throwHttpError("Estado inválido. Debe ser 'open' o 'closed'", 400);
+      if (!["open", "closed", "archivado"].includes(estado)) {
+        throwHttpError("Estado inválido. Debe ser 'open', 'closed' o 'archivado'", 400);
       }
 
       const examen = await exam_service.updateExamStatus(
@@ -344,6 +344,34 @@ export class ExamsController {
         await pdfService.deletePDF(uploadedPDF);
       }
 
+      next(error);
+    }
+  }
+
+  static async archiveExam(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const examId = Number(req.params.id);
+      const profesorId = req.user.id;
+
+      if (isNaN(examId)) {
+        throwHttpError("ID de examen inválido", 400);
+      }
+
+      const examen = await exam_service.archiveExam(
+        examId,
+        profesorId,
+        req.headers.cookie,
+      );
+
+      return res.status(200).json({
+        message: "Examen archivado correctamente",
+        examen,
+      });
+    } catch (error) {
       next(error);
     }
   }
