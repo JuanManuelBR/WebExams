@@ -18,6 +18,7 @@ import VisorPDF from "../components/VisorPDF";
 import CrearPreguntas, { type Pregunta } from "../components/CrearPreguntas";
 import ModalExamenCreado from "../components/ModalExamenCreado";
 import { examsService, obtenerUsuarioActual } from "../services/examsService";
+import ModalConfirmacion from "../components/ModalConfirmacion";
 
 interface CrearExamenProps {
   darkMode: boolean;
@@ -128,6 +129,10 @@ export default function CrearExamen({
   const [mostrarTooltipTiempo, setMostrarTooltipTiempo] = useState(false);
   const [mostrarTooltipHerramientas, setMostrarTooltipHerramientas] = useState(false);
   const [mostrarTooltipSeguridad, setMostrarTooltipSeguridad] = useState(false);
+
+  const [modal, setModal] = useState<{ visible: boolean; tipo: "exito" | "error" | "advertencia" | "info" | "confirmar"; titulo: string; mensaje: string; onConfirmar: () => void; onCancelar?: () => void }>({ visible: false, tipo: "info", titulo: "", mensaje: "", onConfirmar: () => {} });
+  const mostrarModal = (tipo: "exito" | "error" | "advertencia" | "info" | "confirmar", titulo: string, mensaje: string, onConfirmar: () => void, onCancelar?: () => void) => setModal({ visible: true, tipo, titulo, mensaje, onConfirmar, onCancelar });
+  const cerrarModal = () => setModal(prev => ({ ...prev, visible: false }));
 
   const [herramientasActivas, setHerramientasActivas] = useState({
     dibujo: false,
@@ -387,52 +392,52 @@ export default function CrearExamen({
 
   const handleCrearExamen = async () => {
     if (!nombreExamen.trim()) {
-      alert("Por favor, ingrese el nombre del examen");
+      mostrarModal("advertencia", "Campo requerido", "Por favor, ingrese el nombre del examen", cerrarModal);
       return;
     }
 
     if (!tipoPregunta) {
-      alert("Por favor, seleccione un tipo de pregunta");
+      mostrarModal("advertencia", "Campo requerido", "Por favor, seleccione un tipo de pregunta", cerrarModal);
       return;
     }
 
     if (!camposEstudiante.some((c) => c.activo)) {
-      alert("Por favor, seleccione al menos un dato del estudiante");
+      mostrarModal("advertencia", "Campo requerido", "Por favor, seleccione al menos un dato del estudiante", cerrarModal);
       return;
     }
 
     if (!seccion4Visitada) {
-      alert("Por favor, revise la sección de Tiempo");
+      mostrarModal("advertencia", "Sección pendiente", "Por favor, revise la sección de Tiempo", cerrarModal);
       return;
     }
 
     if (!seccion5Visitada) {
-      alert("Por favor, revise la sección de Herramientas");
+      mostrarModal("advertencia", "Sección pendiente", "Por favor, revise la sección de Herramientas", cerrarModal);
       return;
     }
 
     if (!consecuenciaAbandono) {
-      alert("Por favor, seleccione una consecuencia de abandono");
+      mostrarModal("advertencia", "Campo requerido", "Por favor, seleccione una consecuencia de abandono", cerrarModal);
       return;
     }
 
     if (tipoPregunta === "pdf" && !archivoPDF) {
-      if (!isEditMode || !pdfExistente) { alert("Por favor, seleccione un archivo PDF"); return; }
+      if (!isEditMode || !pdfExistente) { mostrarModal("advertencia", "Campo requerido", "Por favor, seleccione un archivo PDF", cerrarModal); return; }
     }
 
     if (tipoPregunta === "automatico" && preguntasAutomaticas.length === 0) {
-      alert("Por favor, agregue al menos una pregunta");
+      mostrarModal("advertencia", "Campo requerido", "Por favor, agregue al menos una pregunta", cerrarModal);
       return;
     }
 
     if (contraseñaHabilitada) {
       if (!contraseñaExamen.trim()) {
-        alert("Por favor, ingrese una contraseña para el examen");
+        mostrarModal("advertencia", "Campo requerido", "Por favor, ingrese una contraseña para el examen", cerrarModal);
         return;
       }
 
       if (contraseñaExamen.length < 5 || contraseñaExamen.length > 10) {
-        alert("La contraseña debe tener entre 5 y 10 caracteres");
+        mostrarModal("advertencia", "Contraseña inválida", "La contraseña debe tener entre 5 y 10 caracteres", cerrarModal);
         return;
       }
     }
@@ -440,7 +445,7 @@ export default function CrearExamen({
 
     // ✅ NUEVA VALIDACIÓN: Verificar opcionTiempoAgotado si límite está habilitado
     if (limiteHabilitado && !opcionTiempoAgotado) {
-      alert("Por favor, seleccione qué hacer cuando se agote el tiempo");
+      mostrarModal("advertencia", "Campo requerido", "Por favor, seleccione qué hacer cuando se agote el tiempo", cerrarModal);
       return;
     }
     setGuardando(true);
@@ -450,9 +455,7 @@ export default function CrearExamen({
 
       const usuario = obtenerUsuarioActual();
       if (!usuario) {
-        alert(
-          "No se pudo obtener la información del usuario. Por favor, inicie sesión nuevamente.",
-        );
+        mostrarModal("error", "Error de sesión", "No se pudo obtener la información del usuario. Por favor, inicie sesión nuevamente.", cerrarModal);
         return;
       }
 
@@ -508,9 +511,7 @@ export default function CrearExamen({
       }
     } catch (error: any) {
       console.error("❌ [CREAR EXAMEN] Error:", error);
-      alert(
-        `Error al ${isEditMode ? "actualizar" : "crear"} el examen: ${error.message || "Error desconocido"}`,
-      );
+      mostrarModal("error", "Error", `Error al ${isEditMode ? "actualizar" : "crear"} el examen: ${error.message || "Error desconocido"}`, cerrarModal);
     } finally {
       setGuardando(false);
     }
@@ -548,9 +549,10 @@ export default function CrearExamen({
       <div className={`flex items-center gap-4 p-4 rounded-xl border shadow-sm ${darkMode ? "border-slate-700 bg-slate-900" : "border-gray-200 bg-white"}`}>
         <button
           onClick={() => {
-            if (window.confirm("¿Está seguro que desea salir? Se perderán los cambios no guardados.")) {
+            mostrarModal("confirmar", "Salir sin guardar", "¿Está seguro que desea salir? Se perderán los cambios no guardados.", () => {
+              cerrarModal();
               navigate("/lista-examenes");
-            }
+            }, cerrarModal);
           }}
           className={`p-2 rounded-lg transition-colors ${
             darkMode 
@@ -1309,13 +1311,10 @@ export default function CrearExamen({
         <button
           className="px-6 py-3 rounded-lg font-medium bg-gray-100 text-gray-900 hover:bg-gray-200 transition-colors"
           onClick={() => {
-            if (
-              window.confirm(
-                "¿Está seguro que desea cancelar? Se perderán todos los datos.",
-              )
-            ) {
+            mostrarModal("confirmar", "Cancelar creación", "¿Está seguro que desea cancelar? Se perderán todos los datos.", () => {
+              cerrarModal();
               resetearFormulario();
-            }
+            }, cerrarModal);
           }}
           disabled={guardando}
         >
@@ -1468,6 +1467,12 @@ export default function CrearExamen({
         darkMode={darkMode}
         onCerrar={cerrarVistaPreviaPDF}
         onElegirOtro={elegirOtroPDF}
+      />
+
+      <ModalConfirmacion
+        {...modal}
+        darkMode={darkMode}
+        onCancelar={modal.onCancelar || cerrarModal}
       />
     </div>
   );

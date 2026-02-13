@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { Navigate } from "react-router-dom";
 import {
   Moon,
   Sun,
@@ -169,6 +170,7 @@ export default function SecureExamPlatform() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [examFinished, setExamFinished] = useState(false);
   const [wasForced, setWasForced] = useState(false);
+  const [wasAbandoned, setWasAbandoned] = useState(false);
   
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem("darkMode");
@@ -218,6 +220,7 @@ export default function SecureExamPlatform() {
 
   const fullscreenRef = useRef<HTMLDivElement>(null);
   const integrityCheckRef = useRef<number>(0);
+  const examFinishedRef = useRef(false);
 
   const [studentData, setStudentData] = useState<StudentData | null>(null);
   const [examData, setExamData] = useState<ExamData | null>(null);
@@ -277,19 +280,23 @@ export default function SecureExamPlatform() {
   // 2. EFECTOS LÓGICOS (Carga, Seguridad, Timer)
   // ----------------------------------------------------------------------
 
+  // Detectar restauración desde bfcache (historial del navegador) y forzar reload
+  useEffect(() => {
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        window.location.reload();
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
   useEffect(() => {
     const storedStudentData = localStorage.getItem("studentData");
     const storedExamData = localStorage.getItem("currentExam");
 
-    if (storedStudentData) {
-      const parsedStudent = JSON.parse(storedStudentData);
-      setStudentData(parsedStudent);
-    }
-
-    if (storedExamData) {
-      const parsedExam = JSON.parse(storedExamData);
-      setExamData(parsedExam);
-    }
+    if (storedStudentData) setStudentData(JSON.parse(storedStudentData));
+    if (storedExamData) setExamData(JSON.parse(storedExamData));
   }, []);
 
   // Verificación de integridad
@@ -477,6 +484,18 @@ export default function SecureExamPlatform() {
   // 3. FUNCIONES DE ACCIÓN (StartExam, Save, Block)
   // ----------------------------------------------------------------------
 
+  const limpiarDatosExamen = () => {
+    // localStorage
+    localStorage.removeItem("studentData");
+    localStorage.removeItem("currentExam");
+    // sessionStorage
+    sessionStorage.clear();
+    // Cookies del dominio
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c.trim().split("=")[0] + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+    });
+  };
+
   const addSecurityViolation = (violation: string) => {
     setSecurityViolations((prev) => [...prev, `${new Date().toLocaleTimeString()}: ${violation}`]);
   };
@@ -554,12 +573,31 @@ export default function SecureExamPlatform() {
 
   // Función para cerrar la página / salir
   const handleCloseApp = () => {
+      examFinishedRef.current = true;
+      if (studentData?.attemptId) {
+        if (socket) socket.emit("leave_attempt", studentData.attemptId);
+        fetch(`${ATTEMPTS_API_URL}/api/exam/attempt/${studentData.attemptId}/abandon`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          keepalive: true,
+        }).catch(() => {});
+      }
+
+      // Salir de pantalla completa
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+
+      // Mostrar pantalla de abandono en vez de redirigir
+      setWasAbandoned(true);
+      setExamFinished(true);
+      limpiarDatosExamen();
+
       try {
           window.close();
       } catch (e) {
           console.log("No se pudo cerrar la ventana automáticamente");
       }
-      window.location.href = '/';
   };
 
   // Calcular preguntas sin responder
@@ -603,8 +641,10 @@ export default function SecureExamPlatform() {
                   headers: { "Content-Type": "application/json" }
               });
               // Mostrar pantalla de finalización
+              examFinishedRef.current = true;
               setExamFinished(true);
-              
+              limpiarDatosExamen();
+
               // Salir de pantalla completa
               if (document.fullscreenElement) {
                   document.exitFullscreen().catch(() => {});
@@ -745,6 +785,7 @@ export default function SecureExamPlatform() {
         console.log("⚠️ Examen forzado a terminar por el profesor", data);
         setWasForced(true);
         setExamFinished(true);
+        limpiarDatosExamen();
 
         // Salir de pantalla completa
         if (document.fullscreenElement) {
@@ -811,19 +852,31 @@ export default function SecureExamPlatform() {
       if (examStarted && !examBlocked && !isSubmitting && !examFinished) blockExam("Pérdida de foco detectada", "CRITICAL");
     };
 
+    const handleBeforeUnload = () => {
+      if (examStarted && !examFinishedRef.current && studentData?.attemptId) {
+        fetch(`${ATTEMPTS_API_URL}/api/exam/attempt/${studentData.attemptId}/abandon`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          keepalive: true,
+        }).catch(() => {});
+      }
+    };
+
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     window.addEventListener("keydown", handleKeyDown, { capture: true });
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleBlur);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       window.removeEventListener("keydown", handleKeyDown, { capture: true });
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
       clearTimeout(fullscreenTimeout);
     };
-  }, [examStarted, examBlocked, isSubmitting, examFinished]);
+  }, [examStarted, examBlocked, isSubmitting, examFinished, studentData]);
 
   const handleEscapeFromBlock = () => {
     if (document.fullscreenElement) document.exitFullscreen();
@@ -1011,24 +1064,42 @@ export default function SecureExamPlatform() {
   // 6. RENDERIZADO PRINCIPAL (Layout Dashboard)
   // ----------------------------------------------------------------------
 
+  // Guard: si no hay datos de sesión y el examen no está activo, redirigir a acceso
+  if (!examStarted && !examFinished && !localStorage.getItem("studentData")) {
+    return <Navigate to="/acceso-examen" replace />;
+  }
+
   if (examFinished) {
     return (
-      <div className={`min-h-screen flex flex-col items-center justify-center p-4 ${darkMode ? "bg-slate-900 text-white" : "bg-gray-50 text-gray-900"}`}>
+      <div className={`min-h-screen flex flex-col items-center justify-center p-4 ${
+        wasAbandoned
+          ? darkMode ? "bg-red-950 text-white" : "bg-red-50 text-gray-900"
+          : darkMode ? "bg-slate-900 text-white" : "bg-gray-50 text-gray-900"
+      }`}>
         <div className="text-center space-y-6 max-w-lg">
             <div className={`mx-auto w-20 h-20 rounded-full flex items-center justify-center ${
-              wasForced
-                ? darkMode ? "bg-amber-900/30 text-amber-400" : "bg-amber-100 text-amber-600"
-                : darkMode ? "bg-emerald-900/30 text-emerald-400" : "bg-emerald-100 text-emerald-600"
+              wasAbandoned
+                ? darkMode ? "bg-red-900/50 text-red-400" : "bg-red-100 text-red-600"
+                : wasForced
+                  ? darkMode ? "bg-amber-900/30 text-amber-400" : "bg-amber-100 text-amber-600"
+                  : darkMode ? "bg-emerald-900/30 text-emerald-400" : "bg-emerald-100 text-emerald-600"
             }`}>
-                <CheckCircle2 className="w-10 h-10" />
+                {wasAbandoned ? <AlertTriangle className="w-10 h-10" /> : <CheckCircle2 className="w-10 h-10" />}
             </div>
-            <h1 className="text-3xl font-bold">
-              {wasForced ? "¡Examen Finalizado por el Profesor!" : "¡Examen Entregado!"}
+            <h1 className={`text-3xl font-bold ${wasAbandoned ? (darkMode ? "text-red-400" : "text-red-700") : ""}`}>
+              {wasAbandoned
+                ? "Examen Abandonado"
+                : wasForced
+                  ? "¡Examen Finalizado por el Profesor!"
+                  : "¡Examen Entregado!"
+              }
             </h1>
             <p className={`text-lg ${darkMode ? "text-slate-400" : "text-gray-600"}`}>
-                {wasForced
-                  ? "El profesor ha finalizado el examen para todos los estudiantes. Tus respuestas han sido guardadas correctamente."
-                  : "Tus respuestas han sido guardadas correctamente."
+                {wasAbandoned
+                  ? "Has abandonado el examen. Solo podrás reanudarlo si tu profesor lo autoriza."
+                  : wasForced
+                    ? "El profesor ha finalizado el examen para todos los estudiantes. Tus respuestas han sido guardadas correctamente."
+                    : "Tus respuestas han sido guardadas correctamente."
                 }
                 <br />
                 Ya puedes cerrar esta ventana.
@@ -1109,18 +1180,18 @@ export default function SecureExamPlatform() {
       {/* --- MODALES DE CONFIRMACIÓN --- */}
       {showExitModal && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className={`w-full max-w-md p-6 rounded-2xl shadow-2xl transform transition-all scale-100 ${darkMode ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-100"}`}>
+              <div className={`w-full max-w-md p-6 rounded-2xl shadow-2xl transform transition-all scale-100 border-2 ${darkMode ? "bg-slate-800 border-red-800" : "bg-white border-red-200"}`}>
                   <div className="flex flex-col items-center text-center gap-4">
                       <div className={`p-3 rounded-full ${darkMode ? "bg-red-900/30 text-red-400" : "bg-red-50 text-red-600"}`}>
-                          <LogOut className="w-8 h-8" />
+                          <AlertTriangle className="w-8 h-8" />
                       </div>
-                      <h3 className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-900"}`}>¿Salir del examen?</h3>
+                      <h3 className={`text-xl font-bold ${darkMode ? "text-red-400" : "text-red-700"}`}>¿Estás seguro de abandonar el examen?</h3>
                       <p className={`text-sm ${darkMode ? "text-slate-400" : "text-gray-600"}`}>
-                          Si abandonas ahora, <strong>no se enviarán tus respuestas</strong> y perderás todo el progreso. ¿Estás seguro de que quieres salir?
+                          Solo podrás reanudarlo si tu profesor lo autoriza.
                       </p>
                       <div className="flex gap-3 w-full mt-2">
-                          <button onClick={() => setShowExitModal(false)} className={`flex-1 py-2.5 rounded-xl font-medium transition-colors ${darkMode ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm"}`}>Cancelar</button>
-                          <button onClick={handleCloseApp} className="flex-1 py-2.5 rounded-xl font-medium bg-red-600 text-white hover:bg-red-700 transition-colors shadow-lg shadow-red-900/20">Sí, salir</button>
+                          <button onClick={() => setShowExitModal(false)} className={`flex-1 py-2.5 rounded-xl font-medium transition-colors ${darkMode ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm"}`}>Volver al examen</button>
+                          <button onClick={handleCloseApp} className="flex-1 py-2.5 rounded-xl font-medium bg-red-600 text-white hover:bg-red-700 transition-colors shadow-lg shadow-red-900/20">Sí, abandonar</button>
                       </div>
                   </div>
               </div>

@@ -25,6 +25,7 @@ import { io } from "socket.io-client";
 import AlertasModal from "../components/AlertasModal";
 import { examsService } from "../services/examsService";
 import { examsAttemptsService } from "../services/examsAttempts";
+import ModalConfirmacion from "../components/ModalConfirmacion";
 
 // ============================================
 // INTERFACES
@@ -103,6 +104,10 @@ export default function VigilanciaExamenesLista({
   const [criterioOrden, setCriterioOrden] = useState<"defecto" | "az" | "za" | "duracion" | "nota">("defecto");
   const [modoPrivacidad, setModoPrivacidad] = useState(false);
   const [estudiantesRevelados, setEstudiantesRevelados] = useState<Set<number>>(new Set());
+
+  const [modal, setModal] = useState<{ visible: boolean; tipo: "exito" | "error" | "advertencia" | "info" | "confirmar"; titulo: string; mensaje: string; onConfirmar: () => void; onCancelar?: () => void }>({ visible: false, tipo: "info", titulo: "", mensaje: "", onConfirmar: () => {} });
+  const mostrarModal = (tipo: "exito" | "error" | "advertencia" | "info" | "confirmar", titulo: string, mensaje: string, onConfirmar: () => void, onCancelar?: () => void) => setModal({ visible: true, tipo, titulo, mensaje, onConfirmar, onCancelar });
+  const cerrarModal = () => setModal(prev => ({ ...prev, visible: false }));
 
   // Refs para evitar stale closures en callbacks del WebSocket
   const estudianteSeleccionadoRef = useRef<ExamAttempt | null>(null);
@@ -389,9 +394,11 @@ export default function VigilanciaExamenesLista({
     await cargarAlertasEstudiante(estudiante.id);
   };
 
-  const handleRestablecerAcceso = async (attemptId: number) => {
-    if (!confirm("¿Restablecer acceso?")) return;
-    try { await examsAttemptsService.unlockAttempt(attemptId); } catch (e) { console.error(e); }
+  const handleRestablecerAcceso = (attemptId: number) => {
+    mostrarModal("confirmar", "Restablecer acceso", "¿Restablecer el acceso de este estudiante?", async () => {
+      cerrarModal();
+      try { await examsAttemptsService.unlockAttempt(attemptId); } catch (e) { console.error(e); }
+    }, cerrarModal);
   };
 
   const handleMarcarAlertasComoLeidas = async (attemptId: number) => {
@@ -414,23 +421,48 @@ export default function VigilanciaExamenesLista({
     } catch (e) { console.error(e); }
   };
 
-  const handleEliminarIntento = async (attemptId: number) => {
-    if (!confirm("¿Estás seguro de que deseas eliminar este intento? Esta acción no se puede deshacer.")) return;
-    try {
-      // await examsAttemptsService.deleteAttempt(attemptId); 
-      console.log("Eliminando intento", attemptId);
-      if (estudianteSeleccionado?.id === attemptId) {
-        setEstudianteSeleccionado(null);
-        sessionStorage.removeItem("vigilancia_estudianteId");
-      }
-      setExamAttempts(prev => {
-         if(!examenActual) return prev;
-         return { ...prev, [examenActual.id]: prev[examenActual.id].filter(i => i.id !== attemptId) };
-      });
-    } catch (e) { console.error(e); }
+  const handleEliminarIntento = (attemptId: number) => {
+    mostrarModal("confirmar", "Eliminar intento", "¿Estás seguro de que deseas eliminar este intento? Esta acción no se puede deshacer.", async () => {
+      cerrarModal();
+      try {
+        console.log("Eliminando intento", attemptId);
+        if (estudianteSeleccionado?.id === attemptId) {
+          setEstudianteSeleccionado(null);
+          sessionStorage.removeItem("vigilancia_estudianteId");
+        }
+        setExamAttempts(prev => {
+           if(!examenActual) return prev;
+           return { ...prev, [examenActual.id]: prev[examenActual.id].filter(i => i.id !== attemptId) };
+        });
+      } catch (e) { console.error(e); }
+    }, cerrarModal);
   };
 
-  const handleForzarEnvio = async () => { if(confirm("¿Forzar envío?")) console.log("Forzando..."); };
+  const handleForzarEnvio = () => {
+    if (!examenActual) return;
+    mostrarModal("confirmar", "Forzar envío", "¿Estás seguro de forzar el envío de todos los estudiantes activos? Esta acción finalizará todos los intentos en curso.", async () => {
+      cerrarModal();
+      try {
+        const resultado = await examsAttemptsService.forceFinishExam(examenActual.id);
+        setExamAttempts(prev => {
+          const intentos = prev[examenActual.id] || [];
+          const actualizados = intentos.map(att =>
+            ["active", "activo", "blocked", "bloqueado"].includes(att.estado.toLowerCase())
+              ? { ...att, estado: "submitted" }
+              : att
+          );
+          return { ...prev, [examenActual.id]: actualizados };
+        });
+        if (estudianteSeleccionado && ["active", "activo", "blocked", "bloqueado"].includes(estudianteSeleccionado.estado.toLowerCase())) {
+          setEstudianteSeleccionado(prev => prev ? { ...prev, estado: "submitted" } : null);
+        }
+        mostrarModal("exito", "Envío forzado", `${resultado.finalizados} intento(s) finalizado(s) exitosamente.`, cerrarModal);
+      } catch (error) {
+        console.error("Error al forzar envío:", error);
+        mostrarModal("error", "Error", "Error al forzar el envío. Intenta de nuevo.", cerrarModal);
+      }
+    }, cerrarModal);
+  };
   const handleCalificarAutomaticamente = async () => {
       console.log("Calificando...");
       setModoPrivacidad(true);
@@ -465,6 +497,7 @@ export default function VigilanciaExamenesLista({
     const map: Record<string, EstadoDisplay> = {
       active: "Activo", activo: "Activo", blocked: "Bloqueado", bloqueado: "Bloqueado",
       paused: "Pausado", pausado: "Pausado", submitted: "Terminado", terminado: "Terminado",
+      finalizado: "Terminado", finished: "Terminado",
       abandonado: "Abandonado", abandoned: "Abandonado",
       graded: "Calificado", calificado: "Calificado"
     };
@@ -1137,6 +1170,12 @@ export default function VigilanciaExamenesLista({
           <AlertasModal mostrar={true} alertas={alertasEstudiante} darkMode={darkMode} onCerrar={() => setMostrarModalAlertas(false)} nombreEstudiante={estudianteSeleccionado.nombre_estudiante} />
         )}
       </div>
+
+      <ModalConfirmacion
+        {...modal}
+        darkMode={darkMode}
+        onCancelar={modal.onCancelar || cerrarModal}
+      />
     </>
   );
 }

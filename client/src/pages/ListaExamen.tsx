@@ -26,6 +26,7 @@ import {
   obtenerUsuarioActual,
   type ExamenCreado,
 } from "../services/examsService";
+import ModalConfirmacion from "../components/ModalConfirmacion";
 
 interface ListaExamenesProps {
   darkMode: boolean;
@@ -61,6 +62,10 @@ export default function ListaExamenes({
   );
   const [correoDestino, setCorreoDestino] = useState("");
   const [compartiendoExito, setCompartiendoExito] = useState(false);
+
+  const [modal, setModal] = useState<{ visible: boolean; tipo: "exito" | "error" | "advertencia" | "info" | "confirmar"; titulo: string; mensaje: string; onConfirmar: () => void; onCancelar?: () => void }>({ visible: false, tipo: "info", titulo: "", mensaje: "", onConfirmar: () => {} });
+  const mostrarModal = (tipo: "exito" | "error" | "advertencia" | "info" | "confirmar", titulo: string, mensaje: string, onConfirmar: () => void, onCancelar?: () => void) => setModal({ visible: true, tipo, titulo, mensaje, onConfirmar, onCancelar });
+  const cerrarModal = () => setModal(prev => ({ ...prev, visible: false }));
 
   useEffect(() => {
     cargarExamenes();
@@ -134,7 +139,7 @@ export default function ListaExamenes({
       );
     } catch (error: any) {
       console.error("Error al cambiar estado:", error);
-      alert(error.message || "Error al cambiar el estado del examen");
+      mostrarModal("error", "Error", error.message || "Error al cambiar el estado del examen", cerrarModal);
     }
   };
 
@@ -147,7 +152,7 @@ export default function ListaExamenes({
 
   const regenerarCodigo = (codigoActual: string) => {
     console.warn("⚠️ Regenerar código no implementado en el backend");
-    alert("Esta funcionalidad estará disponible próximamente");
+    mostrarModal("info", "Próximamente", "Esta funcionalidad estará disponible próximamente", cerrarModal);
   };
 
   const copiarEnlaceExamen = (codigo: string) => {
@@ -187,13 +192,13 @@ export default function ListaExamenes({
 
   const enviarExamenPorCorreo = () => {
     if (!correoDestino.trim()) {
-      alert("Por favor ingresa un correo electrónico");
+      mostrarModal("advertencia", "Campo requerido", "Por favor ingresa un correo electrónico", cerrarModal);
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(correoDestino)) {
-      alert("Por favor ingresa un correo electrónico válido");
+      mostrarModal("advertencia", "Correo inválido", "Por favor ingresa un correo electrónico válido", cerrarModal);
       return;
     }
 
@@ -207,31 +212,34 @@ export default function ListaExamenes({
     }, 2000);
   };
 
-  const confirmarEliminar = async (id: number, nombre: string) => {
-    if (!window.confirm(`¿Eliminar "${nombre}"?`)) return;
+  const confirmarEliminar = (id: number, nombre: string) => {
+    mostrarModal("confirmar", "Eliminar examen", `¿Eliminar "${nombre}"?`, async () => {
+      cerrarModal();
+      try {
+        const usuario = obtenerUsuarioActual();
+        if (!usuario) {
+          mostrarModal("error", "Error", "No se pudo obtener información del usuario", cerrarModal);
+          return;
+        }
 
-    try {
-      const usuario = obtenerUsuarioActual();
-      if (!usuario) {
-        alert("Error: No se pudo obtener información del usuario");
-        return;
+        console.log("🗑️ [LISTA] Eliminando examen...");
+        const success = await examsService.eliminarExamen(id, usuario.id);
+
+        if (success) {
+          setExamenes((prev) => prev.filter((ex) => ex.id !== id));
+          console.log("✅ [LISTA] Examen eliminado");
+        } else {
+          mostrarModal("error", "Error", "No se pudo eliminar el examen", cerrarModal);
+        }
+      } catch (error) {
+        console.error("❌ [LISTA] Error al eliminar:", error);
+        mostrarModal("error", "Error", "Error al eliminar el examen", cerrarModal);
       }
-
-      console.log("🗑️ [LISTA] Eliminando examen...");
-      const success = await examsService.eliminarExamen(id, usuario.id);
-
-      if (success) {
-        setExamenes((prev) => prev.filter((ex) => ex.id !== id));
-        console.log("✅ [LISTA] Examen eliminado");
-      } else {
-        alert("No se pudo eliminar el examen");
-      }
-    } catch (error) {
-      console.error("❌ [LISTA] Error al eliminar:", error);
-      alert("Error al eliminar el examen");
-    }
-
-    setMenuAbierto(null);
+      setMenuAbierto(null);
+    }, () => {
+      cerrarModal();
+      setMenuAbierto(null);
+    });
   };
 
   const formatearFecha = (fecha: string) => {
@@ -955,6 +963,12 @@ export default function ListaExamenes({
           })
         )}
       </div>
+
+      <ModalConfirmacion
+        {...modal}
+        darkMode={darkMode}
+        onCancelar={modal.onCancelar || cerrarModal}
+      />
     </div>
   );
 }
