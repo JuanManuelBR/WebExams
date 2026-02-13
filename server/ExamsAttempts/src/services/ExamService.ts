@@ -963,6 +963,83 @@ export class ExamService {
   }
 
   /**
+   * Califica un intento de examen PDF a nivel general (no por pregunta)
+   * El profesor asigna un puntaje global (0-5) y una retroalimentación general
+   */
+  static async updatePDFAttemptGrade(
+    intento_id: number,
+    puntaje?: number,
+    retroalimentacion?: string,
+    io?: Server,
+  ) {
+    const attemptRepo = AppDataSource.getRepository(ExamAttempt);
+
+    const attempt = await attemptRepo.findOne({
+      where: { id: intento_id },
+    });
+
+    if (!attempt) {
+      throwHttpError("Intento no encontrado", 404);
+    }
+
+    if (!attempt.esExamenPDF) {
+      throwHttpError(
+        "Este endpoint solo aplica para intentos de exámenes PDF. Use /answer/:id/manual-grade para exámenes normales",
+        400,
+      );
+    }
+
+    if (puntaje !== undefined) {
+      if (puntaje < 0) {
+        throwHttpError("El puntaje no puede ser negativo", 400);
+      }
+      if (puntaje > attempt.puntajeMaximo) {
+        throwHttpError(
+          `El puntaje no puede exceder el máximo del examen (${attempt.puntajeMaximo} puntos)`,
+          400,
+        );
+      }
+
+      attempt.puntaje = puntaje;
+
+      const { porcentaje, notaFinal } = GradingService.calculateFinalGrade(
+        puntaje,
+        attempt.puntajeMaximo,
+      );
+      attempt.porcentaje = porcentaje;
+      attempt.notaFinal = notaFinal;
+      attempt.calificacionPendiente = false;
+    }
+
+    if (retroalimentacion !== undefined) {
+      attempt.retroalimentacion = retroalimentacion;
+    }
+
+    await attemptRepo.save(attempt);
+
+    if (io) {
+      io.to(`exam_${attempt.examen_id}`).emit("grade_updated", {
+        attemptId: attempt.id,
+        puntaje: attempt.puntaje,
+        porcentaje: attempt.porcentaje,
+        notaFinal: attempt.notaFinal,
+        retroalimentacion: attempt.retroalimentacion,
+        calificacionPendiente: attempt.calificacionPendiente,
+      });
+    }
+
+    return {
+      id: attempt.id,
+      puntaje: attempt.puntaje,
+      puntajeMaximo: attempt.puntajeMaximo,
+      porcentaje: attempt.porcentaje,
+      notaFinal: attempt.notaFinal,
+      retroalimentacion: attempt.retroalimentacion,
+      calificacionPendiente: attempt.calificacionPendiente,
+    };
+  }
+
+  /**
    * Fuerza el envío de todos los intentos activos de un examen
    * Finaliza y califica todos los intentos activos con las respuestas que tengan hasta el momento
    */
@@ -1389,6 +1466,7 @@ export class ExamService {
           progreso: attempt.progreso,
           esExamenPDF: attempt.esExamenPDF,
           calificacionPendiente: attempt.calificacionPendiente,
+          retroalimentacion: attempt.retroalimentacion || null,
         },
         examen: {
           id: exam.id,

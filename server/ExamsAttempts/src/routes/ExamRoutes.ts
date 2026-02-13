@@ -558,6 +558,48 @@ router.patch('/answer/:respuesta_id/manual-grade', ExamController.updateManualGr
 
 /**
  * @openapi
+ * /api/exam/attempt/{intento_id}/pdf-grade:
+ *   patch:
+ *     tags:
+ *       - Grading
+ *     summary: Calificar intento de examen PDF (calificación general)
+ *     description: |
+ *       Permite al profesor asignar una calificación general (0-5) y retroalimentación
+ *       a un intento de examen PDF. A diferencia de manual-grade que califica por pregunta,
+ *       este endpoint califica el intento completo ya que los exámenes PDF no tienen preguntas individuales.
+ *     parameters:
+ *       - in: path
+ *         name: intento_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               puntaje:
+ *                 type: number
+ *                 minimum: 0
+ *                 maximum: 5
+ *                 description: Puntaje global del intento (escala 0-5)
+ *               retroalimentacion:
+ *                 type: string
+ *                 description: Retroalimentación general del profesor
+ *     responses:
+ *       200:
+ *         description: Calificación actualizada exitosamente
+ *       400:
+ *         description: No es un examen PDF o datos inválidos
+ *       404:
+ *         description: Intento no encontrado
+ */
+router.patch('/attempt/:intento_id/pdf-grade', ExamController.updatePDFAttemptGrade);
+
+/**
+ * @openapi
  * /api/exam/{examId}/force-finish:
  *   post:
  *     tags:
