@@ -886,4 +886,34 @@ router.delete('/attempt/:attemptId/events', ExamController.deleteAttemptEvents);
  */
 router.delete('/attempt/:attemptId', ExamController.deleteAttempt);
 
+/**
+ * @openapi
+ * /api/exam/{examId}/attempt-count:
+ *   get:
+ *     tags:
+ *       - Attempts
+ *     summary: Obtener cantidad de intentos de un examen
+ *     description: Retorna la cantidad total de intentos (cualquier estado) para un examen específico.
+ *     parameters:
+ *       - in: path
+ *         name: examId
+ *         required: true
+ *         schema:
+ *           type: number
+ *         description: ID del examen
+ *     responses:
+ *       200:
+ *         description: Cantidad obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 count:
+ *                   type: number
+ *       400:
+ *         description: ID de examen inválido
+ */
+router.get('/:examId/attempt-count', ExamController.getAttemptCountByExam);
+
 export default router;

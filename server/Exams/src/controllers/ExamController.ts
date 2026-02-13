@@ -375,4 +375,60 @@ export class ExamsController {
       next(error);
     }
   }
+
+  static async copyExam(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const examId = Number(req.params.id);
+      const profesorId = req.user.id;
+
+      if (isNaN(examId)) {
+        throwHttpError("ID de examen inválido", 400);
+      }
+
+      const examen = await exam_service.copyExam(
+        examId,
+        profesorId,
+        req.headers.cookie,
+      );
+
+      return res.status(201).json({
+        message: "Examen copiado correctamente",
+        examen,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async regenerateExamCode(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const examId = Number(req.params.id);
+      const profesorId = req.user.id;
+
+      if (isNaN(examId)) {
+        throwHttpError("ID de examen inválido", 400);
+      }
+
+      const result = await exam_service.regenerateExamCode(
+        examId,
+        profesorId,
+        req.headers.cookie,
+      );
+
+      return res.status(200).json({
+        message: "Código de examen regenerado correctamente",
+        ...result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

@@ -16,6 +16,7 @@ import axios from "axios";
 import { ExamenState } from "@src/types/Exam";
 import { UpdateExamDto } from "@src/dtos/update-exam.dto";
 import { BaseQuestionDto } from "@src/dtos/base-question.dto";
+import { EXAM_ATTEMPTS_MS_URL } from "../../config/config";
 
 export class ExamService {
   private examRepo = AppDataSource.getRepository(Exam);
@@ -185,6 +186,22 @@ export class ExamService {
       profesorId,
       cookies,
     );
+
+    // Verificar que el examen no tenga intentos
+    try {
+      const attemptsRes = await axios.get(
+        `${EXAM_ATTEMPTS_MS_URL}/api/exam/${examId}/attempt-count`,
+      );
+      if (attemptsRes.data.count > 0) {
+        throwHttpError(
+          `No se puede editar este examen porque tiene ${attemptsRes.data.count} intento(s) registrado(s). Crea una copia del examen si deseas hacer cambios.`,
+          400,
+        );
+      }
+    } catch (err: any) {
+      if (err.status) throw err;
+      console.error("Error al verificar intentos del examen:", err.message);
+    }
 
     // Si se cambia el nombre, verificar que no esté duplicado
     if (data.nombre && data.nombre !== existingExam.nombre) {
@@ -683,6 +700,41 @@ export class ExamService {
     return archivedExam;
   }
 
+  async regenerateExamCode(
+    examId: number,
+    profesorId: number,
+    cookies?: string,
+  ): Promise<{ codigoExamen: string }> {
+    const exam = await examenValidator.verificarPropietarioExamen(
+      examId,
+      profesorId,
+      cookies,
+    );
+
+    let nuevoCodigoExamen: string = "";
+    let codigoExiste = true;
+    let intentos = 0;
+    const MAX_INTENTOS = 10;
+
+    while (codigoExiste && intentos < MAX_INTENTOS) {
+      nuevoCodigoExamen = generateExamCode();
+      const examenConCodigo = await this.examRepo.findOne({
+        where: { codigoExamen: nuevoCodigoExamen },
+      });
+      codigoExiste = !!examenConCodigo;
+      intentos++;
+    }
+
+    if (codigoExiste) {
+      throwHttpError("No se pudo generar un código único para el examen", 500);
+    }
+
+    exam.codigoExamen = nuevoCodigoExamen;
+    await this.examRepo.save(exam);
+
+    return { codigoExamen: nuevoCodigoExamen };
+  }
+
   async deleteExamById(
     examId: number,
     profesorId: number,
@@ -742,6 +794,177 @@ export class ExamService {
       }
 
       await manager.remove(Exam, exam);
+    });
+  }
+
+  async copyExam(
+    examId: number,
+    profesorId: number,
+    cookies?: string,
+  ): Promise<Exam> {
+    // Verificar que el profesor es dueño del examen
+    await examenValidator.verificarPropietarioExamen(examId, profesorId, cookies);
+
+    // Cargar examen completo con todas las relaciones
+    const repo = AppDataSource.getRepository(Exam);
+    const original = await repo.findOne({
+      where: { id: examId },
+      relations: [
+        "questions",
+        "questions.options",
+        "questions.respuestas",
+        "questions.keywords",
+        "questions.pares",
+        "questions.pares.itemA",
+        "questions.pares.itemB",
+      ],
+    });
+
+    if (!original) {
+      throwHttpError("Examen no encontrado", 404);
+    }
+
+    const nuevoNombre = `Copia de ${original.nombre}`;
+
+    return await AppDataSource.transaction(async (manager) => {
+      const { imageService } = await import("./ImageService");
+      const { pdfService } = await import("./PDFService");
+
+      // Generar código único
+      let codigoExamen: string = "";
+      let codigoExiste = true;
+      let intentos = 0;
+      const MAX_INTENTOS = 10;
+
+      while (codigoExiste && intentos < MAX_INTENTOS) {
+        codigoExamen = generateExamCode();
+        const examenConCodigo = await manager.findOne(Exam, {
+          where: { codigoExamen },
+        });
+        codigoExiste = !!examenConCodigo;
+        intentos++;
+      }
+
+      if (codigoExiste) {
+        throwHttpError("No se pudo generar un código único para el examen", 500);
+      }
+
+      // Duplicar PDF si existe
+      let nuevoPDF: string | null = null;
+      if (original.archivoPDF) {
+        nuevoPDF = await pdfService.duplicatePDF(original.archivoPDF);
+      }
+
+      // Crear examen copia
+      const nuevoExamen = manager.create(Exam, {
+        nombre: nuevoNombre,
+        descripcion: original.descripcion,
+        contrasena: original.contrasena,
+        estado: ExamenState.CLOSED,
+        id_profesor: profesorId,
+        fecha_creacion: new Date(),
+        necesitaNombreCompleto: original.necesitaNombreCompleto,
+        necesitaCorreoElectrónico: original.necesitaCorreoElectrónico,
+        necesitaCodigoEstudiantil: original.necesitaCodigoEstudiantil,
+        necesitaContrasena: original.necesitaContrasena,
+        incluirHerramientaDibujo: original.incluirHerramientaDibujo,
+        incluirCalculadoraCientifica: original.incluirCalculadoraCientifica,
+        incluirHojaExcel: original.incluirHojaExcel,
+        incluirJavascript: original.incluirJavascript,
+        incluirPython: original.incluirPython,
+        incluirJava: original.incluirJava,
+        horaApertura: null,
+        horaCierre: null,
+        limiteTiempo: original.limiteTiempo,
+        limiteTiempoCumplido: original.limiteTiempoCumplido,
+        consecuencia: original.consecuencia,
+        codigoExamen,
+        archivoPDF: nuevoPDF,
+        cambioEstadoAutomatico: false,
+        tienePreguntasAbiertas: original.tienePreguntasAbiertas,
+      });
+
+      const examenGuardado = await manager.save(Exam, nuevoExamen);
+
+      // Copiar preguntas
+      if (original.questions?.length) {
+        // Convertir entidades a DTOs para crearPreguntasDesdeDto
+        const questionDtos = await Promise.all(
+          original.questions.map(async (q: any) => {
+            // Duplicar imagen si existe
+            let nuevaImagen: string | null = null;
+            if (q.nombreImagen) {
+              nuevaImagen = await imageService.duplicateImage(q.nombreImagen);
+            }
+
+            // Mapear tipo de entidad a tipo de DTO ("match" en DB -> "matching" en DTO)
+            const tipoDto = q.type === "match" ? "matching" : q.type;
+
+            const baseDto: any = {
+              enunciado: q.enunciado,
+              puntaje: q.puntaje,
+              type: tipoDto,
+              calificacionParcial: q.calificacionParcial,
+              nombreImagen: nuevaImagen,
+            };
+
+            switch (q.type) {
+              case "test":
+                baseDto.shuffleOptions = q.shuffleOptions ?? false;
+                baseDto.options = q.options?.map((opt: any) => ({
+                  texto: opt.texto,
+                  esCorrecta: opt.esCorrecta,
+                })) || [];
+                break;
+
+              case "open":
+                baseDto.textoRespuesta = q.textoRespuesta ?? null;
+                if (q.keywords?.length) {
+                  baseDto.palabrasClave = q.keywords.map((kw: any) => ({
+                    texto: kw.texto,
+                  }));
+                }
+                break;
+
+              case "fill_blanks":
+                baseDto.textoCorrecto = q.textoCorrecto;
+                baseDto.respuestas = q.respuestas?.map((r: any) => ({
+                  posicion: r.posicion,
+                  textoCorrecto: r.textoCorrecto,
+                })) || [];
+                break;
+
+              case "match":
+                baseDto.pares = q.pares?.map((p: any) => ({
+                  itemA: p.itemA?.text,
+                  itemB: p.itemB?.text,
+                })) || [];
+                break;
+            }
+
+            return baseDto;
+          }),
+        );
+
+        const preguntasNuevas = QuestionValidator.crearPreguntasDesdeDto(
+          questionDtos,
+          examenGuardado,
+        );
+
+        const preguntasGuardadas = await manager.save(Question, preguntasNuevas);
+
+        examenGuardado.questions = preguntasGuardadas.map((q: any) => {
+          delete q.exam;
+          if (q.type === "match" && q.pares) {
+            q.pares.forEach((p: any) => {
+              delete p.question;
+            });
+          }
+          return q;
+        });
+      }
+
+      return examenGuardado;
     });
   }
 }

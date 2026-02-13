@@ -1820,4 +1820,9 @@ export class ExamService {
       attemptId,
     };
   }
+
+  static async getAttemptCountByExam(examId: number): Promise<number> {
+    const attemptRepo = AppDataSource.getRepository(ExamAttempt);
+    return await attemptRepo.count({ where: { examen_id: examId } });
+  }
 }

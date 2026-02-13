@@ -337,4 +337,23 @@ export class ExamController {
       next(err);
     }
   }
+
+  static async getAttemptCountByExam(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const examId = Number(req.params.examId);
+
+      if (isNaN(examId)) {
+        return res.status(400).json({ message: "ID de examen inválido" });
+      }
+
+      const count = await ExamService.getAttemptCountByExam(examId);
+      res.status(200).json({ count });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
