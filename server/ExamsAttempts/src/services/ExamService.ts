@@ -16,6 +16,7 @@ import { StartExamAttemptDto } from "@src/dtos/Start-ExamAttempt.dto";
 import { ResumeExamAttemptDto } from "@src/dtos/Resume-ExamAttempt.dto";
 import { GradingService } from "./GradingService";
 import axios from "axios";
+import ExcelJS from "exceljs";
 
 export class ExamService {
   static async startAttempt(data: StartExamAttemptDto, io: Server) {
@@ -114,11 +115,14 @@ export class ExamService {
     const progressRepo = AppDataSource.getRepository(ExamInProgress);
     const attemptRepo = AppDataSource.getRepository(ExamAttempt);
 
-    // Validar código de acceso y sesión
-    const examInProgress = await ExamAttemptValidator.validateSessionUniqueness(
-      data.codigo_acceso,
-      data.id_sesion,
-    );
+    // Buscar el ExamInProgress por codigo_acceso
+    const examInProgress = await progressRepo.findOne({
+      where: { codigo_acceso: data.codigo_acceso },
+    });
+
+    if (!examInProgress) {
+      throwHttpError("Código de acceso inválido", 404);
+    }
 
     if (examInProgress.estado === AttemptState.FINISHED) {
       throwHttpError("Este intento ya ha finalizado", 403);
@@ -130,25 +134,85 @@ export class ExamService {
 
     const attempt = await attemptRepo.findOne({
       where: { id: examInProgress.intento_id },
-      relations: ["respuestas", "eventos"],
+      relations: ["respuestas"],
     });
 
     if (!attempt) {
       throwHttpError("Intento no encontrado", 404);
     }
 
-    // Validar expiración si existe
-    if (examInProgress.fecha_expiracion) {
-      const now = new Date();
-      if (now > examInProgress.fecha_expiracion) {
-        // El tiempo se agotó
-        await this.handleTimeExpired(attempt, examInProgress, io);
-        throwHttpError("El tiempo del examen ha expirado", 403);
+    if (examInProgress.estado === AttemptState.ABANDONADO) {
+      // --- REANUDAR INTENTO ABANDONADO ---
+
+      // Verificar que el tiempo no haya expirado
+      if (examInProgress.fecha_expiracion) {
+        const now = new Date();
+        if (now > examInProgress.fecha_expiracion) {
+          await this.handleTimeExpired(attempt, examInProgress, io);
+          throwHttpError("El tiempo del examen ha expirado", 403);
+        }
+      }
+
+      // Generar nueva sesión (invalida cualquier sesión anterior)
+      const nuevoIdSesion = generateSessionId();
+
+      examInProgress.estado = AttemptState.ACTIVE;
+      examInProgress.id_sesion = nuevoIdSesion;
+      examInProgress.fecha_fin = null;
+      await progressRepo.save(examInProgress);
+
+      attempt.estado = AttemptState.ACTIVE;
+      attempt.fecha_fin = null;
+      await attemptRepo.save(attempt);
+
+      // Notificar al profesor
+      io.to(`exam_${attempt.examen_id}`).emit("student_resumed_exam", {
+        attemptId: attempt.id,
+        estudiante: {
+          nombre: attempt.nombre_estudiante,
+          correo: attempt.correo_estudiante,
+          identificacion: attempt.identificacion_estudiante,
+        },
+      });
+
+      console.log(`🔄 Intento ${attempt.id} reanudado desde estado abandonado`);
+    } else if (examInProgress.estado === AttemptState.ACTIVE) {
+      // --- RECONEXIÓN NORMAL (misma sesión) ---
+
+      // Si se proporcionó id_sesion, validar que coincida
+      if (data.id_sesion && examInProgress.id_sesion !== data.id_sesion) {
+        throwHttpError(
+          "Ya existe una sesión activa para este intento. Solo puede haber un usuario conectado",
+          409,
+        );
+      }
+
+      // Si NO se proporcionó id_sesion y el intento está activo,
+      // no se puede reanudar sin la sesión correcta (protección contra uso compartido)
+      if (!data.id_sesion) {
+        throwHttpError(
+          "El intento aún está activo. Si perdiste la conexión, espera unos segundos e intenta de nuevo",
+          409,
+        );
+      }
+
+      // Verificar expiración
+      if (examInProgress.fecha_expiracion) {
+        const now = new Date();
+        if (now > examInProgress.fecha_expiracion) {
+          await this.handleTimeExpired(attempt, examInProgress, io);
+          throwHttpError("El tiempo del examen ha expirado", 403);
+        }
       }
     }
 
+    // Obtener examen sanitizado (mismo formato que startAttempt)
+    // Primero obtener el codigoExamen a partir del examen_id
+    const examBasic = await ExamAttemptValidator.validateExamExistsById(
+      attempt.examen_id,
+    );
     const exam = await ExamAttemptValidator.validateExamExists(
-      attempt.examen_id.toString(),
+      examBasic.codigoExamen,
     );
 
     return {
@@ -612,8 +676,6 @@ export class ExamService {
               `    ⚠️ Tipo de pregunta desconocido: ${question.type}`,
             );
         }
-
-        // ✅ 5. GUARDAR EL PUNTAJE INDIVIDUAL EN LA RESPUESTA
         if (studentAnswer) {
           studentAnswer.puntaje = puntajePregunta;
           await answerRepo.save(studentAnswer);
@@ -1824,5 +1886,452 @@ export class ExamService {
   static async getAttemptCountByExam(examId: number): Promise<number> {
     const attemptRepo = AppDataSource.getRepository(ExamAttempt);
     return await attemptRepo.count({ where: { examen_id: examId } });
+  }
+
+  static async getGradesForDownload(examId: number): Promise<Buffer> {
+    // 1. Obtener config del examen desde Exams MS
+    const exam = await ExamAttemptValidator.validateExamExistsById(examId);
+
+    // 2. Obtener todos los intentos del examen
+    const attemptRepo = AppDataSource.getRepository(ExamAttempt);
+    const attempts = await attemptRepo.find({
+      where: { examen_id: examId },
+      order: { fecha_inicio: "ASC" },
+    });
+
+    if (attempts.length === 0) {
+      throwHttpError("No hay intentos registrados para este examen", 404);
+    }
+
+    // 3. Determinar qué columna de ID usar según prioridad
+    const usaCodigo = exam.necesitaCodigoEstudiantil;
+    const usaCorreo = exam.necesitaCorreoElectrónico;
+
+    const getIdEstudiante = (a: ExamAttempt): string => {
+      if (usaCodigo && a.identificacion_estudiante) {
+        return a.identificacion_estudiante;
+      }
+      if (usaCorreo && a.correo_estudiante) {
+        return a.correo_estudiante;
+      }
+      return a.nombre_estudiante || "Sin identificar";
+    };
+
+    let nombreColumnaId = "Estudiante";
+    if (usaCodigo) nombreColumnaId = "Código estudiantil";
+    else if (usaCorreo) nombreColumnaId = "Correo";
+    else nombreColumnaId = "Nombre";
+
+    const estadoTexto: Record<string, string> = {
+      [AttemptState.ACTIVE]: "En curso",
+      [AttemptState.FINISHED]: "Finalizado",
+      [AttemptState.BLOCKED]: "Bloqueado",
+      [AttemptState.ABANDONADO]: "Abandonado",
+      [AttemptState.PAUSED]: "Pausado",
+    };
+
+    // 4. Construir Excel
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Notas");
+
+    // Encabezados
+    sheet.columns = [
+      { header: nombreColumnaId, key: "id", width: 30 },
+      { header: "Estado", key: "estado", width: 18 },
+      { header: "Calificación Final", key: "calificacion", width: 20 },
+    ];
+
+    // Estilo del encabezado
+    sheet.getRow(1).eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF4472C4" },
+      };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+    });
+
+    // Filas de datos
+    for (const a of attempts) {
+      const id = getIdEstudiante(a);
+      const estado = estadoTexto[a.estado] || a.estado;
+
+      let calificacion: string | number;
+      if (a.calificacionPendiente) {
+        calificacion = "Pendiente";
+      } else if (a.notaFinal !== null && a.notaFinal !== undefined) {
+        calificacion = Math.round(a.notaFinal * 100) / 100;
+      } else if (a.estado === AttemptState.ABANDONADO) {
+        calificacion = "Abandonado";
+      } else if (a.estado === AttemptState.ACTIVE || a.estado === AttemptState.BLOCKED) {
+        calificacion = "En curso";
+      } else {
+        calificacion = 0;
+      }
+
+      const row = sheet.addRow({ id, estado, calificacion });
+
+      // Centrar estado y calificación
+      row.getCell("estado").alignment = { horizontal: "center" };
+      row.getCell("calificacion").alignment = { horizontal: "center" };
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
+  }
+
+  /**
+   * Retroalimentación completa para el estudiante vía codigo_acceso.
+   * Solo disponible para intentos finalizados.
+   * Muestra respuestas correctas, puntajes, retroalimentación, todo excepto eventos.
+   */
+  static async getAttemptFeedback(codigo_acceso: string) {
+    const progressRepo = AppDataSource.getRepository(ExamInProgress);
+    const attemptRepo = AppDataSource.getRepository(ExamAttempt);
+
+    // 1. Buscar ExamInProgress por codigo_acceso
+    const examInProgress = await progressRepo.findOne({
+      where: { codigo_acceso },
+    });
+
+    if (!examInProgress) {
+      throwHttpError("Código de acceso inválido", 404);
+    }
+
+    // 2. Obtener el intento con sus respuestas
+    const attempt = await attemptRepo.findOne({
+      where: { id: examInProgress.intento_id },
+      relations: ["respuestas"],
+    });
+
+    if (!attempt) {
+      throwHttpError("Intento no encontrado", 404);
+    }
+
+    // 3. Solo para intentos finalizados
+    if (attempt.estado !== AttemptState.FINISHED) {
+      throwHttpError(
+        "La retroalimentación solo está disponible para exámenes finalizados",
+        403,
+      );
+    }
+
+    // 4. Obtener examen completo (con respuestas correctas) desde Exams MS
+    const examBasic = await ExamAttemptValidator.validateExamExistsById(
+      attempt.examen_id,
+    );
+
+    // 5. Si es examen PDF, retornar estructura especial
+    if (attempt.esExamenPDF) {
+      const respuestasPDF = (attempt.respuestas || []).map((r) => {
+        let metadataParsed = null;
+        if (r.metadata_codigo) {
+          try {
+            metadataParsed = JSON.parse(r.metadata_codigo);
+          } catch {
+            metadataParsed = r.metadata_codigo;
+          }
+        }
+
+        let respuestaParsed: any = r.respuesta;
+        const structuredTypes = [
+          TipoRespuesta.DIAGRAMA,
+          TipoRespuesta.PYTHON,
+          TipoRespuesta.JAVASCRIPT,
+          TipoRespuesta.JAVA,
+        ];
+        if (structuredTypes.includes(r.tipo_respuesta)) {
+          try {
+            respuestaParsed = JSON.parse(r.respuesta);
+          } catch {
+            respuestaParsed = r.respuesta;
+          }
+        }
+
+        return {
+          id: r.id,
+          pregunta_id: r.pregunta_id,
+          tipo_respuesta: r.tipo_respuesta,
+          respuesta: respuestaParsed,
+          metadata_codigo: metadataParsed,
+          puntajeObtenido: r.puntaje,
+          fecha_respuesta: r.fecha_respuesta,
+          retroalimentacion: r.retroalimentacion,
+        };
+      });
+
+      return {
+        intento: {
+          id: attempt.id,
+          examen_id: attempt.examen_id,
+          estado: attempt.estado,
+          nombre_estudiante: attempt.nombre_estudiante,
+          correo_estudiante: attempt.correo_estudiante,
+          identificacion_estudiante: attempt.identificacion_estudiante,
+          fecha_inicio: attempt.fecha_inicio,
+          fecha_fin: attempt.fecha_fin,
+          limiteTiempoCumplido: attempt.limiteTiempoCumplido,
+          consecuencia: attempt.consecuencia,
+          puntaje: attempt.puntaje,
+          puntajeMaximo: attempt.puntajeMaximo,
+          porcentaje: attempt.porcentaje,
+          notaFinal: attempt.notaFinal,
+          progreso: attempt.progreso,
+          esExamenPDF: attempt.esExamenPDF,
+          calificacionPendiente: attempt.calificacionPendiente,
+          retroalimentacion: attempt.retroalimentacion || null,
+        },
+        examen: {
+          id: examBasic.id,
+          nombre: examBasic.nombre,
+          descripcion: examBasic.descripcion,
+          codigoExamen: examBasic.codigoExamen,
+          estado: examBasic.estado,
+          nombreProfesor: examBasic.nombreProfesor,
+          archivoPDF: examBasic.archivoPDF,
+        },
+        estadisticas: {
+          totalRespuestas: respuestasPDF.length,
+          tiempoTotal:
+            attempt.fecha_fin && attempt.fecha_inicio
+              ? Math.floor(
+                  (new Date(attempt.fecha_fin).getTime() -
+                    new Date(attempt.fecha_inicio).getTime()) /
+                    1000,
+                )
+              : null,
+        },
+        respuestasPDF,
+      };
+    }
+
+    // 6. Examen con preguntas: obtener examen con respuestas correctas
+    const EXAM_MS_URL = process.env.EXAM_MS_URL;
+    const examResponse = await axios.get(
+      `${EXAM_MS_URL}/api/exams/by-id/${attempt.examen_id}`,
+    );
+    const exam = examResponse.data;
+
+    if (!exam || !exam.questions) {
+      throwHttpError(
+        "No se pudo obtener la información completa del examen",
+        500,
+      );
+    }
+
+    // 7. Parsear respuestas y construir detalles por pregunta (con respuestas correctas)
+    const parseStudentAnswer = (_type: string, respuesta: string) => {
+      try {
+        return JSON.parse(respuesta);
+      } catch {
+        return respuesta;
+      }
+    };
+
+    const preguntasConRespuestas = exam.questions.map((pregunta: any) => {
+      const respuestaEstudiante = attempt.respuestas?.find(
+        (r) => r.pregunta_id === pregunta.id,
+      );
+
+      let respuestaParsed = null;
+      if (respuestaEstudiante) {
+        respuestaParsed = parseStudentAnswer(
+          pregunta.type,
+          respuestaEstudiante.respuesta,
+        );
+      }
+
+      const preguntaDetalle: any = {
+        id: pregunta.id,
+        enunciado: pregunta.enunciado,
+        type: pregunta.type,
+        puntajeMaximo: pregunta.puntaje,
+        calificacionParcial: pregunta.calificacionParcial,
+        nombreImagen: pregunta.nombreImagen,
+        respuestaEstudiante: respuestaEstudiante
+          ? {
+              id: respuestaEstudiante.id,
+              respuestaParsed: respuestaParsed,
+              puntajeObtenido: respuestaEstudiante.puntaje || 0,
+              fecha_respuesta: respuestaEstudiante.fecha_respuesta,
+              retroalimentacion: respuestaEstudiante.retroalimentacion,
+            }
+          : null,
+      };
+
+      switch (pregunta.type) {
+        case "test": {
+          preguntaDetalle.opciones = pregunta.options?.map((opt: any) => ({
+            id: opt.id,
+            texto: opt.texto,
+            esCorrecta: opt.esCorrecta,
+          }));
+          preguntaDetalle.cantidadRespuestasCorrectas =
+            pregunta.options?.filter((opt: any) => opt.esCorrecta).length || 0;
+
+          if (respuestaEstudiante && respuestaParsed) {
+            preguntaDetalle.respuestaEstudiante.opcionesSeleccionadas =
+              pregunta.options
+                ?.filter((opt: any) => respuestaParsed.includes(opt.id))
+                .map((opt: any) => ({
+                  id: opt.id,
+                  texto: opt.texto,
+                  esCorrecta: opt.esCorrecta,
+                }));
+          }
+          break;
+        }
+
+        case "open": {
+          preguntaDetalle.textoRespuesta = pregunta.textoRespuesta;
+          preguntaDetalle.keywords = pregunta.keywords?.map((kw: any) => ({
+            id: kw.id,
+            texto: kw.texto,
+          }));
+
+          if (respuestaEstudiante && respuestaParsed) {
+            let textoRespuesta = respuestaParsed;
+            if (
+              typeof textoRespuesta === "string" &&
+              textoRespuesta.startsWith('"') &&
+              textoRespuesta.endsWith('"')
+            ) {
+              textoRespuesta = textoRespuesta.slice(1, -1);
+            }
+            preguntaDetalle.respuestaEstudiante.textoEscrito = textoRespuesta;
+          }
+          break;
+        }
+
+        case "fill_blanks": {
+          preguntaDetalle.textoCorrecto = pregunta.textoCorrecto;
+          preguntaDetalle.respuestasCorrectas = pregunta.respuestas?.map(
+            (r: any) => ({
+              id: r.id,
+              posicion: r.posicion,
+              textoCorrecto: r.textoCorrecto,
+            }),
+          );
+
+          if (
+            respuestaEstudiante &&
+            respuestaParsed &&
+            Array.isArray(respuestaParsed)
+          ) {
+            preguntaDetalle.respuestaEstudiante.espaciosLlenados =
+              pregunta.respuestas
+                ?.sort((a: any, b: any) => a.posicion - b.posicion)
+                .map((blank: any, index: number) => ({
+                  posicion: blank.posicion,
+                  respuestaEstudiante: respuestaParsed[index] || "",
+                  respuestaCorrecta: blank.textoCorrecto,
+                  esCorrecta:
+                    String(respuestaParsed[index] || "")
+                      .toLowerCase()
+                      .trim() ===
+                    String(blank.textoCorrecto || "")
+                      .toLowerCase()
+                      .trim(),
+                }));
+          }
+          break;
+        }
+
+        case "match": {
+          preguntaDetalle.paresCorrectos = pregunta.pares?.map((par: any) => ({
+            id: par.id,
+            itemA: { id: par.itemA.id, text: par.itemA.text },
+            itemB: { id: par.itemB.id, text: par.itemB.text },
+          }));
+
+          if (
+            respuestaEstudiante &&
+            respuestaParsed &&
+            Array.isArray(respuestaParsed)
+          ) {
+            preguntaDetalle.respuestaEstudiante.paresSeleccionados =
+              respuestaParsed.map((parEst: any) => {
+                const itemA = pregunta.pares
+                  ?.flatMap((p: any) => [p.itemA, p.itemB])
+                  .find((item: any) => item.id === parEst.itemA_id);
+                const itemB = pregunta.pares
+                  ?.flatMap((p: any) => [p.itemA, p.itemB])
+                  .find((item: any) => item.id === parEst.itemB_id);
+                const esCorrecto = pregunta.pares?.some(
+                  (p: any) =>
+                    p.itemA.id === parEst.itemA_id &&
+                    p.itemB.id === parEst.itemB_id,
+                );
+                return {
+                  itemA: itemA
+                    ? { id: itemA.id, text: itemA.text }
+                    : { id: parEst.itemA_id, text: "Desconocido" },
+                  itemB: itemB
+                    ? { id: itemB.id, text: itemB.text }
+                    : { id: parEst.itemB_id, text: "Desconocido" },
+                  esCorrecto,
+                };
+              });
+          }
+          break;
+        }
+      }
+
+      return preguntaDetalle;
+    });
+
+    // 8. Estadísticas
+    const totalPreguntas = exam.questions.length;
+    const preguntasRespondidas = attempt.respuestas?.length || 0;
+    const preguntasCorrectas = preguntasConRespuestas.filter(
+      (p: any) =>
+        p.respuestaEstudiante &&
+        p.respuestaEstudiante.puntajeObtenido === p.puntajeMaximo,
+    ).length;
+
+    return {
+      intento: {
+        id: attempt.id,
+        examen_id: attempt.examen_id,
+        estado: attempt.estado,
+        nombre_estudiante: attempt.nombre_estudiante,
+        correo_estudiante: attempt.correo_estudiante,
+        identificacion_estudiante: attempt.identificacion_estudiante,
+        fecha_inicio: attempt.fecha_inicio,
+        fecha_fin: attempt.fecha_fin,
+        limiteTiempoCumplido: attempt.limiteTiempoCumplido,
+        consecuencia: attempt.consecuencia,
+        puntaje: attempt.puntaje,
+        puntajeMaximo: attempt.puntajeMaximo,
+        porcentaje: attempt.porcentaje,
+        notaFinal: attempt.notaFinal,
+        progreso: attempt.progreso,
+      },
+      examen: {
+        id: exam.id,
+        nombre: exam.nombre,
+        descripcion: exam.descripcion,
+        codigoExamen: exam.codigoExamen,
+        estado: exam.estado,
+        nombreProfesor: examBasic.nombreProfesor,
+      },
+      estadisticas: {
+        totalPreguntas,
+        preguntasRespondidas,
+        preguntasCorrectas,
+        preguntasIncorrectas: preguntasRespondidas - preguntasCorrectas,
+        preguntasSinResponder: totalPreguntas - preguntasRespondidas,
+        tiempoTotal:
+          attempt.fecha_fin && attempt.fecha_inicio
+            ? Math.floor(
+                (new Date(attempt.fecha_fin).getTime() -
+                  new Date(attempt.fecha_inicio).getTime()) /
+                  1000,
+              )
+            : null,
+      },
+      preguntas: preguntasConRespuestas,
+    };
   }
 }

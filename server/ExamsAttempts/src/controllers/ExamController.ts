@@ -356,4 +356,51 @@ export class ExamController {
       next(err);
     }
   }
+
+  static async downloadGrades(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const examId = Number(req.params.examId);
+
+      if (isNaN(examId)) {
+        return res.status(400).json({ message: "ID de examen inválido" });
+      }
+
+      const buffer = await ExamService.getGradesForDownload(examId);
+
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename=notas_examen_${examId}.xlsx`,
+      );
+      res.status(200).send(buffer);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getAttemptFeedback(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const { codigo_acceso } = req.params;
+
+      if (!codigo_acceso || typeof codigo_acceso !== "string") {
+        return res.status(400).json({ message: "Código de acceso inválido" });
+      }
+
+      const result = await ExamService.getAttemptFeedback(codigo_acceso);
+      res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
 }
