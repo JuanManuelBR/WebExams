@@ -1,12 +1,11 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { 
-  MousePointer2, Share2, Trash2, 
+import {
+  MousePointer2, Share2, Trash2,
   Undo, Redo, Type, X, Plus, Image as ImageIcon,
   Layout, Diamond, Grid3x3,
   PenTool, Eraser, Square, Circle, User, Braces, Hexagon, Cloud,
   ChevronDown, ChevronRight, Highlighter, Minus, Triangle, Star
 } from 'lucide-react';
-
 // --- DEFINICIÓN DE TIPOS ---
 
 interface LienzoProps {
@@ -214,7 +213,6 @@ export default function Lienzo({ darkMode, initialData, onSave }: LienzoProps) {
   const gridCanvasRef = useRef<HTMLCanvasElement>(null);
   const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [showGrid, setShowGrid] = useState(false);
-
   // Gestión de Hojas
   const [sheets, setSheets] = useState<Sheet[]>(initialData?.sheets || [
       { 

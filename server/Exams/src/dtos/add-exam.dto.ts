@@ -86,6 +86,10 @@ export class add_exam_dto {
   @IsBoolean({ message: "incluirPython debe ser true o false" })
   incluirPython!: boolean;
 
+  @IsNotEmpty({ message: "Falta especificar incluirJava" })
+  @IsBoolean({ message: "incluirJava debe ser true o false" })
+  incluirJava!: boolean;
+
   @IsNotEmpty({ message: "Falta especificar si el examen necesita contraseña" })
   @IsBoolean({ message: "necesita contraseña debe ser true o false" })
   necesitaContrasena!: boolean;

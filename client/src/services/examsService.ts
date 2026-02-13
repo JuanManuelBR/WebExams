@@ -269,6 +269,7 @@ export const examsService = {
         incluirJavascript:
           datosExamen.herramientasActivas.includes("javascript"),
         incluirPython: datosExamen.herramientasActivas.includes("python"),
+        incluirJava: datosExamen.herramientasActivas.includes("java"),
 
         horaApertura: datosExamen.fechaInicio
           ? new Date(datosExamen.fechaInicio).toISOString()

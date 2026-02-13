@@ -104,7 +104,7 @@ export default function CrearExamen({
   const [fechaInicioHabilitada, setFechaInicioHabilitada] = useState(false);
   const [fechaCierreHabilitada, setFechaCierreHabilitada] = useState(false);
   const [limiteHabilitado, setLimiteHabilitado] = useState(false);
-  const [limiteTiempo, setLimiteTiempo] = useState(30);
+  const [limiteTiempo, setLimiteTiempo] = useState<number | string>(30);
   const [opcionTiempoAgotado, setOpcionTiempoAgotado] =
     useState<OpcionTiempoAgotado>("");
 
@@ -140,6 +140,7 @@ export default function CrearExamen({
     excel: false,
     javascript: false,
     python: false,
+    java: false,
   });
 
   // Efecto para cargar datos si estamos en modo edición
@@ -375,6 +376,7 @@ export default function CrearExamen({
       excel: false,
       javascript: false,
       python: false,
+      java: false,
     });
     setSeccion1Abierta(true);
     setSeccion2Abierta(false);
@@ -443,10 +445,12 @@ export default function CrearExamen({
     }
 
 
-    // ✅ NUEVA VALIDACIÓN: Verificar opcionTiempoAgotado si límite está habilitado
-    if (limiteHabilitado && !opcionTiempoAgotado) {
-      mostrarModal("advertencia", "Campo requerido", "Por favor, seleccione qué hacer cuando se agote el tiempo", cerrarModal);
-      return;
+    // ✅ NUEVA VALIDACIÓN: Verificar límite de tiempo y opción de tiempo agotado
+    if (limiteHabilitado) {
+      if (!opcionTiempoAgotado) {
+        mostrarModal("advertencia", "Campo requerido", "Por favor, seleccione qué hacer cuando se agote el tiempo", cerrarModal);
+        return;
+      }
     }
     setGuardando(true);
 
@@ -470,7 +474,7 @@ export default function CrearExamen({
         fechaInicio: fechaInicioHabilitada ? fechaInicio : null,
         fechaCierre: fechaCierreHabilitada ? fechaCierre : null,
         limiteTiempo: limiteHabilitado
-          ? { valor: limiteTiempo, unidad: "minutos" as const }
+          ? { valor: (limiteTiempo && Number(limiteTiempo) > 0) ? Number(limiteTiempo) : 30, unidad: "minutos" as const }
           : null,
         opcionTiempoAgotado: limiteHabilitado ? opcionTiempoAgotado : "envio-automatico",
         seguridad: {
@@ -1095,6 +1099,7 @@ export default function CrearExamen({
                   value={fechaCierre}
                   onChange={(e) => handleFechaCierreChange(e.target.value)}
                   onBlur={validarFechaCierre}
+                  min={fechaInicioHabilitada ? fechaInicio : obtenerFechaMinima()}
                   className={`w-full px-4 py-2.5 rounded-lg border ${
                     darkMode
                       ? "bg-slate-800 border-slate-700 text-white [color-scheme:dark]"
@@ -1135,8 +1140,13 @@ export default function CrearExamen({
                   <input
                     type="number"
                     value={limiteTiempo}
-                    onChange={(e) => setLimiteTiempo(Number(e.target.value))}
-                    className={`w-28 px-4 py-2.5 rounded-lg border ${darkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-gray-300"}`}
+                    onChange={(e) => setLimiteTiempo(e.target.value === "" ? "" : Number(e.target.value))}
+                    onBlur={() => {
+                      if (!limiteTiempo || Number(limiteTiempo) <= 0) {
+                        setLimiteTiempo(30);
+                      }
+                    }}
+                    className={`w-28 px-4 py-2.5 rounded-lg border [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${darkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-white border-gray-300"}`}
                   />
                   <span
                     className={`text-sm font-medium ${darkMode ? "text-gray-300" : "text-gray-700"}`}

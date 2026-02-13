@@ -15,6 +15,7 @@ import logoUniversidad from "../../assets/logo-universidad.webp";
 import logoUniversidadNoche from "../../assets/logo-universidad-noche.webp";
 import fondoImagen from "../../assets/fondo.webp";
 import { useState, useEffect, useRef } from "react";
+import ModalConfirmacion from "../components/ModalConfirmacion";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import {
   Home,
@@ -37,6 +38,10 @@ export default function LMSDashboard() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  const [modal, setModal] = useState<{ visible: boolean; tipo: "exito" | "error" | "advertencia" | "info" | "confirmar"; titulo: string; mensaje: string; onConfirmar: () => void }>({ visible: false, tipo: "info", titulo: "", mensaje: "", onConfirmar: () => {} });
+  const mostrarModal = (tipo: "exito" | "error" | "advertencia" | "info" | "confirmar", titulo: string, mensaje: string, onConfirmar: () => void) => setModal({ visible: true, tipo, titulo, mensaje, onConfirmar });
+  const cerrarModal = () => setModal(prev => ({ ...prev, visible: false }));
 
   // Estado para notificaciones
   const [notificaciones, setNotificaciones] = useState([
@@ -291,7 +296,7 @@ export default function LMSDashboard() {
 
   const handleAcceptExam = (id: number, examId: string) => {
     console.log(`Aceptando examen compartido: ${examId}`);
-    alert("Examen aceptado y agregado a tu lista");
+    mostrarModal("exito", "Examen aceptado", "Examen aceptado y agregado a tu lista", cerrarModal);
     handleDeleteNotification(id);
   };
 
@@ -542,6 +547,12 @@ export default function LMSDashboard() {
       >
         {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
       </button>
+
+      <ModalConfirmacion
+        {...modal}
+        darkMode={darkMode}
+        onCancelar={cerrarModal}
+      />
     </div>
   );
 }

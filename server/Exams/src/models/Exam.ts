@@ -60,6 +60,9 @@ export class Exam {
   @Column({ type: "boolean" })
   incluirPython!: boolean;
 
+  @Column({ type: "boolean" })
+  incluirJava!: boolean;
+
   @Column({ type: "datetime", nullable: true })
   horaApertura?: Date | null;
 

@@ -74,13 +74,13 @@ export default function ExamAccessPage() {
       console.log("📊 studentData:", studentData);
       console.log("📊 currentExam:", examen);
 
-      // Redirigir en la misma ventana a ExamSolver
+      // Redirigir en la misma ventana a ExamSolver (replace para no dejar /exam-solver en historial)
       const rutaExamen = "/exam-solver";
       console.log("➡️ Redirigiendo a:", rutaExamen);
 
       // Usar setTimeout para asegurar que localStorage se guarde antes de navegar
       setTimeout(() => {
-        navigate(rutaExamen);
+        navigate(rutaExamen, { replace: true });
       }, 100);
     },
     [navigate],
@@ -317,9 +317,9 @@ export default function ExamAccessPage() {
 
       console.log("💾 Datos guardados (sin intento):", studentData);
 
-      // Navegar a exam-solver
+      // Navegar a exam-solver (replace para no dejar /exam-solver en historial)
       setTimeout(() => {
-        navigate("/exam-solver");
+        navigate("/exam-solver", { replace: true });
       }, 100);
     } catch (error: any) {
       console.error("❌ Error:", error);

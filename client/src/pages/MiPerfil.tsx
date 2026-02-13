@@ -254,7 +254,7 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
       
     } catch (error: any) {
       console.error('Error al guardar:', error);
-      alert(error.message || 'Error al guardar los cambios');
+      mostrarModal("error", "Error", error.message || "Error al guardar los cambios", cerrarModal);
     } finally {
       setIsLoading(false);
     }
@@ -558,6 +558,12 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
           </div>
         </div>
       </div>
+
+      <ModalConfirmacion
+        {...modal}
+        darkMode={darkMode}
+        onCancelar={cerrarModal}
+      />
     </div>
   );
 }

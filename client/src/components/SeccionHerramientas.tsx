@@ -8,8 +8,9 @@ interface SeccionHerramientasProps {
     excel: boolean;
     javascript: boolean;
     python: boolean;
+    java: boolean;
   };
-  onToggleHerramienta: (herramienta: 'dibujo' | 'calculadora' | 'excel' | 'javascript' | 'python') => void;
+  onToggleHerramienta: (herramienta: 'dibujo' | 'calculadora' | 'excel' | 'javascript' | 'python' | 'java') => void;
 }
 
 export default function SeccionHerramientas({
@@ -30,7 +31,7 @@ export default function SeccionHerramientas({
     },
     {
       id: 'excel' as const,
-      nombre: 'Hoja de Excel',
+      nombre: 'Hoja de cálculo',
       descripcion: ''
     }
   ];
@@ -38,11 +39,15 @@ export default function SeccionHerramientas({
   const herramientasProgramacion = [
     {
       id: 'javascript' as const,
-      nombre: 'JavaScript'
+      nombre: 'JavaScript/HTML'
     },
     {
       id: 'python' as const,
       nombre: 'Python'
+    },
+    {
+      id: 'java' as const,
+      nombre: 'Java'
     }
   ];
 

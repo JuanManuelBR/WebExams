@@ -23,7 +23,8 @@ import {
   FileText,
   LayoutGrid,
   CheckCircle2,
-  LogOut
+  LogOut,
+  Coffee
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import ExamPanel from "./ExamenPreguntas";
@@ -34,6 +35,7 @@ import HojaCalculo from '../components/HojaCalculo';
 import Lienzo from '../components/Lienzo';
 import EditorJavaScript from '../components/EditorJavaScript';
 import EditorPython from '../components/EditorPython';
+import EditorJava from '../components/EditorJava';
 import logoUniversidad from "../../assets/logo-universidad.webp";
 import logoUniversidadNoche from "../../assets/logo-universidad-noche.webp";
 
@@ -61,6 +63,7 @@ interface ExamData {
   incluirHojaExcel: boolean;
   incluirJavascript: boolean;
   incluirPython: boolean;
+  incluirJava: boolean;
   descripcion: string;
   questions: any;
   archivoPDF?: string | null;
@@ -73,7 +76,8 @@ type PanelType =
   | "calculadora"
   | "excel"
   | "javascript"
-  | "python";
+  | "python"
+  | "java";
 type Layout = "horizontal" | "vertical";
 
 // --- INDICADOR DE GUARDADO ---
@@ -246,6 +250,16 @@ export default function SecureExamPlatform() {
     }
   ]);
 
+  // Estado persistente para el editor de Java
+  const [javaCells, setJavaCells] = useState<any[]>([
+    {
+      id: '1',
+      type: 'markdown',
+      content: '# Editor Java\n',
+      status: 'idle'
+    }
+  ]);
+
   // Estado persistente para Lienzo (Dibujo)
   const [lienzoState, setLienzoState] = useState<any>(null);
 
@@ -258,7 +272,7 @@ export default function SecureExamPlatform() {
       if (type === "dibujo") return 50; // Lienzo requiere 60% mínimo
       // Si hay 3 paneles, relajamos un poco los mínimos para que quepan
       if (type === "exam") return 50;
-      if (type === "python" || type === "javascript") return panelCount === 3 ? 30 : 40;
+      if (type === "python" || type === "javascript" || type === "java") return panelCount === 3 ? 30 : 40;
       if (type === "answer") return 30;
       return 20; // Calculadora, Excel, etc.
   };
@@ -903,7 +917,7 @@ export default function SecureExamPlatform() {
     }
 
     // Lógica para reemplazar herramientas si ya hay una abierta
-    const tools: PanelType[] = ["calculadora", "excel", "dibujo", "javascript", "python"];
+    const tools: PanelType[] = ["calculadora", "excel", "dibujo", "javascript", "python", "java"];
     if (tools.includes(panelType)) {
       const existingToolIndex = openPanels.findIndex((p) => tools.includes(p));
       if (existingToolIndex !== -1) {
@@ -1064,6 +1078,16 @@ export default function SecureExamPlatform() {
               darkMode={darkMode} 
               initialCells={pythonCells}
               onSave={(data) => setPythonCells(data.cells)}
+              zoomLevel={zoomLevel}
+            />
+          );
+
+        case "java":
+          return (
+            <EditorJava
+              darkMode={darkMode}
+              initialCells={javaCells}
+              onSave={(data: any) => setJavaCells(data.cells)}
               zoomLevel={zoomLevel}
             />
           );
@@ -1363,16 +1387,19 @@ export default function SecureExamPlatform() {
                   <SidebarNavItem icon={Calculator} label="Calculadora" active={openPanels.includes("calculadora")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("calculadora")} />
               )}
               {examData?.incluirHojaExcel && (
-                  <SidebarNavItem icon={FileSpreadsheet} label="Excel" active={openPanels.includes("excel")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("excel")} />
+                  <SidebarNavItem icon={FileSpreadsheet} label="Hoja de cálculo" active={openPanels.includes("excel")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("excel")} />
               )}
               {examData?.incluirHerramientaDibujo && (
                   <SidebarNavItem icon={Pencil} label="Dibujo" active={openPanels.includes("dibujo")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("dibujo")} />
               )}
               {examData?.incluirJavascript && (
-                  <SidebarNavItem icon={Code} label="JavaScript" active={openPanels.includes("javascript")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("javascript")} />
+                  <SidebarNavItem icon={Code} label="JavaScript/HTML" active={openPanels.includes("javascript")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("javascript")} />
               )}
               {examData?.incluirPython && (
                   <SidebarNavItem icon={Code} label="Python" active={openPanels.includes("python")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("python")} />
+              )}
+              {examData?.incluirJava && (
+                  <SidebarNavItem icon={Coffee} label="Java" active={openPanels.includes("java")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("java")} />
               )}
           </nav>
 
@@ -1388,14 +1415,14 @@ export default function SecureExamPlatform() {
                   title="Entregar Examen"
               >
                   <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-                  {!sidebarCollapsed && <span className="font-bold text-sm">Entregar</span>}
+                  {!sidebarCollapsed && <span className="font-bold text-lg">Entregar</span>}
               </button>
 
               {/* Botón Salir */}
               <div className={`${sidebarCollapsed ? "flex justify-center" : "px-1"}`}>
                    <button onClick={() => setShowExitModal(true)} className={`flex items-center rounded-lg p-2 transition-colors w-full ${sidebarCollapsed ? "justify-center" : "gap-3"} ${darkMode ? "text-red-400 hover:bg-red-900/20" : "text-red-600 hover:bg-red-50"}`}>
                       <LogOut className="w-5 h-5" />
-                      {!sidebarCollapsed && <span className="text-sm font-medium">Salir</span>}
+                      {!sidebarCollapsed && <span className="text-lg font-medium">Salir</span>}
                    </button>
               </div>
           </div>
@@ -1416,11 +1443,11 @@ export default function SecureExamPlatform() {
               <div className="flex items-center gap-4">
                   {/* Info Hora y Batería */}
                   <div className={`hidden md:flex items-center gap-5 px-5 py-2 rounded-xl border ${darkMode ? "bg-slate-900/50 backdrop-blur-sm border-slate-700" : "bg-white/50 backdrop-blur-sm border-gray-200/50 shadow-md"}`}>
-                      <span className={`font-mono text-xl font-bold tracking-widest ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+                      <span className={`tabular-nums text-lg font-bold tracking-widest ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
                           {currentTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                       </span>
                       <div className={`w-px h-6 ${darkMode ? "bg-slate-700" : "bg-gray-300"}`}></div>
-                      <div className={`flex items-center gap-2 font-mono text-lg font-bold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+                      <div className={`flex items-center gap-2 tabular-nums text-lg font-bold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
                           <span>{batteryLevel ?? "--"}%</span>
                           {isCharging ? (
                               <BatteryCharging className="w-6 h-6 text-emerald-500"/>
@@ -1435,7 +1462,7 @@ export default function SecureExamPlatform() {
                           (darkMode ? "text-blue-400" : "text-blue-700")
                       }`}>
                           <Clock className="w-5 h-5" />
-                          <span className={`font-mono text-xl font-bold ${
+                          <span className={`tabular-nums text-lg font-bold ${
                               timerStatus === 'critical' ? "text-red-500" : 
                               timerStatus === 'warning' ? "text-amber-500" : 
                               (darkMode ? "text-white" : "text-slate-800")
@@ -1492,7 +1519,7 @@ export default function SecureExamPlatform() {
                                   <div 
                                     className="h-full w-full" 
                                     style={
-                                      panel === 'python' || panel === 'javascript'
+                                      panel === 'python' || panel === 'javascript' || panel === 'java'
                                         ? {} // Sin zoom para editores persistentes
                                         : { transform: `scale(${panelZooms[index] / 100})`, transformOrigin: "top left", width: `${10000/panelZooms[index]}%`, height: `${10000/panelZooms[index]}%` }
                                     }
@@ -1531,7 +1558,7 @@ function SidebarNavItem({ icon: Icon, label, active, collapsed, darkMode, onClic
     return (
         <button
             onClick={onClick}
-            className={`w-full flex items-center rounded-lg text-sm transition-all duration-200 group ${
+            className={`w-full flex items-center rounded-lg text-lg transition-all duration-200 group ${
                 collapsed ? "justify-center p-2" : "px-3 py-2.5 gap-3"
             } ${
                 active

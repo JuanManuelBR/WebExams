@@ -73,6 +73,10 @@ export class UpdateExamDto {
   @IsOptional()
   incluirPython?: boolean;
 
+  @IsBoolean({ message: "incluirJava debe ser true o false" })
+  @IsOptional()
+  incluirJava?: boolean;
+
   @IsBoolean({ message: "necesitaContrasena debe ser true o false" })
   @IsOptional()
   necesitaContrasena?: boolean;
