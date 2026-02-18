@@ -4,9 +4,9 @@
 // ============================================
 
 
-import { AuthenticatedRequest } from "@src/middlewares/auth";
-import { UserService } from "@src/services/UserService";
-import { throwHttpError } from "@src/utils/errors";
+import { AuthenticatedRequest } from "../middlewares/auth";
+import { UserService } from "../services/UserService";
+import { throwHttpError } from "../utils/errors";
 import { NextFunction, Request, Response } from "express";
 
 const user_service = new UserService();

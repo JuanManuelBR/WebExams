@@ -3,16 +3,16 @@
 // CÓDIGO COMPLETO CON ESTADO ACTIVO
 // ============================================
 
-import { AppDataSource } from "@src/data-source/AppDataSource";
-import { User } from "@src/models/User";
+import { AppDataSource } from "../data-source/AppDataSource";
+import { User } from "../models/User";
 import axios from "axios";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
-import { throwHttpError } from "@src/utils/errors";
-import { AddUserDto } from "@src/dtos/Add-user.dto";
-import { CommonValidator } from "@src/validators/common";
-import { EditUserDto } from "@src/dtos/Edit-user.dto";
-import { firebaseAdmin } from "@src/firebase-admin";
+import { throwHttpError } from "../utils/errors";
+import { AddUserDto } from "../dtos/Add-user.dto";
+import { CommonValidator } from "../validators/common";
+import { EditUserDto } from "../dtos/Edit-user.dto";
+import { firebaseAdmin } from "../firebase-admin";
 
 const EXAMS_MS_URL = process.env.EXAMS_MS_URL;
 const JWT_SECRET = process.env.JWT_SECRET!;

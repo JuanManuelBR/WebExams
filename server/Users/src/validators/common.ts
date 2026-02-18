@@ -1,6 +1,6 @@
 import { plainToInstance } from "class-transformer";
 import { validate, ValidationError } from "class-validator";
-import { throwHttpError } from "@src/utils/errors";
+import { throwHttpError } from "../utils/errors";
 
 export class CommonValidator {
   // Función recursiva para obtener todos los errores, incluidos los anidados

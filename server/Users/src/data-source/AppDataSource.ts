@@ -1,7 +1,7 @@
 import { DataSource } from "typeorm";
 import "reflect-metadata";
 
-import { User } from "@src/models/User";
+import { User } from "../models/User";
 
 // Railway env vars
 export const AppDataSource = new DataSource({

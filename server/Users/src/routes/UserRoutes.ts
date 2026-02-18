@@ -3,8 +3,8 @@
 // CÓDIGO COMPLETO CON RUTAS DE HEARTBEAT
 // ============================================
 
-import { UserController } from "@src/controllers/UserController";
-import { authenticateToken } from "@src/middlewares/auth";
+import { UserController } from "../controllers/UserController";
+import { authenticateToken } from "../middlewares/auth";
 import { Router } from "express";
 
 const router = Router();
