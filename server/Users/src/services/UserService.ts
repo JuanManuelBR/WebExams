@@ -6,7 +6,6 @@
 import { AppDataSource } from "@src/data-source/AppDataSource";
 import { User } from "@src/models/User";
 import axios from "axios";
-import { JWT_SECRET, JWT_EXPIRES_IN } from "config/config";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { throwHttpError } from "@src/utils/errors";
@@ -16,6 +15,7 @@ import { EditUserDto } from "@src/dtos/Edit-user.dto";
 import { firebaseAdmin } from "@src/firebase-admin";
 
 const EXAMS_MS_URL = process.env.EXAMS_MS_URL;
+const JWT_SECRET = process.env.JWT_SECRET!;
 
 export class UserService {
   private user_repository = AppDataSource.getRepository(User);
