@@ -5,6 +5,8 @@
     "lib": ["ES2020"],                        
     "strict": true,
     "baseUrl": "./",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "outDir": "dist",
     "esModuleInterop": true,                 
     "skipLibCheck": true,                     
