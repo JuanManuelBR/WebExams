@@ -1,29 +1,21 @@
 import { DataSource } from "typeorm";
 import "reflect-metadata";
 
-// importar datos del .env
-import {
-  DB_HOST,
-  DB_NAME,
-  DB_PASS,
-  DB_PORT,
-  DB_USER,
-} from "../../config/config";
 import { User } from "@src/models/User";
 
-// crear el AppDataSource (Conexión BD)
+// Railway env vars
 export const AppDataSource = new DataSource({
   type: "mysql",
-  host: DB_HOST,
-  database: DB_NAME,
-  password: DB_PASS,
-  port: DB_PORT,
-  username: DB_USER,
+  host: process.env.DB_HOST || "localhost",
+  database: process.env.DB_NAME || "webexams",
+  password: process.env.DB_PASS || "",
+  port: parseInt(process.env.DB_PORT || "3306"),
+  username: process.env.DB_USER || "root",
   synchronize: true,
   logging: false,
   entities: [User],
   ssl: {
     minVersion: "TLSv1.2",
-    rejectUnauthorized: true, // Esto es seguro y funciona en TiDB Cloud
+    rejectUnauthorized: true,
   },
 });
