@@ -36,7 +36,7 @@
     "jsonwebtoken": "^9.0.2",
     "module-alias": "^2.2.3",
     "morgan": "^1.10.1",
-    "mysql": "^2.18.1",
+    "mysql2": "^3.17.1",
     "reflect-metadata": "^0.2.2",
     "typeorm": "^0.3.27"
   },
@@ -57,7 +57,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/module-alias": "^2.0.4",
     "@types/morgan": "^1.9.10",
-    "@types/mysql": "^2.15.27",
     "@types/node": "^24.10.0",
     "@types/supertest": "^6.0.3",
     "eslint": "^9.39.1",

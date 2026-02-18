@@ -40,4 +40,8 @@ router.patch(
 
 router.delete("/:id/single", authenticateToken, ExamsController.deleteExamById);
 
+router.post("/:id/copy", authenticateToken, ExamsController.copyExam);
+
+router.patch("/:id/regenerate-code", authenticateToken, ExamsController.regenerateExamCode);
+
 export default router;

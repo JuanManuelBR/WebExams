@@ -1,9 +1,10 @@
-import { IsString } from "class-validator";
+import { IsString, IsOptional } from "class-validator";
 
 export class ResumeExamAttemptDto {
   @IsString()
   codigo_acceso!: string;
 
+  @IsOptional()
   @IsString()
-  id_sesion!: string;
+  id_sesion?: string;
 }

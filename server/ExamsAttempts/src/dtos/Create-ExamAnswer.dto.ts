@@ -1,5 +1,6 @@
-import { IsNumber, IsString, IsDate, IsNotEmpty, IsOptional } from "class-validator";
+import { IsNumber, IsString, IsDate, IsNotEmpty, IsOptional, IsIn } from "class-validator";
 import { Type } from "class-transformer";
+import { TipoRespuesta } from "@src/models/ExamAnswer";
 
 export class CreateExamAnswerDto {
   @IsNumber({}, {})
@@ -22,4 +23,21 @@ export class CreateExamAnswerDto {
   @IsOptional()
   @IsString()
   retroalimentacion?: string;
+
+  @IsOptional()
+  @IsIn([
+    TipoRespuesta.NORMAL,
+    TipoRespuesta.TEXTO_PLANO,
+    TipoRespuesta.PYTHON,
+    TipoRespuesta.JAVASCRIPT,
+    TipoRespuesta.JAVA,
+    TipoRespuesta.DIAGRAMA,
+  ], {
+    message: "El tipo de respuesta debe ser 'normal', 'texto_plano', 'python', 'javascript', 'java' o 'diagrama'",
+  })
+  tipo_respuesta?: TipoRespuesta;
+
+  @IsOptional()
+  @IsString({ message: "La metadata del código debe ser una cadena de texto" })
+  metadata_codigo?: string;
 }

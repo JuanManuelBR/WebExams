@@ -174,7 +174,7 @@ export default function SecureExamPlatform() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [examFinished, setExamFinished] = useState(false);
-  const [wasForced, setWasForced] = useState(false);
+  const [wasForced, setWasForced] = useState<"" | "individual" | "todos">("");
   const [wasAbandoned, setWasAbandoned] = useState(false);
   
   const [darkMode, setDarkMode] = useState(() => {
@@ -217,7 +217,7 @@ export default function SecureExamPlatform() {
   const [answerPanelContent, setAnswerPanelContent] = useState<string>("");
   const [savingStates, setSavingStates] = useState<Record<number, boolean>>({});
   const saveTimersRef = useRef<Record<number, number>>({});
-  const [lastSavedAnswers, setLastSavedAnswers] = useState<Record<number, string>>({});
+  const [lastSavedAnswers, setLastSavedAnswers] = useState<Record<string, string>>({});
 
   const [draggedPanelIndex, setDraggedPanelIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -269,6 +269,118 @@ export default function SecureExamPlatform() {
   // Estados para Modales de Confirmación
   const [showExitModal, setShowExitModal] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+
+  // --- IDs VIRTUALES PARA RESPUESTAS PDF ---
+  // Cada herramienta usa un pregunta_id virtual diferente para guardar su respuesta por separado
+  const PDF_ANSWER_ID = 0;    // Panel "Responder" (texto plano)
+  const PDF_PYTHON_ID = 1;    // Editor Python
+  const PDF_JS_ID = 2;        // Editor JavaScript/HTML
+  const PDF_JAVA_ID = 3;      // Editor Java
+  const PDF_LIENZO_ID = 4;    // Lienzo / Diagrama
+
+  // Refs para debounce de auto-save PDF
+  const pdfSaveTimersRef = useRef<Record<number, number>>({});
+
+  const savePdfAnswer = (id: number, data: any, tipo: string, metadata?: string, delay = 3000) => {
+    if (!examData?.archivoPDF || !studentData?.attemptId) return;
+    if (pdfSaveTimersRef.current[id]) clearTimeout(pdfSaveTimersRef.current[id]);
+    pdfSaveTimersRef.current[id] = window.setTimeout(() => {
+      saveAnswer(id, data, tipo, metadata);
+      delete pdfSaveTimersRef.current[id];
+    }, delay);
+  };
+
+  // Limpia celdas de editores para persistencia: elimina estado runtime (status, executionTime,
+  // hasActiveTimers) que no se necesitan para reconstrucción. Mantiene id, type, content, output, height.
+  const cleanCellsForSave = (cells: any[]) =>
+    cells.map((c: any) => ({
+      id: c.id,
+      type: c.type,
+      content: c.content,
+      output: c.output || null,
+      height: c.height || null,
+    }));
+
+  // Auto-save: Panel "Responder" (texto plano)
+  useEffect(() => {
+    if (!examData?.archivoPDF || !answerPanelContent) return;
+    savePdfAnswer(PDF_ANSWER_ID, answerPanelContent, "texto_plano");
+  }, [answerPanelContent]);
+
+  // Auto-save: Python cells
+  useEffect(() => {
+    if (!examData?.archivoPDF || !examData?.incluirPython) return;
+    if (pythonCells.length <= 1 && pythonCells[0]?.content === '# Editor Python\n') return;
+    const cleaned = cleanCellsForSave(pythonCells);
+    const codeCells = cleaned.filter((c: any) => c.type === 'code').length;
+    const textCells = cleaned.filter((c: any) => c.type === 'markdown').length;
+    savePdfAnswer(
+      PDF_PYTHON_ID,
+      cleaned,
+      "python",
+      JSON.stringify({ totalCells: cleaned.length, codeCells, textCells }),
+    );
+  }, [pythonCells]);
+
+  // Auto-save: JavaScript cells
+  useEffect(() => {
+    if (!examData?.archivoPDF || !examData?.incluirJavascript) return;
+    if (jsCells.length <= 1 && jsCells[0]?.content === '# Editor JavaScript\n') return;
+    const cleaned = cleanCellsForSave(jsCells);
+    const codeCells = cleaned.filter((c: any) => c.type === 'code').length;
+    const htmlCells = cleaned.filter((c: any) => c.type === 'html').length;
+    const textCells = cleaned.filter((c: any) => c.type === 'markdown').length;
+    savePdfAnswer(
+      PDF_JS_ID,
+      cleaned,
+      "javascript",
+      JSON.stringify({ totalCells: cleaned.length, codeCells, htmlCells, textCells }),
+    );
+  }, [jsCells]);
+
+  // Auto-save: Java cells
+  useEffect(() => {
+    if (!examData?.archivoPDF || !examData?.incluirJava) return;
+    if (javaCells.length <= 1 && javaCells[0]?.content === '# Editor Java\n') return;
+    const cleaned = cleanCellsForSave(javaCells);
+    const codeCells = cleaned.filter((c: any) => c.type === 'code').length;
+    const textCells = cleaned.filter((c: any) => c.type === 'markdown').length;
+    savePdfAnswer(
+      PDF_JAVA_ID,
+      cleaned,
+      "java",
+      JSON.stringify({ totalCells: cleaned.length, codeCells, textCells }),
+    );
+  }, [javaCells]);
+
+  // Limpia el estado del Lienzo para persistencia: elimina history/historyIndex (undo/redo)
+  // que no se necesitan para reconstruir el diagrama y pueden ser muy pesados
+  const cleanLienzoForSave = (state: any) => {
+    const cleanSheets = state.sheets.map((sheet: any) => ({
+      id: sheet.id,
+      name: sheet.name,
+      nodes: sheet.nodes,
+      connections: sheet.connections,
+      paintActions: sheet.paintActions,
+      pan: sheet.pan,
+      scale: sheet.scale,
+    }));
+    return { sheets: cleanSheets, activeSheetIndex: state.activeSheetIndex };
+  };
+
+  // Auto-save: Lienzo / Diagrama
+  useEffect(() => {
+    if (!examData?.archivoPDF || !examData?.incluirHerramientaDibujo || !lienzoState) return;
+    const cleanState = cleanLienzoForSave(lienzoState);
+    const totalNodes = cleanState.sheets.reduce((sum: number, s: any) => sum + s.nodes.length, 0);
+    const totalConnections = cleanState.sheets.reduce((sum: number, s: any) => sum + s.connections.length, 0);
+    savePdfAnswer(
+      PDF_LIENZO_ID,
+      cleanState,
+      "diagrama",
+      JSON.stringify({ sheetsCount: cleanState.sheets.length, totalNodes, totalConnections }),
+    );
+  }, [lienzoState]);
 
   // --- HELPERS DE DIMENSIONAMIENTO ---
   const getMinSize = (type: PanelType, panelCount: number) => {
@@ -519,25 +631,35 @@ export default function SecureExamPlatform() {
     setSecurityViolations((prev) => [...prev, `${new Date().toLocaleTimeString()}: ${violation}`]);
   };
 
-  const saveAnswer = async (preguntaId: number, respuesta: any) => {
+  const saveAnswer = async (
+    preguntaId: number,
+    respuesta: any,
+    tipo_respuesta?: string,
+    metadata_codigo?: string,
+  ) => {
     if (!studentData?.attemptId) return;
     const respuestaStr = JSON.stringify(respuesta);
-    if (lastSavedAnswers[preguntaId] === respuestaStr) return;
+    const cacheKey = tipo_respuesta ? `${preguntaId}_${tipo_respuesta}` : String(preguntaId);
+    if (lastSavedAnswers[cacheKey] === respuestaStr) return;
 
     setSavingStates((prev) => ({ ...prev, [preguntaId]: true }));
     try {
+      const payload: any = {
+        intento_id: studentData.attemptId,
+        pregunta_id: preguntaId,
+        respuesta: respuestaStr,
+        fecha_respuesta: new Date().toISOString(),
+      };
+      if (tipo_respuesta) payload.tipo_respuesta = tipo_respuesta;
+      if (metadata_codigo) payload.metadata_codigo = metadata_codigo;
+
       const response = await fetch(`${ATTEMPTS_API_URL}/api/exam/answer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          intento_id: studentData.attemptId,
-          pregunta_id: preguntaId,
-          respuesta: respuestaStr,
-          fecha_respuesta: new Date().toISOString(),
-        }),
+        body: JSON.stringify(payload),
       });
       if (!response.ok) throw new Error("Error al guardar respuesta");
-      setLastSavedAnswers((prev) => ({ ...prev, [preguntaId]: respuestaStr }));
+      setLastSavedAnswers((prev) => ({ ...prev, [cacheKey]: respuestaStr }));
     } catch (error) {
       console.error("❌ Error guardando respuesta:", error);
     } finally {
@@ -644,6 +766,8 @@ export default function SecureExamPlatform() {
   const submitExam = async () => {
       setIsSubmitting(true);
       console.log("💾 Guardando respuestas pendientes antes de entregar...");
+
+      // Guardar respuestas normales pendientes (exámenes con preguntas)
       const savePromises = Object.entries(saveTimersRef.current).map(async ([preguntaIdStr, timer]) => {
           const preguntaId = Number(preguntaIdStr);
           clearTimeout(timer);
@@ -651,6 +775,65 @@ export default function SecureExamPlatform() {
       });
       await Promise.all(savePromises);
       saveTimersRef.current = {};
+
+      // Guardar respuestas PDF pendientes (texto, código, diagrama)
+      if (examData?.archivoPDF) {
+        // Cancelar timers pendientes de PDF
+        Object.values(pdfSaveTimersRef.current).forEach((t) => clearTimeout(t));
+        pdfSaveTimersRef.current = {};
+
+        const pdfSaves: Promise<void>[] = [];
+        if (answerPanelContent) {
+          pdfSaves.push(saveAnswer(PDF_ANSWER_ID, answerPanelContent, "texto_plano"));
+        }
+        if (examData.incluirPython && pythonCells.length > 0) {
+          const cleaned = cleanCellsForSave(pythonCells);
+          const codeCells = cleaned.filter((c: any) => c.type === 'code').length;
+          const textCells = cleaned.filter((c: any) => c.type === 'markdown').length;
+          pdfSaves.push(saveAnswer(
+            PDF_PYTHON_ID,
+            cleaned,
+            "python",
+            JSON.stringify({ totalCells: cleaned.length, codeCells, textCells }),
+          ));
+        }
+        if (examData.incluirJavascript && jsCells.length > 0) {
+          const cleaned = cleanCellsForSave(jsCells);
+          const codeCells = cleaned.filter((c: any) => c.type === 'code').length;
+          const htmlCells = cleaned.filter((c: any) => c.type === 'html').length;
+          const textCells = cleaned.filter((c: any) => c.type === 'markdown').length;
+          pdfSaves.push(saveAnswer(
+            PDF_JS_ID,
+            cleaned,
+            "javascript",
+            JSON.stringify({ totalCells: cleaned.length, codeCells, htmlCells, textCells }),
+          ));
+        }
+        if (examData.incluirJava && javaCells.length > 0) {
+          const cleaned = cleanCellsForSave(javaCells);
+          const codeCells = cleaned.filter((c: any) => c.type === 'code').length;
+          const textCells = cleaned.filter((c: any) => c.type === 'markdown').length;
+          pdfSaves.push(saveAnswer(
+            PDF_JAVA_ID,
+            cleaned,
+            "java",
+            JSON.stringify({ totalCells: cleaned.length, codeCells, textCells }),
+          ));
+        }
+        if (examData.incluirHerramientaDibujo && lienzoState) {
+          const cleanState = cleanLienzoForSave(lienzoState);
+          const totalNodes = cleanState.sheets.reduce((sum: number, s: any) => sum + s.nodes.length, 0);
+          const totalConnections = cleanState.sheets.reduce((sum: number, s: any) => sum + s.connections.length, 0);
+          pdfSaves.push(saveAnswer(
+            PDF_LIENZO_ID,
+            cleanState,
+            "diagrama",
+            JSON.stringify({ sheetsCount: cleanState.sheets.length, totalNodes, totalConnections }),
+          ));
+        }
+        await Promise.all(pdfSaves);
+        console.log("✅ Respuestas PDF guardadas");
+      }
       console.log("✅ Todas las respuestas guardadas, entregando examen...");
       
       if (studentData?.attemptId) {
@@ -814,7 +997,7 @@ export default function SecureExamPlatform() {
 
       newSocket.on("forced_finish", (data) => {
         console.log("⚠️ Examen forzado a terminar por el profesor", data);
-        setWasForced(true);
+        setWasForced(data.tipo === "individual" ? "individual" : "todos");
         setExamFinished(true);
         limpiarDatosExamen();
 
@@ -1144,9 +1327,11 @@ export default function SecureExamPlatform() {
             <p className={`text-lg ${darkMode ? "text-slate-400" : "text-gray-600"}`}>
                 {wasAbandoned
                   ? "Has abandonado el examen. Solo podrás reanudarlo si tu profesor lo autoriza."
-                  : wasForced
+                  : wasForced === "todos"
                     ? "El profesor ha finalizado el examen para todos los estudiantes. Tus respuestas han sido guardadas correctamente."
-                    : "Tus respuestas han sido guardadas correctamente."
+                    : wasForced === "individual"
+                      ? "El profesor ha finalizado tu examen. Tus respuestas han sido guardadas correctamente."
+                      : "Tus respuestas han sido guardadas correctamente."
                 }
                 <br />
                 Ya puedes cerrar esta ventana.

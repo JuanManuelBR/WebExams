@@ -61,6 +61,21 @@ export class ImageService {
   getImagePath(fileName: string): string {
     return path.join(this.uploadDir, fileName);
   }
+
+  async duplicateImage(originalFileName: string): Promise<string | null> {
+    const originalPath = path.join(this.uploadDir, originalFileName);
+    try {
+      await fs.access(originalPath);
+      const ext = path.extname(originalFileName);
+      const newFileName = `${uuidv4()}${ext}`;
+      const newPath = path.join(this.uploadDir, newFileName);
+      await fs.copyFile(originalPath, newPath);
+      return newFileName;
+    } catch (error) {
+      console.error(`Error duplicando imagen: ${originalFileName}`, error);
+      return null;
+    }
+  }
 }
 
 export const imageService = new ImageService();

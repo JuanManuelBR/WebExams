@@ -85,6 +85,20 @@ export class PDFService {
     return path.join(this.uploadDir, fileName);
   }
 
+  async duplicatePDF(originalFileName: string): Promise<string | null> {
+    const originalPath = path.join(this.uploadDir, originalFileName);
+    try {
+      await fs.access(originalPath);
+      const newFileName = `${uuidv4()}.pdf`;
+      const newPath = path.join(this.uploadDir, newFileName);
+      await fs.copyFile(originalPath, newPath);
+      return newFileName;
+    } catch (error) {
+      console.error(`Error duplicando PDF: ${originalFileName}`, error);
+      return null;
+    }
+  }
+
   async getPDFSize(fileName: string): Promise<number> {
     const filePath = path.join(this.uploadDir, fileName);
     try {

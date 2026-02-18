@@ -558,6 +558,48 @@ router.patch('/answer/:respuesta_id/manual-grade', ExamController.updateManualGr
 
 /**
  * @openapi
+ * /api/exam/attempt/{intento_id}/pdf-grade:
+ *   patch:
+ *     tags:
+ *       - Grading
+ *     summary: Calificar intento de examen PDF (calificación general)
+ *     description: |
+ *       Permite al profesor asignar una calificación general (0-5) y retroalimentación
+ *       a un intento de examen PDF. A diferencia de manual-grade que califica por pregunta,
+ *       este endpoint califica el intento completo ya que los exámenes PDF no tienen preguntas individuales.
+ *     parameters:
+ *       - in: path
+ *         name: intento_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               puntaje:
+ *                 type: number
+ *                 minimum: 0
+ *                 maximum: 5
+ *                 description: Puntaje global del intento (escala 0-5)
+ *               retroalimentacion:
+ *                 type: string
+ *                 description: Retroalimentación general del profesor
+ *     responses:
+ *       200:
+ *         description: Calificación actualizada exitosamente
+ *       400:
+ *         description: No es un examen PDF o datos inválidos
+ *       404:
+ *         description: Intento no encontrado
+ */
+router.patch('/attempt/:intento_id/pdf-grade', ExamController.updatePDFAttemptGrade);
+
+/**
+ * @openapi
  * /api/exam/{examId}/force-finish:
  *   post:
  *     tags:
@@ -843,5 +885,118 @@ router.delete('/attempt/:attemptId/events', ExamController.deleteAttemptEvents);
  *               $ref: '#/components/schemas/Error'
  */
 router.delete('/attempt/:attemptId', ExamController.deleteAttempt);
+
+/**
+ * @openapi
+ * /api/exam/{examId}/attempt-count:
+ *   get:
+ *     tags:
+ *       - Attempts
+ *     summary: Obtener cantidad de intentos de un examen
+ *     description: Retorna la cantidad total de intentos (cualquier estado) para un examen específico.
+ *     parameters:
+ *       - in: path
+ *         name: examId
+ *         required: true
+ *         schema:
+ *           type: number
+ *         description: ID del examen
+ *     responses:
+ *       200:
+ *         description: Cantidad obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 count:
+ *                   type: number
+ *       400:
+ *         description: ID de examen inválido
+ */
+router.get('/:examId/attempt-count', ExamController.getAttemptCountByExam);
+
+/**
+ * @openapi
+ * /api/exam/{examId}/grades/download:
+ *   get:
+ *     tags:
+ *       - Grading
+ *     summary: Descargar notas de todos los intentos de un examen (CSV)
+ *     description: |
+ *       Genera un archivo CSV con las notas de todos los intentos del examen.
+ *       La columna de identificación del estudiante se elige según la configuración del examen:
+ *       1. Código estudiantil (si fue requerido)
+ *       2. Correo electrónico (si fue requerido y no se pidió código)
+ *       3. Nombre (si no se pidió código ni correo)
+ *       La calificación final se muestra en escala 0 a 5 con 2 decimales.
+ *     parameters:
+ *       - in: path
+ *         name: examId
+ *         required: true
+ *         schema:
+ *           type: number
+ *         description: ID del examen
+ *     responses:
+ *       200:
+ *         description: Archivo CSV descargado exitosamente
+ *         content:
+ *           text/csv:
+ *             schema:
+ *               type: string
+ *       404:
+ *         description: No hay intentos registrados
+ */
+router.get('/:examId/grades/download', ExamController.downloadGrades);
+
+/**
+ * @openapi
+ * /api/exam/attempt/feedback/{codigo_acceso}:
+ *   get:
+ *     tags:
+ *       - Feedback
+ *     summary: Ver retroalimentación completa de un intento finalizado (para el estudiante)
+ *     description: |
+ *       Permite al estudiante ver la retroalimentación completa de su examen finalizado
+ *       usando su código de acceso. Incluye las respuestas correctas, puntajes por pregunta,
+ *       retroalimentación del profesor, y calificación final.
+ *       Solo disponible para intentos en estado 'finished'.
+ *       No incluye eventos de seguridad.
+ *     parameters:
+ *       - in: path
+ *         name: codigo_acceso
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Código de acceso del intento
+ *     responses:
+ *       200:
+ *         description: Retroalimentación obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 intento:
+ *                   type: object
+ *                   description: Información del intento con calificaciones
+ *                 examen:
+ *                   type: object
+ *                   description: Información del examen
+ *                 estadisticas:
+ *                   type: object
+ *                   description: Estadísticas del intento
+ *                 preguntas:
+ *                   type: array
+ *                   description: Preguntas con respuestas correctas, respuestas del estudiante y retroalimentación
+ *                 respuestasPDF:
+ *                   type: array
+ *                   description: Solo para exámenes PDF - respuestas con retroalimentación
+ *       403:
+ *         description: El intento no está finalizado
+ *       404:
+ *         description: Código de acceso inválido o intento no encontrado
+ */
+router.get('/attempt/feedback/:codigo_acceso', ExamController.getAttemptFeedback);
 
 export default router;

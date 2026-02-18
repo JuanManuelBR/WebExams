@@ -7,6 +7,7 @@ import { CreateExamEventDto } from "@src/dtos/Create-ExamEvent.dto";
 import { StartExamAttemptDto } from "@src/dtos/Start-ExamAttempt.dto";
 import { ResumeExamAttemptDto } from "@src/dtos/Resume-ExamAttempt.dto";
 import { UpdateManualGradeDto } from "@src/dtos/Update-ManualGrade.dto";
+import { UpdatePDFGradeDto } from "@src/dtos/Update-PDFGrade.dto";
 
 export class ExamController {
   static async startAttempt(req: Request, res: Response, next: NextFunction) {
@@ -222,6 +223,33 @@ export class ExamController {
     }
   }
 
+  static async updatePDFAttemptGrade(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const intento_id = Number(req.params.intento_id);
+
+      if (isNaN(intento_id)) {
+        return res.status(400).json({ message: "ID de intento inválido" });
+      }
+
+      const errors = await validateDTO(UpdatePDFGradeDto, req.body);
+      if (errors.length) throwValidationErrors(errors);
+
+      const result = await ExamService.updatePDFAttemptGrade(
+        intento_id,
+        req.body.puntaje,
+        req.body.retroalimentacion,
+        req.app.get("io"),
+      );
+      res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async forceFinishActiveAttempts(
     req: Request,
     res: Response,
@@ -304,6 +332,72 @@ export class ExamController {
         attemptId,
         req.app.get("io"),
       );
+      res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getAttemptCountByExam(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const examId = Number(req.params.examId);
+
+      if (isNaN(examId)) {
+        return res.status(400).json({ message: "ID de examen inválido" });
+      }
+
+      const count = await ExamService.getAttemptCountByExam(examId);
+      res.status(200).json({ count });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async downloadGrades(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const examId = Number(req.params.examId);
+
+      if (isNaN(examId)) {
+        return res.status(400).json({ message: "ID de examen inválido" });
+      }
+
+      const buffer = await ExamService.getGradesForDownload(examId);
+
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename=notas_examen_${examId}.xlsx`,
+      );
+      res.status(200).send(buffer);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getAttemptFeedback(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const { codigo_acceso } = req.params;
+
+      if (!codigo_acceso || typeof codigo_acceso !== "string") {
+        return res.status(400).json({ message: "Código de acceso inválido" });
+      }
+
+      const result = await ExamService.getAttemptFeedback(codigo_acceso);
       res.status(200).json(result);
     } catch (err) {
       next(err);

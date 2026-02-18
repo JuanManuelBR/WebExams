@@ -7,6 +7,15 @@ import {
 } from "typeorm";
 import type { ExamAttempt } from "./ExamAttempt";
 
+export enum TipoRespuesta {
+  NORMAL = "normal",
+  TEXTO_PLANO = "texto_plano",
+  PYTHON = "python",
+  JAVASCRIPT = "javascript",
+  JAVA = "java",
+  DIAGRAMA = "diagrama",
+}
+
 @Entity("exam_answers")
 export class ExamAnswer {
   @PrimaryGeneratedColumn()
@@ -33,4 +42,10 @@ export class ExamAnswer {
 
   @Column({ type: "varchar", nullable: true, length: 1000 })
   retroalimentacion?: string;
+
+  @Column({ type: "varchar", length: 30, default: TipoRespuesta.NORMAL })
+  tipo_respuesta!: TipoRespuesta;
+
+  @Column({ type: "text", nullable: true, default: null })
+  metadata_codigo?: string | null;
 }
