@@ -5,7 +5,7 @@ const isDev = import.meta.env.DEV;
 
 const USERS_BASE = isDev 
   ? '/api/users'  // Proxy Vite local
-   : `${import.meta.env.VITE_USERS_BASE}/api/users`;
+   : `${import.meta.env.VITE_USERS_BASE}`;
 
 export const usersApi = axios.create({
   baseURL: USERS_BASE,
