@@ -1,17 +1,17 @@
-import { AppDataSource } from "@src/data-source/AppDataSource";
+import { AppDataSource } from "../data-source/AppDataSource";
 import { Server } from "socket.io";
-import { ExamAttempt, AttemptState } from "@src/models/ExamAttempt";
-import { ExamAnswer } from "@src/models/ExamAnswer";
-import { ExamEvent } from "@src/models/ExamEvent";
-import { ExamInProgress } from "@src/models/ExamInProgress";
-import { ExamAttemptValidator } from "@src/validators/ExamAttemptValidator";
+import { ExamAttempt, AttemptState } from "../models/ExamAttempt";
+import { ExamAnswer } from "../models/ExamAnswer";
+import { ExamEvent } from "../models/ExamEvent";
+import { ExamInProgress } from "../models/ExamInProgress";
+import { ExamAttemptValidator } from "../validators/ExamAttemptValidator";
 import {
   generateAccessCode,
   generateSessionId,
-} from "@src/utils/CodeGenerator";
-import { throwHttpError } from "@src/utils/errors";
-import { StartExamAttemptDto } from "@src/dtos/Start-ExamAttempt.dto";
-import { ResumeExamAttemptDto } from "@src/dtos/Resume-ExamAttempt.dto";
+} from "../utils/CodeGenerator";
+import { throwHttpError } from "../utils/errors";
+import { StartExamAttemptDto } from "../dtos/Start-ExamAttempt.dto";
+import { ResumeExamAttemptDto } from "../dtos/Resume-ExamAttempt.dto";
 import { ScoringService } from "./ScoringService";
 
 export class AttemptLifecycleService {

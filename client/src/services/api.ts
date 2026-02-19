@@ -16,8 +16,10 @@ export const usersApi = axios.create({
   timeout: 10000,
 });
 
+const ATTEMPTS_BASE = import.meta.env.VITE_ATTEMPTS_BASE;
+
 export const examsAttemptsApi = axios.create({
-  baseURL: "/api/exam", // Sin cambios aún
+  baseURL: ATTEMPTS_BASE ? `${ATTEMPTS_BASE}/api/exam` : "/api/exam",
   headers: {
     "Content-Type": "application/json",
   },

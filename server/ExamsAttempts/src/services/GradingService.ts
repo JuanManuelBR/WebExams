@@ -9,7 +9,7 @@ import {
   OpenQuestion,
   StudentAnswer,
   TestQuestion,
-} from "@src/interfaces/TestInterfaces";
+} from "../interfaces/TestInterfaces";
 
 export class GradingService {
   /**

@@ -1,6 +1,6 @@
 import { IsNumber, IsString, IsDate, IsNotEmpty, IsOptional, IsIn } from "class-validator";
 import { Type } from "class-transformer";
-import { TipoRespuesta } from "@src/models/ExamAnswer";
+import { TipoRespuesta } from "../models/ExamAnswer";
 
 export class CreateExamAnswerDto {
   @IsNumber({}, {})

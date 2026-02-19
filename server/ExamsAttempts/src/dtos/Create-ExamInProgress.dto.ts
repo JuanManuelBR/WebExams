@@ -1,6 +1,6 @@
 import { IsNumber, IsEnum, IsDate, IsOptional, IsString, IsNotEmpty } from "class-validator";
 import { Type } from "class-transformer";
-import { AttemptState } from "@src/models/ExamInProgress";
+import { AttemptState } from "../models/ExamInProgress";
 
 export class CreateExamInProgressDto {
   @IsString()

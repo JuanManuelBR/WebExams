@@ -1,6 +1,6 @@
 import { IsEnum, IsOptional, IsDate, IsNumber, IsNotEmpty } from "class-validator";
 import { Type } from "class-transformer";
-import { AttemptEvent } from "@src/models/ExamEvent";
+import { AttemptEvent } from "../models/ExamEvent";
 
 export class CreateExamEventDto {
   @IsEnum(AttemptEvent, { message: "tipo_evento debe ser un valor válido" })

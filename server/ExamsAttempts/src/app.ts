@@ -2,7 +2,7 @@
 import express from "express";
 import { AppDataSource } from "./data-source/AppDataSource";
 import cors from "cors";
-import examRouter from "@src/routes/ExamRoutes"
+import examRouter from "./routes/ExamRoutes"
 //import UserRoutes from "./routes/UserRoutes";
 import cookieParser from "cookie-parser";
 import { errorHandler } from "./middlewares/errorHandler";
@@ -15,9 +15,19 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173,http://localhost:3001")
+  .split(",")
+  .map((o) => o.trim());
+
 app.use(cors({
-  origin: '*', // o el puerto donde corre tu HTML
-  credentials: true
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
 }));
 
 // Configurar Swagger

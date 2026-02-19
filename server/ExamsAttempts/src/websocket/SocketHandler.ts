@@ -1,8 +1,8 @@
 import { Server, Socket } from "socket.io";
-import { AppDataSource } from "@src/data-source/AppDataSource";
-import { AttemptState, ExamInProgress } from "@src/models/ExamInProgress";
-import { ExamAttempt } from "@src/models/ExamAttempt";
-import { ExamService } from "@src/services/ExamService";
+import { AppDataSource } from "../data-source/AppDataSource";
+import { AttemptState, ExamInProgress } from "../models/ExamInProgress";
+import { ExamAttempt } from "../models/ExamAttempt";
+import { ExamService } from "../services/ExamService";
 
 const DISCONNECT_GRACE_MS = 15000; // 15 segundos de gracia para reconexión
 

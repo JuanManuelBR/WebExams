@@ -7,10 +7,15 @@ const port = process.env.PORT || 3002;
 
 const server = http.createServer(app);
 
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173,http://localhost:3001")
+  .split(",")
+  .map((o) => o.trim());
+
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
+    credentials: true,
   },
   transports: ['websocket', 'polling'],
 });

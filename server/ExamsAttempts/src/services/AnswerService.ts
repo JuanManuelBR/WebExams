@@ -1,12 +1,12 @@
-import { AppDataSource } from "@src/data-source/AppDataSource";
+import { AppDataSource } from "../data-source/AppDataSource";
 import { Server } from "socket.io";
-import { ExamAttempt } from "@src/models/ExamAttempt";
-import { ExamAnswer } from "@src/models/ExamAnswer";
-import { ExamInProgress, } from "@src/models/ExamInProgress";
-import { AttemptState } from "@src/models/ExamAttempt";
-import { ExamAttemptValidator } from "@src/validators/ExamAttemptValidator";
-import { throwHttpError } from "@src/utils/errors";
-import { CreateExamAnswerDto } from "@src/dtos/Create-ExamAnswer.dto";
+import { ExamAttempt } from "../models/ExamAttempt";
+import { ExamAnswer } from "../models/ExamAnswer";
+import { ExamInProgress, } from "../models/ExamInProgress";
+import { AttemptState } from "../models/ExamAttempt";
+import { ExamAttemptValidator } from "../validators/ExamAttemptValidator";
+import { throwHttpError } from "../utils/errors";
+import { CreateExamAnswerDto } from "../dtos/Create-ExamAnswer.dto";
 import { GradingService } from "./GradingService";
 
 export class AnswerService {

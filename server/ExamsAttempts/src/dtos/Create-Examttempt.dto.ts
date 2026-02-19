@@ -11,7 +11,7 @@ import {
   IsNotEmpty,
   IsEmail,
 } from "class-validator";
-import { AttemptState } from "@src/models/ExamAttempt";
+import { AttemptState } from "../models/ExamAttempt";
 
 // Validar que almenos un campo de los datos dle estudiante esté presente
 @ValidatorConstraint({ name: "AtLeastOneStudentField", async: false })

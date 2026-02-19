@@ -1,6 +1,6 @@
-import { TipoRespuesta } from "@src/models/ExamAnswer";
-import type { ExamAttempt } from "@src/models/ExamAttempt";
-import type { ExamAnswer } from "@src/models/ExamAnswer";
+import { TipoRespuesta } from "../models/ExamAnswer";
+import type { ExamAttempt } from "../models/ExamAttempt";
+import type { ExamAnswer } from "../models/ExamAnswer";
 
 export class QuestionResponseBuilder {
   static parseStudentAnswer(_type: string, respuesta: string): any {

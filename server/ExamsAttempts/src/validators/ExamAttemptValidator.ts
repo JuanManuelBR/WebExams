@@ -1,8 +1,9 @@
-import { AppDataSource } from "@src/data-source/AppDataSource";
-import { ExamInProgress } from "@src/models/ExamInProgress";
-import { throwHttpError } from "@src/utils/errors";
+import { AppDataSource } from "../data-source/AppDataSource";
+import { ExamInProgress } from "../models/ExamInProgress";
+import { throwHttpError } from "../utils/errors";
 import axios from "axios";
-import { EXAM_MS_URL } from "config/config";
+
+const EXAM_MS_URL = process.env.EXAM_MS_URL;
 export class ExamAttemptValidator {
   static async validateExamExists(codigo_examen: string) {
     try {

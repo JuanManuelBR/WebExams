@@ -1,10 +1,10 @@
-import { AppDataSource } from "@src/data-source/AppDataSource";
+import { AppDataSource } from "../data-source/AppDataSource";
 import { Server } from "socket.io";
-import { ExamAttempt, AttemptState } from "@src/models/ExamAttempt";
-import { ExamEvent, AttemptEvent } from "@src/models/ExamEvent";
-import { ExamInProgress } from "@src/models/ExamInProgress";
-import { throwHttpError } from "@src/utils/errors";
-import { CreateExamEventDto } from "@src/dtos/Create-ExamEvent.dto";
+import { ExamAttempt, AttemptState } from "../models/ExamAttempt";
+import { ExamEvent, AttemptEvent } from "../models/ExamEvent";
+import { ExamInProgress } from "../models/ExamInProgress";
+import { throwHttpError } from "../utils/errors";
+import { CreateExamEventDto } from "../dtos/Create-ExamEvent.dto";
 
 export class SecurityEventService {
   static async createEvent(data: CreateExamEventDto, io: Server) {

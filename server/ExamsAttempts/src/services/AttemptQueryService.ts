@@ -1,9 +1,9 @@
-import { AppDataSource } from "@src/data-source/AppDataSource";
-import { ExamAttempt, AttemptState } from "@src/models/ExamAttempt";
-import { ExamEvent } from "@src/models/ExamEvent";
-import { ExamInProgress } from "@src/models/ExamInProgress";
-import { ExamAttemptValidator } from "@src/validators/ExamAttemptValidator";
-import { throwHttpError } from "@src/utils/errors";
+import { AppDataSource } from "../data-source/AppDataSource";
+import { ExamAttempt, AttemptState } from "../models/ExamAttempt";
+import { ExamEvent } from "../models/ExamEvent";
+import { ExamInProgress } from "../models/ExamInProgress";
+import { ExamAttemptValidator } from "../validators/ExamAttemptValidator";
+import { throwHttpError } from "../utils/errors";
 import { QuestionResponseBuilder } from "./QuestionResponseBuilder";
 import axios from "axios";
 import ExcelJS from "exceljs";

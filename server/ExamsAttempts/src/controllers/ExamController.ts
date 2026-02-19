@@ -1,13 +1,13 @@
 import { Request, Response, NextFunction } from "express";
-import { ExamService } from "@src/services/ExamService";
-import { validateDTO, throwValidationErrors } from "@src/validators/common";
-import { CreateExamAttemptDto } from "@src/dtos/Create-Examttempt.dto";
-import { CreateExamAnswerDto } from "@src/dtos/Create-ExamAnswer.dto";
-import { CreateExamEventDto } from "@src/dtos/Create-ExamEvent.dto";
-import { StartExamAttemptDto } from "@src/dtos/Start-ExamAttempt.dto";
-import { ResumeExamAttemptDto } from "@src/dtos/Resume-ExamAttempt.dto";
-import { UpdateManualGradeDto } from "@src/dtos/Update-ManualGrade.dto";
-import { UpdatePDFGradeDto } from "@src/dtos/Update-PDFGrade.dto";
+import { ExamService } from "../services/ExamService";
+import { validateDTO, throwValidationErrors } from "../validators/common";
+import { CreateExamAttemptDto } from "../dtos/Create-Examttempt.dto";
+import { CreateExamAnswerDto } from "../dtos/Create-ExamAnswer.dto";
+import { CreateExamEventDto } from "../dtos/Create-ExamEvent.dto";
+import { StartExamAttemptDto } from "../dtos/Start-ExamAttempt.dto";
+import { ResumeExamAttemptDto } from "../dtos/Resume-ExamAttempt.dto";
+import { UpdateManualGradeDto } from "../dtos/Update-ManualGrade.dto";
+import { UpdatePDFGradeDto } from "../dtos/Update-PDFGrade.dto";
 
 export class ExamController {
   static async startAttempt(req: Request, res: Response, next: NextFunction) {

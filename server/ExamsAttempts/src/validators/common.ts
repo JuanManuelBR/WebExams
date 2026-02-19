@@ -1,7 +1,7 @@
-import { AppDataSource } from "@src/data-source/AppDataSource";
+import { AppDataSource } from "../data-source/AppDataSource";
 import { plainToInstance } from "class-transformer";
 import { validate, ValidationError } from "class-validator";
-import { HttpError } from "@src/utils/errors";
+import { HttpError } from "../utils/errors";
 
 export type FormattedError = {
   property: string;
