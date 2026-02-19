@@ -1,8 +1,8 @@
 // src/routes/image.routes.ts
 import { Router } from "express";
-import { ImageController } from "@src/controllers/ImageController";
+import { ImageController } from "../controllers/ImageController";
 
-import { upload } from "@src/middlewares/upload";
+import { upload } from "../middlewares/upload";
 
 const router = Router();
 

@@ -1,7 +1,7 @@
 // src/services/ExamSchedulerService.ts
 import { AppDataSource } from "../data-source/AppDataSource";
 import { Exam } from "../models/Exam";
-import { ExamenState } from "@src/types/Exam";
+import { ExamenState } from "../types/Exam";
 import { MoreThan } from "typeorm";
 
 export class ExamSchedulerService {

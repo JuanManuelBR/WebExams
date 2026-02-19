@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import axios from "axios";
-import { pdfService } from "@src/services/PDFService";
+import { pdfService } from "../services/PDFService";
 
 export class PDFController {
   static async get(req: Request, res: Response) {

@@ -1,9 +1,9 @@
-import { ExamsController } from "@src/controllers/ExamController";
+import { ExamsController } from "../controllers/ExamController";
 import { Router } from "express";
 
-import { authenticateToken } from "@src/middlewares/auth";
-import { upload } from "@src/middlewares/upload";
-import { authorizeExamOwner } from "@src/middlewares/authorization";
+import { authenticateToken } from "../middlewares/auth";
+import { upload } from "../middlewares/upload";
+import { authorizeExamOwner } from "../middlewares/authorization";
 
 const router = Router();
 router.get(

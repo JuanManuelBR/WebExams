@@ -1,18 +1,18 @@
 // src/services/ExamsService.ts
 import { AppDataSource } from "../data-source/AppDataSource";
 import { Exam } from "../models/Exam";
-import { CommonValidator } from "@src/validators/common";
-import { generateExamCode } from "@src/utils/generetaExamCode";
-import { add_exam_dto } from "@src/dtos/add-exam.dto";
-import { Question } from "@src/models/Question";
-import { examenValidator } from "@src/validators/examen-validator";
-import { QuestionValidator } from "@src/validators/question-validator";
-import { throwHttpError } from "@src/utils/errors";
-import { schedulerService } from "@src/scheduler/examScheduler";
+import { CommonValidator } from "../validators/common";
+import { generateExamCode } from "../utils/generetaExamCode";
+import { add_exam_dto } from "../dtos/add-exam.dto";
+import { Question } from "../models/Question";
+import { examenValidator } from "../validators/examen-validator";
+import { QuestionValidator } from "../validators/question-validator";
+import { throwHttpError } from "../utils/errors";
+import { schedulerService } from "../scheduler/examScheduler";
 import axios from "axios";
-import { ExamenState } from "@src/types/Exam";
-import { UpdateExamDto } from "@src/dtos/update-exam.dto";
-import { BaseQuestionDto } from "@src/dtos/base-question.dto";
+import { ExamenState } from "../types/Exam";
+import { UpdateExamDto } from "../dtos/update-exam.dto";
+import { BaseQuestionDto } from "../dtos/base-question.dto";
 
 export class ExamService {
   private examRepo = AppDataSource.getRepository(Exam);

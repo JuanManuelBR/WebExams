@@ -1,4 +1,4 @@
-import { QuestionType } from "@src/types/Question";
+import { QuestionType } from "../types/Question";
 import {
   IsBoolean,
   IsEnum,

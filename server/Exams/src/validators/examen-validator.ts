@@ -1,6 +1,6 @@
-import { AppDataSource } from "@src/data-source/AppDataSource";
-import { Exam } from "@src/models/Exam";
-import { throwHttpError } from "@src/utils/errors";
+import { AppDataSource } from "../data-source/AppDataSource";
+import { Exam } from "../models/Exam";
+import { throwHttpError } from "../utils/errors";
 import axios from "axios";
 
 const USERS_MS_URL = process.env.USERS_MS_URL;
