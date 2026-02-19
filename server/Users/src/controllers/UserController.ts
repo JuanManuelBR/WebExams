@@ -116,7 +116,7 @@ export class UserController {
         httpOnly: true,
         expires: new Date(Date.now() + 900000),
         secure: process.env.NODE_ENV === "production", // true en prod
-        sameSite: "lax",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
         path: "/",
         maxAge: 12 * 60 * 60 * 1000,
         priority: "high",
@@ -152,7 +152,7 @@ export class UserController {
         httpOnly: true,
         expires: new Date(Date.now() + 900000),
         secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
         path: "/",
         maxAge: 12 * 60 * 60 * 1000,
         priority: "high",
@@ -183,8 +183,8 @@ export class UserController {
 
       res.clearCookie("token", {
         httpOnly: true,
-        secure: false,
-        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
         path: "/",
       });
 
