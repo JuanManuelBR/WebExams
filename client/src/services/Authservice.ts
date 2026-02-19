@@ -10,8 +10,8 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
-  updateProfile
-} from 'firebase/auth';
+  updateProfile,
+} from "firebase/auth";
 
 // ============================================
 // TIPOS
@@ -24,7 +24,7 @@ export interface CreateUserPayload {
   contrasena: string;
   confirmar_nueva_contrasena: string;
   firebase_uid?: string;
-  login_method: 'email' | 'google';
+  login_method: "email" | "google";
   foto_perfil?: string;
 }
 
@@ -34,7 +34,7 @@ export interface BackendUser {
   apellidos: string;
   email: string;
   firebase_uid?: string;
-  login_method: 'email' | 'google';
+  login_method: "email" | "google";
   foto_perfil?: string;
 }
 
@@ -44,7 +44,7 @@ export interface LocalUser {
   nombre: string;
   apellido: string;
   email: string;
-  loginMethod: 'email' | 'google';
+  loginMethod: "email" | "google";
   picture: string;
   firebaseUid?: string;
   backendId: number;
@@ -54,26 +54,32 @@ export interface LocalUser {
 // FUNCIÓN AUXILIAR: Dividir nombre completo
 // ============================================
 
-function splitFullName(fullName: string): { firstName: string, lastName: string } {
-  if (!fullName) return { firstName: '', lastName: '' };
-  
-  const parts = fullName.trim().split(' ').filter(part => part.length > 0);
-  
+function splitFullName(fullName: string): {
+  firstName: string;
+  lastName: string;
+} {
+  if (!fullName) return { firstName: "", lastName: "" };
+
+  const parts = fullName
+    .trim()
+    .split(" ")
+    .filter((part) => part.length > 0);
+
   if (parts.length === 0) {
-    return { firstName: 'Usuario', lastName: 'Google' };
+    return { firstName: "Usuario", lastName: "Google" };
   } else if (parts.length === 1) {
-    return { firstName: parts[0], lastName: '' };
+    return { firstName: parts[0], lastName: "" };
   } else if (parts.length === 2) {
     return { firstName: parts[0], lastName: parts[1] };
   } else if (parts.length === 3) {
-    return { 
-      firstName: `${parts[0]} ${parts[1]}`, 
-      lastName: parts[2] 
+    return {
+      firstName: `${parts[0]} ${parts[1]}`,
+      lastName: parts[2],
     };
   } else {
-    return { 
-      firstName: `${parts[0]} ${parts[1]}`, 
-      lastName: parts.slice(2).join(' ') 
+    return {
+      firstName: `${parts[0]} ${parts[1]}`,
+      lastName: parts.slice(2).join(" "),
     };
   }
 }
@@ -89,34 +95,40 @@ export const usersService = {
       return response.data;
     } catch (error: any) {
       const backendMessage =
-        error.response?.data?.message || 
+        error.response?.data?.message ||
         error.response?.data?.error ||
         error.response?.data?.detail;
 
       throw new Error(
-        backendMessage || error.message || "Error al crear el usuario"
+        backendMessage || error.message || "Error al crear el usuario",
       );
     }
   },
 
-  loginUser: async (email: string, password: string): Promise<{ usuario: BackendUser, token: string }> => {
+  loginUser: async (
+    email: string,
+    password: string,
+  ): Promise<{ usuario: BackendUser; token: string }> => {
     try {
-      console.log('📤 [API] Haciendo login en backend para:', email);
+      console.log("📤 [API] Haciendo login en backend para:", email);
 
       const response = await usersApi.post("/login", {
         email: email,
-        contrasena: password
+        contrasena: password,
       });
 
-      console.log('✅ [API] Login backend exitoso');
-      console.log('🍪 [API] Cookies después del login:', document.cookie);
+      console.log("✅ [API] Login backend exitoso");
+      console.log("🍪 [API] Cookies después del login:", document.cookie);
 
       return {
         usuario: response.data.usuario,
-        token: response.data.token
+        token: response.data.token,
       };
     } catch (error: any) {
-      console.error('❌ [API] Error en login backend:', error.response?.data || error.message);
+      console.error(
+        "❌ [API] Error en login backend:",
+        error.response?.data || error.message,
+      );
 
       const backendMessage =
         error.response?.data?.message ||
@@ -124,27 +136,32 @@ export const usersService = {
         error.response?.data?.detail;
 
       throw new Error(
-        backendMessage || error.message || "Error al iniciar sesión"
+        backendMessage || error.message || "Error al iniciar sesión",
       );
     }
   },
 
-  loginWithGoogleToken: async (firebaseIdToken: string): Promise<{ usuario: BackendUser, token: string }> => {
+  loginWithGoogleToken: async (
+    firebaseIdToken: string,
+  ): Promise<{ usuario: BackendUser; token: string }> => {
     try {
-      console.log('📤 [API] Login con Google token en backend...');
+      console.log("📤 [API] Login con Google token en backend...");
 
       const response = await usersApi.post("/login-google", {
-        firebaseIdToken
+        firebaseIdToken,
       });
 
-      console.log('✅ [API] Login Google backend exitoso');
+      console.log("✅ [API] Login Google backend exitoso");
 
       return {
         usuario: response.data.usuario,
-        token: response.data.token
+        token: response.data.token,
       };
     } catch (error: any) {
-      console.error('❌ [API] Error en login Google backend:', error.response?.data || error.message);
+      console.error(
+        "❌ [API] Error en login Google backend:",
+        error.response?.data || error.message,
+      );
 
       const backendMessage =
         error.response?.data?.message ||
@@ -152,7 +169,7 @@ export const usersService = {
         error.response?.data?.detail;
 
       throw new Error(
-        backendMessage || error.message || "Error al iniciar sesión con Google"
+        backendMessage || error.message || "Error al iniciar sesión con Google",
       );
     }
   },
@@ -160,9 +177,9 @@ export const usersService = {
   updateLastAccess: async (userId: number): Promise<void> => {
     try {
       await usersApi.patch(`/${userId}/update-access`);
-      console.log('✅ ultimo_acceso actualizado');
+      console.log("✅ ultimo_acceso actualizado");
     } catch (error) {
-      console.error('⚠️ Error actualizando ultimo_acceso:', error);
+      console.error("⚠️ Error actualizando ultimo_acceso:", error);
     }
   },
 
@@ -172,16 +189,16 @@ export const usersService = {
       return response.data;
     } catch (error: any) {
       if (error.response?.status === 404) {
-        throw new Error('Usuario no encontrado');
+        throw new Error("Usuario no encontrado");
       }
-      
+
       const backendMessage =
-        error.response?.data?.message || 
+        error.response?.data?.message ||
         error.response?.data?.error ||
         error.response?.data?.detail;
 
       throw new Error(
-        backendMessage || error.message || "Error al buscar usuario"
+        backendMessage || error.message || "Error al buscar usuario",
       );
     }
   },
@@ -192,26 +209,28 @@ export const usersService = {
       return response.data;
     } catch (error: any) {
       if (error.response?.status === 404) {
-        throw new Error('Usuario no encontrado');
+        throw new Error("Usuario no encontrado");
       }
-      
+
       throw new Error(error.message || "Error al buscar usuario");
     }
   },
 
-  findOrCreateUser: async (payload: CreateUserPayload): Promise<BackendUser> => {
+  findOrCreateUser: async (
+    payload: CreateUserPayload,
+  ): Promise<BackendUser> => {
     try {
       const existingUser = await usersService.getUserByEmail(payload.email);
-      console.log('✅ Usuario existente encontrado');
+      console.log("✅ Usuario existente encontrado");
       return existingUser;
     } catch (error: any) {
-      if (error.message.includes('no encontrado')) {
-        console.log('ℹ️ Usuario no existe, creando nuevo...');
+      if (error.message.includes("no encontrado")) {
+        console.log("ℹ️ Usuario no existe, creando nuevo...");
         return await usersService.createUser(payload);
       }
       throw error;
     }
-  }
+  },
 };
 
 // ============================================
@@ -227,22 +246,26 @@ export const authService = {
     nombre: string,
     apellido: string,
     email: string,
-    password: string
+    password: string,
   ): Promise<LocalUser> => {
     let firebaseUser = null;
 
     try {
-      console.log('🔄 [REGISTRO EMAIL] Iniciando...');
+      console.log("🔄 [REGISTRO EMAIL] Iniciando...");
 
       // 1. Crear usuario en Firebase
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
       firebaseUser = userCredential.user;
 
       await updateProfile(firebaseUser, {
-        displayName: `${nombre} ${apellido}`
+        displayName: `${nombre} ${apellido}`,
       });
 
-      console.log('✅ [REGISTRO EMAIL] Usuario creado en Firebase');
+      console.log("✅ [REGISTRO EMAIL] Usuario creado en Firebase");
 
       // 2. Crear usuario en el backend
       const backendPayload: CreateUserPayload = {
@@ -252,19 +275,22 @@ export const authService = {
         contrasena: password,
         confirmar_nueva_contrasena: password,
         firebase_uid: firebaseUser.uid,
-        login_method: 'email'
+        login_method: "email",
       };
 
       const backendUser = await usersService.createUser(backendPayload);
-      console.log('✅ [REGISTRO EMAIL] Usuario creado en backend (MySQL)');
+      console.log("✅ [REGISTRO EMAIL] Usuario creado en backend (MySQL)");
 
       // ✅ 3. HACER LOGIN PARA OBTENER LA COOKIE
-      console.log('🔄 [REGISTRO EMAIL] Obteniendo cookie del backend...');
+      console.log("🔄 [REGISTRO EMAIL] Obteniendo cookie del backend...");
       try {
         await usersService.loginUser(email, password);
-        console.log('✅ [REGISTRO EMAIL] Cookie obtenida correctamente');
+        console.log("✅ [REGISTRO EMAIL] Cookie obtenida correctamente");
       } catch (loginError: any) {
-        console.error('❌ [REGISTRO EMAIL] No se pudo obtener cookie:', loginError.message);
+        console.error(
+          "❌ [REGISTRO EMAIL] No se pudo obtener cookie:",
+          loginError.message,
+        );
         // Continuar de todos modos
       }
 
@@ -277,39 +303,44 @@ export const authService = {
         nombre: nombre,
         apellido: apellido,
         email: email,
-        loginMethod: 'email',
-        picture: backendUser.foto_perfil || ''
+        loginMethod: "email",
+        picture: backendUser.foto_perfil || "",
       };
 
-      localStorage.setItem('usuario', JSON.stringify(localUser));
-      console.log('✅ [REGISTRO EMAIL] Usuario guardado en localStorage');
-      
-      return localUser;
+      localStorage.setItem("usuario", JSON.stringify(localUser));
+      console.log("✅ [REGISTRO EMAIL] Usuario guardado en localStorage");
 
+      return localUser;
     } catch (error: any) {
-      console.error('❌ [REGISTRO EMAIL] Error:', error);
+      console.error("❌ [REGISTRO EMAIL] Error:", error);
 
       // Rollback: eliminar usuario de Firebase si ya se creó
-      if (firebaseUser && 
-          (error.message.includes('ya está en uso') || 
-           error.message.includes('ya existe'))) {
+      if (
+        firebaseUser &&
+        (error.message.includes("ya está en uso") ||
+          error.message.includes("ya existe"))
+      ) {
         try {
           await firebaseUser.delete();
-          console.log('🔄 [REGISTRO EMAIL] Rollback: usuario eliminado de Firebase');
+          console.log(
+            "🔄 [REGISTRO EMAIL] Rollback: usuario eliminado de Firebase",
+          );
         } catch (deleteError) {
-          console.error('⚠️ [REGISTRO EMAIL] Error en rollback:', deleteError);
+          console.error("⚠️ [REGISTRO EMAIL] Error en rollback:", deleteError);
         }
       }
 
-      if (error.message.includes('ya está en uso') || 
-          error.message.includes('ya existe')) {
-        throw new Error('Este correo electrónico ya está registrado');
-      } else if (error.code === 'auth/email-already-in-use') {
-        throw new Error('Este correo electrónico ya está registrado');
-      } else if (error.code === 'auth/weak-password') {
-        throw new Error('La contraseña es muy débil (mínimo 6 caracteres)');
+      if (
+        error.message.includes("ya está en uso") ||
+        error.message.includes("ya existe")
+      ) {
+        throw new Error("Este correo electrónico ya está registrado");
+      } else if (error.code === "auth/email-already-in-use") {
+        throw new Error("Este correo electrónico ya está registrado");
+      } else if (error.code === "auth/weak-password") {
+        throw new Error("La contraseña es muy débil (mínimo 6 caracteres)");
       }
-      
+
       throw error;
     }
   },
@@ -319,29 +350,29 @@ export const authService = {
    */
   registerWithGoogle: async (
     auth: ReturnType<typeof getAuth>,
-    googleProvider: GoogleAuthProvider
+    googleProvider: GoogleAuthProvider,
   ): Promise<LocalUser> => {
     try {
-      console.log('🔄 [REGISTRO GOOGLE] Iniciando...');
+      console.log("🔄 [REGISTRO GOOGLE] Iniciando...");
 
       const result = await signInWithPopup(auth, googleProvider);
       const firebaseUser = result.user;
 
-      const fullName = firebaseUser.displayName || '';
+      const fullName = firebaseUser.displayName || "";
       const { firstName, lastName } = splitFullName(fullName);
-      const email = firebaseUser.email || '';
+      const email = firebaseUser.email || "";
 
-      console.log('✅ [REGISTRO GOOGLE] Autenticado en Firebase');
+      console.log("✅ [REGISTRO GOOGLE] Autenticado en Firebase");
 
       const backendPayload: CreateUserPayload = {
-        nombres: firstName || 'Usuario',
-        apellidos: lastName || 'Google',
+        nombres: firstName || "Usuario",
+        apellidos: lastName || "Google",
         email: email,
         contrasena: `google-oauth-${firebaseUser.uid}`,
         confirmar_nueva_contrasena: `google-oauth-${firebaseUser.uid}`,
         firebase_uid: firebaseUser.uid,
-        login_method: 'google',
-        foto_perfil: firebaseUser.photoURL || undefined
+        login_method: "google",
+        foto_perfil: firebaseUser.photoURL || undefined,
       };
 
       const backendUser = await usersService.findOrCreateUser(backendPayload);
@@ -361,16 +392,15 @@ export const authService = {
         nombre: backendUser.nombres,
         apellido: backendUser.apellidos,
         email: email,
-        loginMethod: 'google',
-        picture: firebaseUser.photoURL || backendUser.foto_perfil || ''
+        loginMethod: "google",
+        picture: firebaseUser.photoURL || backendUser.foto_perfil || "",
       };
 
-      localStorage.setItem('usuario', JSON.stringify(localUser));
+      localStorage.setItem("usuario", JSON.stringify(localUser));
       return localUser;
-
     } catch (error: any) {
-      if (error.code === 'auth/popup-closed-by-user') {
-        throw new Error('Autenticación cancelada');
+      if (error.code === "auth/popup-closed-by-user") {
+        throw new Error("Autenticación cancelada");
       }
       throw error;
     }
@@ -382,27 +412,33 @@ export const authService = {
   loginWithEmail: async (
     auth: ReturnType<typeof getAuth>,
     email: string,
-    password: string
+    password: string,
   ): Promise<LocalUser> => {
     try {
-      console.log('🔄 [LOGIN EMAIL] Iniciando...');
+      console.log("🔄 [LOGIN EMAIL] Iniciando...");
 
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
       const firebaseUser = userCredential.user;
 
-      console.log('✅ [LOGIN EMAIL] Autenticado en Firebase');
+      console.log("✅ [LOGIN EMAIL] Autenticado en Firebase");
 
       let backendUser: BackendUser;
-      
+
       try {
         const loginResponse = await usersService.loginUser(email, password);
         backendUser = loginResponse.usuario;
-        console.log('✅ [LOGIN EMAIL] Login backend - Cookie obtenida');
+        console.log("✅ [LOGIN EMAIL] Login backend - Cookie obtenida");
       } catch (backendError: any) {
-        console.warn('⚠️ Login backend falló, buscando usuario...');
-        
+        console.warn("⚠️ Login backend falló, buscando usuario...");
+
         try {
-          backendUser = await usersService.getUserByFirebaseUid(firebaseUser.uid);
+          backendUser = await usersService.getUserByFirebaseUid(
+            firebaseUser.uid,
+          );
         } catch (error) {
           backendUser = await usersService.getUserByEmail(email);
         }
@@ -416,25 +452,24 @@ export const authService = {
         nombre: backendUser.nombres,
         apellido: backendUser.apellidos,
         email: email,
-        loginMethod: 'email',
-        picture: firebaseUser.photoURL || backendUser.foto_perfil || ''
+        loginMethod: "email",
+        picture: firebaseUser.photoURL || backendUser.foto_perfil || "",
       };
 
-      localStorage.setItem('usuario', JSON.stringify(localUser));
-      
-      return localUser;
+      localStorage.setItem("usuario", JSON.stringify(localUser));
 
+      return localUser;
     } catch (error: any) {
-      console.error('❌ [LOGIN EMAIL] Error:', error);
-      
-      if (error.code === 'auth/user-not-found') {
-        throw new Error('Usuario no encontrado');
-      } else if (error.code === 'auth/wrong-password') {
-        throw new Error('Contraseña incorrecta');
-      } else if (error.code === 'auth/invalid-credential') {
-        throw new Error('Credenciales inválidas');
+      console.error("❌ [LOGIN EMAIL] Error:", error);
+
+      if (error.code === "auth/user-not-found") {
+        throw new Error("Usuario no encontrado");
+      } else if (error.code === "auth/wrong-password") {
+        throw new Error("Contraseña incorrecta");
+      } else if (error.code === "auth/invalid-credential") {
+        throw new Error("Credenciales inválidas");
       }
-      
+
       throw error;
     }
   },
@@ -444,32 +479,37 @@ export const authService = {
    */
   loginWithGoogle: async (
     auth: ReturnType<typeof getAuth>,
-    googleProvider: GoogleAuthProvider
+    googleProvider: GoogleAuthProvider,
   ): Promise<LocalUser> => {
     try {
-      console.log('🔄 [LOGIN GOOGLE] Iniciando...');
+      console.log("🔄 [LOGIN GOOGLE] Iniciando...");
 
       const result = await signInWithPopup(auth, googleProvider);
       const firebaseUser = result.user;
 
-      const email = firebaseUser.email || '';
-      const fullName = firebaseUser.displayName || '';
+      const email = firebaseUser.email || "";
+      const fullName = firebaseUser.displayName || "";
       const { firstName, lastName } = splitFullName(fullName);
 
-      console.log('✅ [LOGIN GOOGLE] Autenticado en Firebase');
+      console.log("✅ [LOGIN GOOGLE] Autenticado en Firebase");
 
       const backendPayload: CreateUserPayload = {
-        nombres: firstName || 'Usuario',
-        apellidos: lastName || 'Google',
+        nombres: firstName || "Usuario",
+        apellidos: lastName || "Google",
         email: email,
         contrasena: `google-oauth-${firebaseUser.uid}`,
         confirmar_nueva_contrasena: `google-oauth-${firebaseUser.uid}`,
         firebase_uid: firebaseUser.uid,
-        login_method: 'google',
-        foto_perfil: firebaseUser.photoURL || undefined
+        login_method: "google",
+        foto_perfil: firebaseUser.photoURL || undefined,
       };
 
-      const backendUser = await usersService.findOrCreateUser(backendPayload);
+      let backendUser: BackendUser;
+      try {
+        backendUser = await usersService.getUserByEmail(email);
+      } catch (error: any) {
+        throw new Error("noRegistradoGoogle");
+      }
 
       try {
         const idToken = await firebaseUser.getIdToken();
@@ -486,16 +526,15 @@ export const authService = {
         nombre: backendUser.nombres,
         apellido: backendUser.apellidos,
         email: email,
-        loginMethod: 'google',
-        picture: firebaseUser.photoURL || backendUser.foto_perfil || ''
+        loginMethod: "google",
+        picture: firebaseUser.photoURL || backendUser.foto_perfil || "",
       };
 
-      localStorage.setItem('usuario', JSON.stringify(localUser));
+      localStorage.setItem("usuario", JSON.stringify(localUser));
       return localUser;
-
     } catch (error: any) {
-      if (error.code === 'auth/popup-closed-by-user') {
-        throw new Error('Autenticación cancelada');
+      if (error.code === "auth/popup-closed-by-user") {
+        throw new Error("Autenticación cancelada");
       }
       throw error;
     }
@@ -503,9 +542,9 @@ export const authService = {
 
   getCurrentUser: (): LocalUser | null => {
     try {
-      const userStr = localStorage.getItem('usuario');
+      const userStr = localStorage.getItem("usuario");
       if (!userStr) return null;
-      
+
       return JSON.parse(userStr) as LocalUser;
     } catch (error) {
       return null;
@@ -515,10 +554,10 @@ export const authService = {
   logout: async (auth: ReturnType<typeof getAuth>): Promise<void> => {
     try {
       await auth.signOut();
-      localStorage.removeItem('usuario');
-      console.log('✅ [LOGOUT] Sesión cerrada');
+      localStorage.removeItem("usuario");
+      console.log("✅ [LOGOUT] Sesión cerrada");
     } catch (error) {
-      localStorage.removeItem('usuario');
+      localStorage.removeItem("usuario");
     }
-  }
+  },
 };
