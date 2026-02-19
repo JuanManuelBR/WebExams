@@ -169,6 +169,7 @@ export default function SecureExamPlatform() {
   // ----------------------------------------------------------------------
   const [examStarted, setExamStarted] = useState(false);
   const [examBlocked, setExamBlocked] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
   const [blockReason, setBlockReason] = useState("");
   const [showUnlockScreen, setShowUnlockScreen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -877,9 +878,12 @@ export default function SecureExamPlatform() {
 
   // ✅ FUNCION startExam RESTAURADA COMPLETAMENTE
   const startExam = async () => {
+    if (isStarting) return;
+    setIsStarting(true);
     try {
       if (!studentData || !examData) {
         console.error("No hay datos del estudiante o examen");
+        setIsStarting(false);
         return;
       }
 
@@ -1030,6 +1034,7 @@ export default function SecureExamPlatform() {
       }, 100);
     } catch (error: any) {
         console.error("❌ Error al iniciar examen:", error);
+        setIsStarting(false);
         alert(error.message || "Error al iniciar el examen");
     }
   };
@@ -1347,7 +1352,7 @@ export default function SecureExamPlatform() {
         <button onClick={toggleTheme} className={`fixed bottom-6 right-6 z-50 p-3 rounded-full shadow-lg border ${darkMode ? "bg-slate-800 border-slate-700 text-yellow-400" : "bg-white border-gray-200 text-gray-600"}`}>
           {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </button>
-        <MonitoreoSupervisado darkMode={darkMode} onStartExam={startExam} />
+        <MonitoreoSupervisado darkMode={darkMode} onStartExam={startExam} isStarting={isStarting} />
       </div>
     );
   }

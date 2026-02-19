@@ -5,6 +5,7 @@ import logoUniversidadNoche from "../../assets/logo-universidad-noche.webp";
 interface MonitoreoSupervisadoProps {
   darkMode: boolean;
   onStartExam: () => void;
+  isStarting?: boolean;
   studentData?: any;
   examData?: any;
 }
@@ -12,6 +13,7 @@ interface MonitoreoSupervisadoProps {
 export default function MonitoreoSupervisado({
   darkMode,
   onStartExam,
+  isStarting = false,
   studentData,
   examData
 }: MonitoreoSupervisadoProps) {
@@ -145,10 +147,11 @@ export default function MonitoreoSupervisado({
 
           <button
             onClick={onStartExam}
-            className="group relative inline-flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xl font-bold rounded-full shadow-2xl hover:shadow-blue-500/40 hover:scale-105 transition-all duration-300"
+            disabled={isStarting}
+            className="group relative inline-flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xl font-bold rounded-full shadow-2xl hover:shadow-blue-500/40 hover:scale-105 transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100"
           >
-            <span>Comenzar Examen</span>
-            <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+            <span>{isStarting ? "Iniciando..." : "Comenzar Examen"}</span>
+            {!isStarting && <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />}
           </button>
           
           <div className={`flex items-center gap-6 text-xs font-bold uppercase tracking-wider ${darkMode ? "text-slate-500" : "text-gray-400"}`}>
