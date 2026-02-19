@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getAuthToken } from "./authToken";
 
 const EXAMS_BASE = import.meta.env.VITE_EXAMS_BASE;
 
@@ -17,6 +18,12 @@ examsApi.interceptors.request.use(
     // Si es FormData, cambiar el Content-Type
     if (config.data instanceof FormData) {
       config.headers["Content-Type"] = "multipart/form-data";
+    }
+
+    // Adjuntar Bearer token para auth cross-domain
+    const token = getAuthToken();
+    if (token) {
+      config.headers["Authorization"] = `Bearer ${token}`;
     }
 
     console.log(

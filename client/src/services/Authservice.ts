@@ -4,6 +4,7 @@
 // ============================================
 
 import { usersApi } from "./api";
+import { setAuthToken } from "./authToken";
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -120,6 +121,8 @@ export const usersService = {
       console.log("✅ [API] Login backend exitoso");
       console.log("🍪 [API] Cookies después del login:", document.cookie);
 
+      if (response.data.token) setAuthToken(response.data.token);
+
       return {
         usuario: response.data.usuario,
         token: response.data.token,
@@ -152,6 +155,8 @@ export const usersService = {
       });
 
       console.log("✅ [API] Login Google backend exitoso");
+
+      if (response.data.token) setAuthToken(response.data.token);
 
       return {
         usuario: response.data.usuario,
