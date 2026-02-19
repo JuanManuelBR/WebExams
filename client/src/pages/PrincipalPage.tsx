@@ -41,6 +41,7 @@ export default function LMSDashboard() {
   const location = useLocation();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [tokenListo, setTokenListo] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
   const [modal, setModal] = useState<{ visible: boolean; tipo: "exito" | "error" | "advertencia" | "info" | "confirmar"; titulo: string; mensaje: string; onConfirmar: () => void }>({ visible: false, tipo: "info", titulo: "", mensaje: "", onConfirmar: () => {} });
@@ -149,6 +150,8 @@ export default function LMSDashboard() {
             // Si falla silenciosamente, el interceptor de examsApi retornará 401
           }
         }
+
+        setTokenListo(true);
 
         // Verificar con el backend si la sesión es válida
         const response = await fetch(`/api/users/${usuario.id}`, {
@@ -524,7 +527,11 @@ export default function LMSDashboard() {
         </header>
 
         <main className={`flex-1 px-8 py-6 min-h-0 ${location.pathname === '/vigilancia' ? 'overflow-hidden' : 'overflow-auto'}`}>
-          <Routes>
+          {!tokenListo ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+            </div>
+          ) : <Routes>
             <Route index element={<Navigate to="/home" replace />} />
             <Route path="home" element={<HomeContent darkMode={darkMode} />} />
             <Route path="notificaciones" element={
@@ -553,7 +560,7 @@ export default function LMSDashboard() {
             <Route path="lista-examenes" element={<ListaExamenes darkMode={darkMode} onCrearExamen={() => navigate("/nuevo-examen")} />} />
             <Route path="vigilancia" element={<VigilanciaExamenesLista darkMode={darkMode} usuarioData={usuarioData} />} />
             <Route path="mi-perfil" element={<MiPerfil darkMode={darkMode} />} />
-          </Routes>
+          </Routes>}
         </main>
       </div>
 
