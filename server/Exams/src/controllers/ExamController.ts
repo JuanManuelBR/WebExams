@@ -1,9 +1,9 @@
 import { NextFunction, Request, Response } from "express";
-import { ExamService } from "@src/services/ExamsService";
-import { throwHttpError } from "@src/utils/errors";
-import { imageService } from "@src/services/ImageService";
-import { pdfService } from "@src/services/PDFService";
-import { AuthenticatedRequest } from "@src/middlewares/auth";
+import { ExamService } from "../services/ExamsService";
+import { throwHttpError } from "../utils/errors";
+import { imageService } from "../services/ImageService";
+import { pdfService } from "../services/PDFService";
+import { AuthenticatedRequest } from "../middlewares/auth";
 
 const exam_service = new ExamService();
 

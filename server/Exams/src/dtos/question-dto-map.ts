@@ -1,5 +1,5 @@
 // question-dto-map.ts
-import { QuestionType } from "@src/types/Question";
+import { QuestionType } from "../types/Question";
 import { TestQuestionDto } from "./add-test-question.dto";
 import { BaseQuestionDto } from "./base-question.dto";
 import { OpenQuestionDto } from "./add-open-question.dto";

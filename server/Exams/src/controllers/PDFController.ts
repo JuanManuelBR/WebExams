@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import axios from "axios";
-import { pdfService } from "@src/services/PDFService";
+import { pdfService } from "../services/PDFService";
 
 export class PDFController {
   static async get(req: Request, res: Response) {
@@ -22,7 +22,7 @@ export class PDFController {
       if (!url.startsWith("https://res.cloudinary.com/")) {
         return res.status(403).json({ message: "URL no permitida" });
       }
-      const response = await axios.get(url, { responseType: "stream" });
+      const response = await axios.get<any>(url, { responseType: "stream" });
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Disposition", 'inline; filename="exam.pdf"');
       res.setHeader("Cache-Control", "private, max-age=3600");

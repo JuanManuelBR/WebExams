@@ -1,18 +1,18 @@
 // src/services/ExamsService.ts
 import { AppDataSource } from "../data-source/AppDataSource";
 import { Exam } from "../models/Exam";
-import { CommonValidator } from "@src/validators/common";
-import { generateExamCode } from "@src/utils/generetaExamCode";
-import { add_exam_dto } from "@src/dtos/add-exam.dto";
-import { Question } from "@src/models/Question";
-import { examenValidator } from "@src/validators/examen-validator";
-import { QuestionValidator } from "@src/validators/question-validator";
-import { throwHttpError } from "@src/utils/errors";
-import { schedulerService } from "@src/scheduler/examScheduler";
+import { CommonValidator } from "../validators/common";
+import { generateExamCode } from "../utils/generetaExamCode";
+import { add_exam_dto } from "../dtos/add-exam.dto";
+import { Question } from "../models/Question";
+import { examenValidator } from "../validators/examen-validator";
+import { QuestionValidator } from "../validators/question-validator";
+import { throwHttpError } from "../utils/errors";
+import { schedulerService } from "../scheduler/examScheduler";
 import axios from "axios";
-import { ExamenState } from "@src/types/Exam";
-import { UpdateExamDto } from "@src/dtos/update-exam.dto";
-import { BaseQuestionDto } from "@src/dtos/base-question.dto";
+import { ExamenState } from "../types/Exam";
+import { UpdateExamDto } from "../dtos/update-exam.dto";
+import { BaseQuestionDto } from "../dtos/base-question.dto";
 
 export class ExamService {
   private examRepo = AppDataSource.getRepository(Exam);
@@ -185,7 +185,7 @@ export class ExamService {
 
     // Verificar que el examen no tenga intentos
     try {
-      const attemptsRes = await axios.get(
+      const attemptsRes = await axios.get<{ count: number }>(
         `${this.EXAM_ATTEMPTS_MS_URL}/api/exam/${examId}/attempt-count`,
       );
       if (attemptsRes.data.count > 0) {
@@ -426,7 +426,7 @@ export class ExamService {
     let nombreProfesor = "Profesor no disponible";
     try {
       const usersMsUrl = process.env.USERS_MS_URL;
-      const response = await axios.get(
+      const response = await axios.get<any>(
         `${usersMsUrl}/api/users/${examen.id_profesor}`,
       );
       const profesor = response.data;
@@ -497,7 +497,7 @@ export class ExamService {
     let nombreProfesor = "Profesor no disponible";
     try {
       const usersMsUrl = process.env.USERS_MS_URL;
-      const response = await axios.get(
+      const response = await axios.get<any>(
         `${usersMsUrl}/api/users/${exam.id_profesor}`,
       );
       const profesor = response.data;

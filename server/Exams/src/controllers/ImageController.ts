@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { imageService } from '@src/services/ImageService';
+import { imageService } from '../services/ImageService';
 
 export class ImageController {
   static async upload(req: Request, res: Response) {

@@ -1,14 +1,14 @@
-import { AppDataSource } from "@src/data-source/AppDataSource";
-import { Exam } from "@src/models/Exam";
-import { throwHttpError } from "@src/utils/errors";
-import axios from "axios";
+import { AppDataSource } from "../data-source/AppDataSource";
+import { Exam } from "../models/Exam";
+import { throwHttpError } from "../utils/errors";
+import axios, { isAxiosError } from "axios";
 
 const USERS_MS_URL = process.env.USERS_MS_URL;
 
 export class examenValidator {
   static async verificarProfesor(id_profesor: number, cookies?: string) {
     try {
-      const response = await axios.get(
+      const response = await axios.get<any>(
         `${USERS_MS_URL}/api/users/${id_profesor}`,
         {
           headers: { Cookie: cookies || "" },
@@ -28,7 +28,7 @@ export class examenValidator {
       return profesor;
     } catch (error: any) {
       // Error del MS de usuarios
-      if (axios.isAxiosError(error)) {
+      if (isAxiosError(error)) {
         if (error.response?.status === 404) {
           throwHttpError(
             "No se encontró el profesor con el id proporcionado",

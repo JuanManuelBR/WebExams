@@ -9,7 +9,7 @@ import {
 import { Type } from "class-transformer";
 import { BaseQuestionDto } from "./base-question.dto";
 import { MatchPairDto } from "./add-match-pair.dto";
-import { QuestionType } from "@src/types/Question";
+import { QuestionType } from "../types/Question";
 
 export class MatchingQuestionDto extends BaseQuestionDto {
   type: QuestionType.MATCHING = QuestionType.MATCHING;

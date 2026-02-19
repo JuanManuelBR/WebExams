@@ -1,5 +1,5 @@
 // src/dtos/update-exam.dto.ts
-import { Consecuencia, ExamenState, TiempoAgotado } from "@src/types/Exam";
+import { Consecuencia, ExamenState, TiempoAgotado } from "../types/Exam";
 import { Type } from "class-transformer";
 import {
   IsArray,

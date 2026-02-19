@@ -1,5 +1,5 @@
 // src/scheduler/examScheduler.ts
-import { ExamSchedulerService } from "@src/services/ExamsSchedulerService";
+import { ExamSchedulerService } from "../services/ExamsSchedulerService";
 
 export const schedulerService = new ExamSchedulerService();
 

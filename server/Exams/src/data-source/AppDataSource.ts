@@ -1,39 +1,31 @@
 import { DataSource } from "typeorm";
 import "reflect-metadata";
 
-// importar datos del .env
-import {
-  DB_HOST,
-  DB_NAME,
-  DB_PASS,
-  DB_PORT,
-  DB_USER,
-} from "../../config/config";
-import { Question } from "@src/models/Question";
-import { Exam } from "@src/models/Exam";
-import { TestQuestion } from "@src/models/TestQuestion";
-import { TestOption } from "@src/models/TestOption";
+import { Question } from "../models/Question";
+import { Exam } from "../models/Exam";
+import { TestQuestion } from "../models/TestQuestion";
+import { TestOption } from "../models/TestOption";
 
-import { BlankAnswer } from "@src/models/FillBlankAnswer";
-import { FillBlankQuestion } from "@src/models/FillBlankQuestion";
+import { BlankAnswer } from "../models/FillBlankAnswer";
+import { FillBlankQuestion } from "../models/FillBlankQuestion";
 
-import { OpenQuestion } from "@src/models/OpenQuestion";
+import { OpenQuestion } from "../models/OpenQuestion";
 
-import { MatchQuestion } from "@src/models/MatchQuestion";
+import { MatchQuestion } from "../models/MatchQuestion";
 
-import { MatchItemA } from "@src/models/MatchItemA";
-import { MatchItemB } from "@src/models/MatchItemB";
-import { MatchPair } from "@src/models/MatchPair";
-import { OpenQuestionKeyword } from "@src/models/OpenQuestionKeyWord";
+import { MatchItemA } from "../models/MatchItemA";
+import { MatchItemB } from "../models/MatchItemB";
+import { MatchPair } from "../models/MatchPair";
+import { OpenQuestionKeyword } from "../models/OpenQuestionKeyWord";
 
 // crear el AppDataSource (Conexión BD)
 export const AppDataSource = new DataSource({
   type: "mysql",
-  host: DB_HOST,
-  database: DB_NAME,
-  password: DB_PASS,
-  port: DB_PORT,
-  username: DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASS,
+  port: Number(process.env.DB_PORT),
+  username: process.env.DB_USER,
   synchronize: true,
   logging: false,
   entities: [
@@ -50,7 +42,7 @@ export const AppDataSource = new DataSource({
     MatchPair,
     OpenQuestionKeyword,
   ],
-  migrations: ["src/migrations/*.ts"],
+  migrations: [],
   migrationsTableName: "migrations",
   ssl: {
     minVersion: "TLSv1.2",

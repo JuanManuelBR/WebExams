@@ -1,14 +1,14 @@
-import { Exam } from "@src/models/Exam";
-import { BlankAnswer } from "@src/models/FillBlankAnswer";
-import { FillBlankQuestion } from "@src/models/FillBlankQuestion";
-import { MatchItemA } from "@src/models/MatchItemA";
-import { MatchItemB } from "@src/models/MatchItemB";
-import { MatchPair } from "@src/models/MatchPair";
-import { MatchQuestion } from "@src/models/MatchQuestion";
-import { OpenQuestion } from "@src/models/OpenQuestion";
-import { OpenQuestionKeyword } from "@src/models/OpenQuestionKeyWord";
-import { Question } from "@src/models/Question";
-import { throwHttpError } from "@src/utils/errors";
+import { Exam } from "../models/Exam";
+import { BlankAnswer } from "../models/FillBlankAnswer";
+import { FillBlankQuestion } from "../models/FillBlankQuestion";
+import { MatchItemA } from "../models/MatchItemA";
+import { MatchItemB } from "../models/MatchItemB";
+import { MatchPair } from "../models/MatchPair";
+import { MatchQuestion } from "../models/MatchQuestion";
+import { OpenQuestion } from "../models/OpenQuestion";
+import { OpenQuestionKeyword } from "../models/OpenQuestionKeyWord";
+import { Question } from "../models/Question";
+import { throwHttpError } from "../utils/errors";
 
 export class QuestionValidator {
   static crearPreguntasDesdeDto(questionsDto: any[], exam: Exam): Question[] {

@@ -1,6 +1,6 @@
 // src/routes/PDFRoutes.ts
 import { Router } from "express";
-import { PDFController } from "@src/controllers/PDFController";
+import { PDFController } from "../controllers/PDFController";
 
 const router = Router();
 

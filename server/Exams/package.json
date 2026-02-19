@@ -2,12 +2,13 @@
   "name": "exams",
   "version": "0.0.0",
   "scripts": {
-    "build": "ts-node ./scripts/build.ts",
+    "build": "tsc -p tsconfig.prod.json",
     "clean-install": "rm -rf ./node_modules && rm -r package-lock.json && npm i",
     "dev": "NODE_ENV=development ts-node ./src",
     "dev:hot": "nodemon --exec \"npm run dev\" --watch ./src --ext .ts",
     "lint": "eslint .",
-    "start": "NODE_ENV=production node -r ./config.js ./dist",
+    "start": "node dist/server.js",
+    "railway:start": "npm run build && npm run start",
     "test": "NODE_ENV=test vitest",
     "type-check": "tsc --noEmit",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/data-source/AppDataSource.ts",
@@ -15,7 +16,7 @@
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/data-source/AppDataSource.ts"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "axios": "^1.13.2",
@@ -53,7 +54,6 @@
     "@stylistic/eslint-plugin-js": "^4.4.1",
     "@stylistic/eslint-plugin-ts": "^4.4.1",
     "@swc/core": "^1.15.2",
-    "@types/axios": "^0.9.36",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",

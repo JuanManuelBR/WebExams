@@ -9,7 +9,7 @@ import {
 import { Type } from "class-transformer";
 import { FillBlankAnswerDto } from "./add-fill-blank-answer.dto";
 import { BaseQuestionDto } from "./base-question.dto";
-import { QuestionType } from "@src/types/Question";
+import { QuestionType } from "../types/Question";
 
 export class FillBlankQuestionDto extends BaseQuestionDto {
   // 1. Forzar el valor del discriminador con el Enum

@@ -1,5 +1,5 @@
-import { AppDataSource } from "@src/data-source/AppDataSource";
-import { Exam } from "@src/models/Exam";
+import { AppDataSource } from "../data-source/AppDataSource";
+import { Exam } from "../models/Exam";
 import { NextFunction, Request, Response } from "express";
 import { AuthenticatedRequest } from "./auth";
 

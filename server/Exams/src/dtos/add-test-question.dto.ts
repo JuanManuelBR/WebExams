@@ -10,7 +10,7 @@ import {
 import { Type } from "class-transformer";
 import { BaseQuestionDto } from "./base-question.dto";
 import { TestOptionDto } from "./test-option.dto";
-import { QuestionType } from "@src/types/Question";
+import { QuestionType } from "../types/Question";
 
 export class TestQuestionDto extends BaseQuestionDto {
   type: QuestionType.TEST = QuestionType.TEST;
