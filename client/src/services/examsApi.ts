@@ -1,8 +1,9 @@
 import axios from "axios";
 
-// ✅ USAR RUTA RELATIVA PARA QUE PASE POR EL PROXY
+const EXAMS_BASE = import.meta.env.VITE_EXAMS_BASE;
+
 export const examsApi = axios.create({
-  baseURL: "/api/exams",
+  baseURL: EXAMS_BASE ? `${EXAMS_BASE}/api/exams` : "/api/exams",
   headers: {
     "Content-Type": "application/json",
   },

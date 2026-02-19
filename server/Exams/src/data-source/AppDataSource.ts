@@ -42,7 +42,7 @@ export const AppDataSource = new DataSource({
     MatchPair,
     OpenQuestionKeyword,
   ],
-  migrations: ["src/migrations/*.ts"],
+  migrations: [],
   migrationsTableName: "migrations",
   ssl: {
     minVersion: "TLSv1.2",
