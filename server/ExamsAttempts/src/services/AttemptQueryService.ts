@@ -269,6 +269,7 @@ export class AttemptQueryService {
           fecha_expiracion: progress?.fecha_expiracion,
           esExamenPDF: attempt.esExamenPDF,
           calificacionPendiente: attempt.calificacionPendiente,
+          notaFinal: attempt.notaFinal,
         };
       }),
     );

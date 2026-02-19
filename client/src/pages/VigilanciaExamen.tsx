@@ -58,6 +58,7 @@ interface ExamAttempt {
   alertas: number;
   alertasNoLeidas?: number;
   calificacion?: number;
+  notaFinal?: number | null;
   preguntasPendientes?: boolean;
 }
 
@@ -121,9 +122,13 @@ export default function VigilanciaExamenesLista({
   const cargarIntentosExamen = async (examenId: number, silencioso = false) => {
     try {
       const intentos = await examsAttemptsService.getActiveAttemptsByExam(examenId);
-      setExamAttempts((prev) => ({ ...prev, [examenId]: intentos }));
+      const intentosMapped = intentos.map((i: ExamAttempt) => ({
+        ...i,
+        calificacion: i.notaFinal != null ? i.notaFinal : i.calificacion,
+      }));
+      setExamAttempts((prev) => ({ ...prev, [examenId]: intentosMapped }));
       if (estudianteSeleccionado) {
-        const est = intentos.find((i: ExamAttempt) => i.id === estudianteSeleccionado.id);
+        const est = intentosMapped.find((i: ExamAttempt) => i.id === estudianteSeleccionado.id);
         if (est) setEstudianteSeleccionado(est);
       }
       if (!silencioso) console.log("🔄 Datos sincronizados");
@@ -216,19 +221,20 @@ export default function VigilanciaExamenesLista({
     });
 
     // Estudiante terminó el examen
-    newSocket.on("student_finished_exam", (data: { attemptId: number; estudiante: any; puntaje: number }) => {
+    newSocket.on("student_finished_exam", (data: { attemptId: number; estudiante: any; puntaje: number; notaFinal?: number | null }) => {
+      const calificacion = data.notaFinal != null ? data.notaFinal : data.puntaje;
       setExamAttempts((prev) => {
         const intentos = prev[examId] || [];
         const nuevos = intentos.map((att) =>
           att.id === data.attemptId
-            ? { ...att, estado: "submitted", calificacion: data.puntaje }
+            ? { ...att, estado: "submitted", calificacion }
             : att
         );
         return { ...prev, [examId]: nuevos };
       });
 
       if (estudianteSeleccionadoRef.current?.id === data.attemptId) {
-        setEstudianteSeleccionado((prev) => prev ? { ...prev, estado: "submitted", calificacion: data.puntaje } : null);
+        setEstudianteSeleccionado((prev) => prev ? { ...prev, estado: "submitted", calificacion } : null);
       }
     });
 

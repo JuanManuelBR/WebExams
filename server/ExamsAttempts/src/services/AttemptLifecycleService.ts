@@ -281,6 +281,7 @@ export class AttemptLifecycleService {
         correo: attempt.correo_estudiante,
       },
       puntaje: attempt.puntaje,
+      notaFinal: attempt.notaFinal,
       esExamenPDF: attempt.esExamenPDF,
       calificacionPendiente: attempt.calificacionPendiente,
     });
