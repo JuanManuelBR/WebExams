@@ -1,6 +1,5 @@
 // src/app.ts
 import express from "express";
-import { AppDataSource } from "./data-source/AppDataSource";
 import cors from "cors";
 import examRouter from "./routes/ExamRoutes"
 //import UserRoutes from "./routes/UserRoutes";
@@ -36,11 +35,5 @@ setupSwagger(app);
 app.use("/api/exam", examRouter);
 
 app.use(errorHandler);
-
-AppDataSource.initialize()
-  .then(async () => {
-    console.log("Base de datos conectada correctamente");
-  })
-  .catch((err: unknown) => console.error("No se pudo conectar a la Bd", err));
 
 export default app;

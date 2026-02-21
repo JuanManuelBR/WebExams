@@ -86,33 +86,64 @@ export class GradingService {
       // 6. Aplicar lógica según calificacionParcial
       let puntajeObtenido = 0;
 
+      const selectedCount = selectedIds.length;
+      const totalOptions = question.options.length;
+      const totalIncorrect = totalOptions - correctIds.length;
+
       if (question.calificacionParcial) {
-        console.log("\n🔹 MODO: Calificación parcial activada");
-        console.log(
-          "   📌 Se califica proporcionalmente por correctas marcadas",
-        );
-        console.log("   📌 NO se penaliza por marcar incorrectas");
+        if (selectedCount <= correctIds.length) {
+          // Caso A: el estudiante marcó igual o menos opciones de las que hay correctas.
+          // Se da crédito proporcional por las correctas identificadas,
+          // sin penalizar por incorrectas marcadas (ej: A,C da igual que solo A).
+          console.log(`\n🔹 MODO: Calificación parcial — sin exceso de marcas`);
+          console.log(`   📌 Seleccionadas (${selectedCount}) ≤ Correctas (${correctIds.length}) → sin penalización extra`);
 
-        // Calcular puntaje proporcional basado en correctas seleccionadas
-        const proportion = correctlySelected.length / correctIds.length;
-        puntajeObtenido = question.puntaje * proportion;
+          const proportion = correctlySelected.length / correctIds.length;
+          puntajeObtenido = question.puntaje * proportion;
 
-        console.log(
-          `   ✅ Proporción: ${correctlySelected.length}/${correctIds.length} = ${(proportion * 100).toFixed(2)}%`,
-        );
-        console.log(
-          `   📐 Cálculo: ${question.puntaje} × ${proportion.toFixed(5)} = ${puntajeObtenido.toFixed(5)}`,
-        );
-
-        if (incorrectlySelected.length > 0) {
           console.log(
-            `   ℹ️  Marcó ${incorrectlySelected.length} incorrecta(s) pero NO afecta el puntaje`,
+            `   📐 Puntaje: ${correctlySelected.length}/${correctIds.length} = ${(proportion * 100).toFixed(2)}%`,
           );
+        } else {
+          // Caso B: el estudiante marcó MÁS opciones de las que hay correctas → penalización.
+          // Penalización doble: right-minus-wrong + factor de exceso.
+          // Marcar TODAS siempre da 0 (excessRatio alcanza 1).
+          console.log(`\n🔹 MODO: Calificación parcial — CON penalización por exceso de marcas`);
+          console.log(`   ⚠️  Seleccionadas (${selectedCount}) > Correctas (${correctIds.length})`);
+
+          // Correctas netas: cada incorrecta cancela una correcta
+          const effectiveCorrect = Math.max(
+            0,
+            correctlySelected.length - incorrectlySelected.length,
+          );
+
+          // Ratio de exceso: qué fracción de las opciones incorrectas disponibles se marcaron
+          const excess = selectedCount - correctIds.length;
+          const excessRatio = totalIncorrect > 0 ? excess / totalIncorrect : 1;
+
+          puntajeObtenido =
+            (effectiveCorrect / correctIds.length) *
+            (1 - excessRatio) *
+            question.puntaje;
+
+          console.log(
+            `   📐 Correctas netas: max(0, ${correctlySelected.length} − ${incorrectlySelected.length}) = ${effectiveCorrect}`,
+          );
+          console.log(
+            `   📐 Factor exceso: ${excess} / ${totalIncorrect} = ${(excessRatio * 100).toFixed(1)}% → factor restante: ${((1 - excessRatio) * 100).toFixed(1)}%`,
+          );
+          console.log(
+            `   📐 Cálculo: (${effectiveCorrect}/${correctIds.length}) × (1−${excessRatio.toFixed(3)}) × ${question.puntaje} = ${puntajeObtenido.toFixed(5)}`,
+          );
+
+          if (selectedCount === totalOptions) {
+            console.log(`   🚫 Marcó TODAS las opciones → puntaje = 0`);
+          }
         }
       } else {
         console.log("\n🔹 MODO: Todo o nada (sin calificación parcial)");
         console.log(
-          "   📌 Debe marcar SOLO las correctas y NINGUNA incorrecta",
+          "   📌 Debe marcar EXACTAMENTE las correctas y NINGUNA incorrecta",
         );
 
         puntajeObtenido = isExactlyCorrect ? question.puntaje : 0;

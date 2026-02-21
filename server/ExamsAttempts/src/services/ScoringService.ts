@@ -1,5 +1,6 @@
 import { AppDataSource } from "../data-source/AppDataSource";
 import { Server } from "socket.io";
+import { Not } from "typeorm";
 import { ExamAttempt, AttemptState } from "../models/ExamAttempt";
 import { ExamAnswer } from "../models/ExamAnswer";
 import { ExamInProgress } from "../models/ExamInProgress";
@@ -145,26 +146,26 @@ export class ScoringService {
     const attemptRepo = AppDataSource.getRepository(ExamAttempt);
     const progressRepo = AppDataSource.getRepository(ExamInProgress);
 
-    console.log(`\n🔴 FORZANDO ENVÍO DE INTENTOS ACTIVOS - Examen ID: ${examId}`);
+    console.log(`\n🔴 FORZANDO ENVÍO DE TODOS LOS INTENTOS - Examen ID: ${examId}`);
 
     const activeAttempts = await attemptRepo.find({
       where: {
         examen_id: examId,
-        estado: AttemptState.ACTIVE,
+        estado: Not(AttemptState.FINISHED),
       },
       relations: ["respuestas"],
     });
 
     if (activeAttempts.length === 0) {
-      console.log("⚠️ No hay intentos activos para finalizar");
+      console.log("⚠️ No hay intentos pendientes para finalizar");
       return {
-        message: "No hay intentos activos para finalizar",
+        message: "No hay intentos pendientes para finalizar",
         finalizados: 0,
         detalles: [],
       };
     }
 
-    console.log(`📋 Total de intentos activos encontrados: ${activeAttempts.length}`);
+    console.log(`📋 Total de intentos pendientes encontrados: ${activeAttempts.length}`);
 
     const resultados = [];
 
@@ -264,11 +265,8 @@ export class ScoringService {
       throwHttpError("Intento no encontrado", 404);
     }
 
-    if (attempt.estado !== AttemptState.ACTIVE) {
-      throwHttpError(
-        `El intento ya está en estado ${attempt.estado}. Solo se pueden forzar intentos activos.`,
-        400,
-      );
+    if (attempt.estado === AttemptState.FINISHED) {
+      throwHttpError("El intento ya está finalizado.", 400);
     }
 
     console.log(`📝 Procesando intento ${attempt.id} - Estudiante: ${attempt.nombre_estudiante || "Sin nombre"}`);

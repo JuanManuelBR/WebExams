@@ -103,10 +103,16 @@ function mapearPreguntasConImagenes(preguntas: Pregunta[]) {
 
     // 🖼️ Manejar imagen si existe
     if (pregunta.imagen) {
-      const imageName = `image_${index}`;
-      const imageFile = base64ToFile(pregunta.imagen, `${imageName}.png`);
-      imagenesMap.set(imageName, imageFile);
-      base.nombreImagen = imageName;
+      if (pregunta.imagen.startsWith("http")) {
+        // URL de Cloudinary existente (modo edición sin cambiar imagen) — usar directo
+        base.nombreImagen = pregunta.imagen;
+      } else {
+        // Base64 (imagen nueva subida por el usuario) — convertir a File para subir
+        const imageName = `image_${index}`;
+        const imageFile = base64ToFile(pregunta.imagen, `${imageName}.png`);
+        imagenesMap.set(imageName, imageFile);
+        base.nombreImagen = imageName;
+      }
     }
 
     let preguntaMapeada: any;
@@ -520,6 +526,125 @@ export const examsService = {
           "Error al actualizar estado del examen",
       );
     }
+  },
+
+  actualizarExamen: async (
+    examId: number,
+    datosExamen: DatosExamen,
+  ): Promise<{
+    success: boolean;
+    codigoExamen: string;
+    examen?: ExamenCreado;
+    error?: string;
+  }> => {
+    try {
+      let preguntasMapeadas: any[] = [];
+      let imagenesMap: Map<string, File> = new Map();
+
+      if (
+        datosExamen.tipoPregunta === "automatico" &&
+        datosExamen.preguntasAutomaticas
+      ) {
+        const resultado = mapearPreguntasConImagenes(
+          datosExamen.preguntasAutomaticas,
+        );
+        preguntasMapeadas = resultado.preguntasMapeadas;
+        imagenesMap = resultado.imagenesMap;
+      }
+
+      const examData: any = {
+        nombre: datosExamen.nombreExamen,
+        descripcion: datosExamen.descripcionExamen || "",
+        contrasena: datosExamen.seguridad.contraseña || "",
+
+        necesitaNombreCompleto: datosExamen.camposActivos.some(
+          (c) => c.id === "nombre",
+        ),
+        necesitaCorreoElectrónico: datosExamen.camposActivos.some(
+          (c) => c.id === "correo",
+        ),
+        necesitaCodigoEstudiantil: datosExamen.camposActivos.some(
+          (c) => c.id === "codigoEstudiante",
+        ),
+
+        incluirHerramientaDibujo:
+          datosExamen.herramientasActivas.includes("dibujo"),
+        incluirCalculadoraCientifica:
+          datosExamen.herramientasActivas.includes("calculadora"),
+        incluirHojaExcel: datosExamen.herramientasActivas.includes("excel"),
+        incluirJavascript:
+          datosExamen.herramientasActivas.includes("javascript"),
+        incluirPython: datosExamen.herramientasActivas.includes("python"),
+        incluirJava: datosExamen.herramientasActivas.includes("java"),
+
+        horaApertura: datosExamen.fechaInicio
+          ? new Date(datosExamen.fechaInicio).toISOString()
+          : null,
+        horaCierre: datosExamen.fechaCierre
+          ? new Date(datosExamen.fechaCierre).toISOString()
+          : null,
+        limiteTiempo: datosExamen.limiteTiempo?.valor || null,
+        limiteTiempoCumplido: datosExamen.limiteTiempo?.valor
+          ? mapearTiempoAgotado(datosExamen.opcionTiempoAgotado)
+          : null,
+
+        necesitaContrasena: !!datosExamen.seguridad.contraseña,
+        consecuencia: mapearConsecuencia(
+          datosExamen.seguridad.consecuenciaAbandono,
+        ),
+
+        questions: preguntasMapeadas,
+      };
+
+      const formData = new FormData();
+      formData.append("data", JSON.stringify(examData));
+
+      // Solo adjuntar PDF si se seleccionó uno nuevo
+      if (datosExamen.tipoPregunta === "pdf" && datosExamen.archivoPDF) {
+        formData.append("examPDF", datosExamen.archivoPDF);
+      }
+
+      if (imagenesMap.size > 0) {
+        imagenesMap.forEach((file, key) => {
+          formData.append(key, file);
+        });
+      }
+
+      const response = await examsApi.put(`/${examId}`, formData, {
+        withCredentials: true,
+      });
+
+      return {
+        success: true,
+        codigoExamen: response.data.examen.codigoExamen,
+        examen: response.data.examen,
+      };
+    } catch (error: any) {
+      console.error("❌ [EXAMS] Error al actualizar examen:", error);
+      return {
+        success: false,
+        codigoExamen: "",
+        error:
+          error.response?.data?.message || "Error al actualizar el examen",
+      };
+    }
+  },
+
+  duplicarExamen: async (examId: number): Promise<ExamenCreado> => {
+    const response = await examsApi.post(`/${examId}/copy`, {}, { withCredentials: true });
+    return response.data.examen;
+  },
+
+  archiveExam: async (examId: number): Promise<void> => {
+    await examsApi.patch(`/${examId}/archive`, {}, { withCredentials: true });
+  },
+
+  unarchiveExam: async (examId: number): Promise<void> => {
+    await examsApi.patch(
+      `/${examId}/status`,
+      { estado: "closed" },
+      { withCredentials: true },
+    );
   },
 };
 

@@ -53,6 +53,8 @@ interface ExamAttempt {
   correo_estudiante: string | null;
   identificacion_estudiante?: string | null;
   estado: string;
+  fecha_inicio: string;
+  fecha_fin?: string | null;
   tiempoTranscurrido: string;
   progreso: number;
   alertas: number;
@@ -91,6 +93,13 @@ export default function VigilanciaExamenesLista({
   const [examenExpandido, setExamenExpandido] = useState<number | null>(null);
   const [loadingExamenes, setLoadingExamenes] = useState(true);
 
+  const calcularTiempoDisplay = (att: ExamAttempt): string => {
+    if (!att.fecha_inicio) return att.tiempoTranscurrido;
+    const end = att.fecha_fin ? new Date(att.fecha_fin) : new Date();
+    const minutes = Math.floor(Math.max(0, end.getTime() - new Date(att.fecha_inicio).getTime()) / 60000);
+    return `${minutes} min`;
+  };
+
   // Estados
   const [examAttempts, setExamAttempts] = useState<{ [key: number]: ExamAttempt[] }>({});
   const [estudianteSeleccionado, setEstudianteSeleccionado] = useState<ExamAttempt | null>(null);
@@ -110,9 +119,22 @@ export default function VigilanciaExamenesLista({
   const mostrarModal = (tipo: "exito" | "error" | "advertencia" | "info" | "confirmar", titulo: string, mensaje: string, onConfirmar: () => void, onCancelar?: () => void) => setModal({ visible: true, tipo, titulo, mensaje, onConfirmar, onCancelar });
   const cerrarModal = () => setModal(prev => ({ ...prev, visible: false }));
 
-  // Refs para evitar stale closures en callbacks del WebSocket
+  // Refs para evitar stale closures en callbacks del WebSocket y timers
   const estudianteSeleccionadoRef = useRef<ExamAttempt | null>(null);
   useEffect(() => { estudianteSeleccionadoRef.current = estudianteSeleccionado; }, [estudianteSeleccionado]);
+
+  const examenActualRef = useRef<Examen | null>(null);
+  useEffect(() => { examenActualRef.current = examenActual; }, [examenActual]);
+
+  // Polling cada 60 segundos para actualizar tiempos y datos en vivo
+  useEffect(() => {
+    if (!examenActual) return;
+    const interval = setInterval(() => {
+      const examId = examenActualRef.current?.id;
+      if (examId) cargarIntentosExamen(examId, true);
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [examenActual?.id]);
 
   // ============================================
   // CARGAR DATOS
@@ -127,8 +149,9 @@ export default function VigilanciaExamenesLista({
         calificacion: i.notaFinal != null ? i.notaFinal : i.calificacion,
       }));
       setExamAttempts((prev) => ({ ...prev, [examenId]: intentosMapped }));
-      if (estudianteSeleccionado) {
-        const est = intentosMapped.find((i: ExamAttempt) => i.id === estudianteSeleccionado.id);
+      const seleccionado = estudianteSeleccionadoRef.current;
+      if (seleccionado) {
+        const est = intentosMapped.find((i: ExamAttempt) => i.id === seleccionado.id);
         if (est) setEstudianteSeleccionado(est);
       }
       if (!silencioso) console.log("🔄 Datos sincronizados");
@@ -205,7 +228,9 @@ export default function VigilanciaExamenesLista({
         nombre_estudiante: data.estudiante?.nombre || "Sin nombre",
         correo_estudiante: data.estudiante?.correo || null,
         identificacion_estudiante: data.estudiante?.identificacion || null,
-        estado: "active",
+        estado: "activo",
+        fecha_inicio: data.fecha_inicio || new Date().toISOString(),
+        fecha_fin: null,
         tiempoTranscurrido: "0 min",
         progreso: 0,
         alertas: 0,
@@ -290,32 +315,34 @@ export default function VigilanciaExamenesLista({
     // Alerta de fraude con consecuencia
     newSocket.on("fraud_alert", (data: { attemptId: number; blocked: boolean; estudiante: any }) => {
       if (data.blocked) {
+        const fechaBloqueo = new Date().toISOString();
         setExamAttempts((prev) => {
           const intentos = prev[examId] || [];
           const nuevos = intentos.map((att) =>
-            att.id === data.attemptId ? { ...att, estado: "blocked" } : att
+            att.id === data.attemptId ? { ...att, estado: "blocked", fecha_fin: fechaBloqueo } : att
           );
           return { ...prev, [examId]: nuevos };
         });
 
         if (estudianteSeleccionadoRef.current?.id === data.attemptId) {
-          setEstudianteSeleccionado((prev) => prev ? { ...prev, estado: "blocked" } : null);
+          setEstudianteSeleccionado((prev) => prev ? { ...prev, estado: "blocked", fecha_fin: fechaBloqueo } : null);
         }
       }
     });
 
     // Intento bloqueado
     newSocket.on("attempt_blocked_notification", (data: { attemptId: number; estudiante: any }) => {
+      const fechaBloqueo = new Date().toISOString();
       setExamAttempts((prev) => {
         const intentos = prev[examId] || [];
         const nuevos = intentos.map((att) =>
-          att.id === data.attemptId ? { ...att, estado: "blocked" } : att
+          att.id === data.attemptId ? { ...att, estado: "blocked", fecha_fin: fechaBloqueo } : att
         );
         return { ...prev, [examId]: nuevos };
       });
 
       if (estudianteSeleccionadoRef.current?.id === data.attemptId) {
-        setEstudianteSeleccionado((prev) => prev ? { ...prev, estado: "blocked" } : null);
+        setEstudianteSeleccionado((prev) => prev ? { ...prev, estado: "blocked", fecha_fin: fechaBloqueo } : null);
       }
     });
 
@@ -334,18 +361,80 @@ export default function VigilanciaExamenesLista({
       }
     });
 
-    // Intento desbloqueado
-    newSocket.on("attempt_unlocked_notification", (data: { attemptId: number; estudiante: any }) => {
+    // Alertas eliminadas
+    newSocket.on("events_deleted", (data: { attemptId: number; deletedCount: number }) => {
       setExamAttempts((prev) => {
         const intentos = prev[examId] || [];
         const nuevos = intentos.map((att) =>
-          att.id === data.attemptId ? { ...att, estado: "active" } : att
+          att.id === data.attemptId ? { ...att, alertas: 0, alertasNoLeidas: 0 } : att
         );
         return { ...prev, [examId]: nuevos };
       });
 
       if (estudianteSeleccionadoRef.current?.id === data.attemptId) {
-        setEstudianteSeleccionado((prev) => prev ? { ...prev, estado: "active" } : null);
+        setEstudianteSeleccionado((prev) => prev ? { ...prev, alertas: 0, alertasNoLeidas: 0 } : null);
+        setAlertasEstudiante([]);
+      }
+    });
+
+    // Intento desbloqueado
+    newSocket.on("attempt_unlocked_notification", (data: { attemptId: number; estudiante: any }) => {
+      setExamAttempts((prev) => {
+        const intentos = prev[examId] || [];
+        const nuevos = intentos.map((att) =>
+          att.id === data.attemptId ? { ...att, estado: "activo", fecha_fin: null } : att
+        );
+        return { ...prev, [examId]: nuevos };
+      });
+
+      if (estudianteSeleccionadoRef.current?.id === data.attemptId) {
+        setEstudianteSeleccionado((prev) => prev ? { ...prev, estado: "activo", fecha_fin: null } : null);
+      }
+    });
+
+    // Intento individual cerrado forzosamente
+    newSocket.on("single_attempt_forced_finish", (data: { intentoId: number; notaFinal?: number | null; calificacionPendiente?: boolean }) => {
+      const calificacion = data.notaFinal != null ? data.notaFinal : undefined;
+      setExamAttempts((prev) => {
+        const intentos = prev[examId] || [];
+        const nuevos = intentos.map((att) =>
+          att.id === data.intentoId
+            ? { ...att, estado: "finished", calificacion, calificacionPendiente: data.calificacionPendiente }
+            : att
+        );
+        return { ...prev, [examId]: nuevos };
+      });
+
+      if (estudianteSeleccionadoRef.current?.id === data.intentoId) {
+        setEstudianteSeleccionado((prev) =>
+          prev ? { ...prev, estado: "finished", calificacion, calificacionPendiente: data.calificacionPendiente } : null
+        );
+      }
+    });
+
+    // Todos los intentos finalizados forzosamente (forzar envío masivo)
+    newSocket.on("forced_finish_completed", (data: { totalFinalizados: number; detalles: Array<{ intentoId: number; notaFinal?: number | null; calificacionPendiente?: boolean; error?: string }> }) => {
+      const fechaFin = new Date().toISOString();
+      setExamAttempts((prev) => {
+        const intentos = prev[examId] || [];
+        const nuevos = intentos.map((att) => {
+          const detalle = data.detalles.find((d) => d.intentoId === att.id);
+          if (!detalle || detalle.error) return att;
+          const calificacion = detalle.notaFinal != null ? detalle.notaFinal : att.calificacion;
+          return { ...att, estado: "finished", calificacion, calificacionPendiente: detalle.calificacionPendiente, fecha_fin: att.fecha_fin || fechaFin };
+        });
+        return { ...prev, [examId]: nuevos };
+      });
+
+      const seleccionado = estudianteSeleccionadoRef.current;
+      if (seleccionado) {
+        const detalle = data.detalles.find((d) => d.intentoId === seleccionado.id);
+        if (detalle && !detalle.error) {
+          const calificacion = detalle.notaFinal != null ? detalle.notaFinal : seleccionado.calificacion;
+          setEstudianteSeleccionado((prev) =>
+            prev ? { ...prev, estado: "finished", calificacion, calificacionPendiente: detalle.calificacionPendiente, fecha_fin: prev.fecha_fin || fechaFin } : null
+          );
+        }
       }
     });
 
@@ -400,68 +489,81 @@ export default function VigilanciaExamenesLista({
     await cargarAlertasEstudiante(estudiante.id);
   };
 
+  const handleCerrarIntento = (attemptId: number) => {
+    mostrarModal(
+      "advertencia",
+      "Cerrar intento",
+      "¿Finalizar el examen de este estudiante? Se calificará automáticamente.",
+      async () => {
+        cerrarModal();
+        try {
+          await examsAttemptsService.forceFinishAttempt(attemptId);
+          mostrarModal("exito", "Intento cerrado", "El examen del estudiante ha sido finalizado.", cerrarModal);
+        } catch (e: any) {
+          mostrarModal("error", "Error", e?.response?.data?.message || "No se pudo cerrar el intento.", cerrarModal);
+        }
+      },
+      cerrarModal,
+    );
+  };
+
   const handleRestablecerAcceso = (attemptId: number) => {
     mostrarModal("confirmar", "Restablecer acceso", "¿Restablecer el acceso de este estudiante?", async () => {
       cerrarModal();
-      try { await examsAttemptsService.unlockAttempt(attemptId); } catch (e) { console.error(e); }
+      try {
+        await examsAttemptsService.unlockAttempt(attemptId);
+        mostrarModal("exito", "Acceso restablecido", "El estudiante ya puede continuar su examen.", cerrarModal);
+      } catch (e: any) {
+        console.error(e);
+        mostrarModal("error", "Error", e?.response?.data?.message || "No se pudo desbloquear el intento.", cerrarModal);
+      }
     }, cerrarModal);
   };
 
-  const handleMarcarAlertasComoLeidas = async (attemptId: number) => {
-    try {
-      await examsAttemptsService.markEventsAsRead(attemptId);
-      
-      // Limpiar las alertas del estado local
-      setAlertasEstudiante([]);
-      
-      // Actualizar el estado de los exámenes
-      setExamAttempts(prev => {
-         if(!examenActual) return prev;
-         return { ...prev, [examenActual.id]: prev[examenActual.id].map(i => i.id === attemptId ? {...i, alertasNoLeidas: 0} : i) };
-      });
-      
-      // Actualizar el estudiante seleccionado
-      if(estudianteSeleccionado?.id === attemptId) {
-        setEstudianteSeleccionado(prev => prev ? {...prev, alertasNoLeidas: 0} : null);
+  const handleLimpiarAlertas = (attemptId: number) => {
+    mostrarModal("confirmar", "Limpiar alertas", "¿Eliminar todos los registros de actividad de este estudiante? Esta acción no se puede deshacer.", async () => {
+      cerrarModal();
+      try {
+        await examsAttemptsService.deleteAttemptEvents(attemptId);
+        setAlertasEstudiante([]);
+        setExamAttempts(prev => {
+          if (!examenActual) return prev;
+          return { ...prev, [examenActual.id]: prev[examenActual.id].map(i => i.id === attemptId ? { ...i, alertas: 0, alertasNoLeidas: 0 } : i) };
+        });
+        if (estudianteSeleccionado?.id === attemptId) {
+          setEstudianteSeleccionado(prev => prev ? { ...prev, alertas: 0, alertasNoLeidas: 0 } : null);
+        }
+      } catch (e: any) {
+        mostrarModal("error", "Error", e?.response?.data?.message || "No se pudieron eliminar las alertas.", cerrarModal);
       }
-    } catch (e) { console.error(e); }
+    }, cerrarModal);
   };
 
   const handleEliminarIntento = (attemptId: number) => {
     mostrarModal("confirmar", "Eliminar intento", "¿Estás seguro de que deseas eliminar este intento? Esta acción no se puede deshacer.", async () => {
       cerrarModal();
       try {
-        console.log("Eliminando intento", attemptId);
+        await examsAttemptsService.deleteAttempt(attemptId);
         if (estudianteSeleccionado?.id === attemptId) {
           setEstudianteSeleccionado(null);
           sessionStorage.removeItem("vigilancia_estudianteId");
         }
         setExamAttempts(prev => {
-           if(!examenActual) return prev;
-           return { ...prev, [examenActual.id]: prev[examenActual.id].filter(i => i.id !== attemptId) };
+          if (!examenActual) return prev;
+          return { ...prev, [examenActual.id]: prev[examenActual.id].filter(i => i.id !== attemptId) };
         });
-      } catch (e) { console.error(e); }
+      } catch (e: any) {
+        mostrarModal("error", "Error", e?.response?.data?.message || "No se pudo eliminar el intento.", cerrarModal);
+      }
     }, cerrarModal);
   };
 
   const handleForzarEnvio = () => {
     if (!examenActual) return;
-    mostrarModal("confirmar", "Forzar envío", "¿Estás seguro de forzar el envío de todos los estudiantes activos? Esta acción finalizará todos los intentos en curso.", async () => {
+    mostrarModal("confirmar", "Forzar envío", "¿Finalizar el examen para todos los estudiantes que aún no han enviado? Se calificarán automáticamente.", async () => {
       cerrarModal();
       try {
         const resultado = await examsAttemptsService.forceFinishExam(examenActual.id);
-        setExamAttempts(prev => {
-          const intentos = prev[examenActual.id] || [];
-          const actualizados = intentos.map(att =>
-            ["active", "activo", "blocked", "bloqueado"].includes(att.estado.toLowerCase())
-              ? { ...att, estado: "submitted" }
-              : att
-          );
-          return { ...prev, [examenActual.id]: actualizados };
-        });
-        if (estudianteSeleccionado && ["active", "activo", "blocked", "bloqueado"].includes(estudianteSeleccionado.estado.toLowerCase())) {
-          setEstudianteSeleccionado(prev => prev ? { ...prev, estado: "submitted" } : null);
-        }
         mostrarModal("exito", "Envío forzado", `${resultado.finalizados} intento(s) finalizado(s) exitosamente.`, cerrarModal);
       } catch (error) {
         console.error("Error al forzar envío:", error);
@@ -486,7 +588,20 @@ export default function VigilanciaExamenesLista({
       }
       setMostrarOpcionesPostCalificacion(true);
   };
-  const handleDescargarPDF = async () => console.log("Descargando PDF...");
+  const handleDescargarNotas = async () => {
+    if (!examenActual) return;
+    try {
+      const blob = await examsAttemptsService.downloadGrades(examenActual.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `notas_${examenActual.nombre}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Error descargando notas:", e);
+    }
+  };
   const handleEnviarNotas = async () => console.log("Enviando notas...");
 
   const toggleEstadoExamen = async (id: number, estadoActual: string) => {
@@ -602,8 +717,8 @@ export default function VigilanciaExamenesLista({
         if (criterioOrden === "za") return b.nombre_estudiante.localeCompare(a.nombre_estudiante);
         if (criterioOrden === "duracion") {
             // Asumiendo formato "X min"
-            const tiempoA = parseInt(a.tiempoTranscurrido) || 0;
-            const tiempoB = parseInt(b.tiempoTranscurrido) || 0;
+            const tiempoA = parseInt(calcularTiempoDisplay(a)) || 0;
+            const tiempoB = parseInt(calcularTiempoDisplay(b)) || 0;
             return tiempoB - tiempoA; // Mayor duración primero
         }
         if (criterioOrden === "nota") {
@@ -820,8 +935,8 @@ export default function VigilanciaExamenesLista({
                                     
                                     {mostrarOpcionesPostCalificacion && (
                                         <>
-                                            <button 
-                                                onClick={handleDescargarPDF}
+                                            <button
+                                                onClick={handleDescargarNotas}
                                                 className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-2 transition-all ${darkMode ? "bg-slate-800 border-slate-700 hover:border-rose-500 text-slate-200" : "bg-white border-slate-200 hover:border-rose-500 text-slate-700"}`}
                                             >
                                                 <Download className="w-3.5 h-3.5 text-rose-500" />
@@ -958,7 +1073,7 @@ export default function VigilanciaExamenesLista({
                                          )}
                                       </div>
                                       <div className={`flex items-center gap-4 text-xs font-mono ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
-                                         <span className="flex items-center gap-1"><Clock className="w-3 h-3"/> {estudiante.tiempoTranscurrido}</span>
+                                         <span className="flex items-center gap-1"><Clock className="w-3 h-3"/> {calcularTiempoDisplay(estudiante)}</span>
                                          {displaySecondary && (
                                             <>
                                                 <span>•</span>
@@ -1024,10 +1139,10 @@ export default function VigilanciaExamenesLista({
                     <div className="flex gap-2">
                          {examenActual.estado === "open" ? (
                            <>
-                             <button onClick={() => handleMarcarAlertasComoLeidas(estudianteSeleccionado.id)} className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-2 transition-all ${darkMode ? "border-slate-700 hover:bg-slate-800 text-slate-300" : "bg-slate-800 border-slate-700 hover:bg-slate-700 text-white"}`}>
+                             <button onClick={() => handleLimpiarAlertas(estudianteSeleccionado.id)} className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-2 transition-all ${darkMode ? "border-slate-700 hover:bg-slate-800 text-slate-300" : "bg-slate-800 border-slate-700 hover:bg-slate-700 text-white"}`}>
                                 <CheckCircle className="w-3.5 h-3.5" /> Limpiar Alertas
                              </button>
-                             <button onClick={() => console.log("Cerrar examen")} className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-2 transition-all ${darkMode ? "border-slate-700 hover:bg-rose-900/20 text-rose-400" : "bg-rose-600 border-rose-600 hover:bg-rose-700 text-white"}`}>
+                             <button onClick={() => handleCerrarIntento(estudianteSeleccionado.id)} className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-2 transition-all ${darkMode ? "border-slate-700 hover:bg-rose-900/20 text-rose-400" : "bg-rose-600 border-rose-600 hover:bg-rose-700 text-white"}`}>
                                 <Ban className="w-3.5 h-3.5" /> Cerrar Examen
                              </button>
                              <button onClick={() => handleRestablecerAcceso(estudianteSeleccionado.id)} className="px-4 py-2 rounded-lg text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-500/20 transition-all flex items-center gap-2">
@@ -1098,7 +1213,7 @@ export default function VigilanciaExamenesLista({
                             <div className="flex items-center gap-2 mt-1">
                                 <Clock className={`w-5 h-5 ${darkMode ? "text-blue-500" : "text-blue-600"}`} />
                                 <span className={`text-xl font-mono font-bold tracking-tight ${darkMode ? "text-white" : "text-slate-800"}`}>
-                                    {estudianteSeleccionado.tiempoTranscurrido}
+                                    {calcularTiempoDisplay(estudianteSeleccionado)}
                                 </span>
                             </div>
                         </div>

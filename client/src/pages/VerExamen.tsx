@@ -1,7 +1,9 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, FileText, ExternalLink } from "lucide-react";
 import ExamPanel from "./ExamenPreguntas";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { examsApi } from "../services/examsApi";
+import { obtenerUsuarioActual } from "../services/examsService";
 
 interface VerExamenProps {
   darkMode: boolean;
@@ -11,25 +13,41 @@ export default function VerExamen({ darkMode }: VerExamenProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [answers, setAnswers] = useState<Record<number, any>>({});
+  const [examenCompleto, setExamenCompleto] = useState<any>(null);
+  const [cargando, setCargando] = useState(false);
 
-  // Recuperamos el examen pasado por el estado de navegación
+  // Examen básico pasado por navegación (puede tener pares sin cargar)
   const examenOriginal = location.state?.examen;
 
+  // Fetch del examen completo con todas las relaciones (pares, options, etc.)
+  useEffect(() => {
+    if (!examenOriginal?.id) return;
+    setCargando(true);
+    examsApi
+      .get(`/by-id/${examenOriginal.id}`, { withCredentials: true })
+      .then((res) => setExamenCompleto(res.data))
+      .catch(() => setExamenCompleto(null))
+      .finally(() => setCargando(false));
+  }, [examenOriginal?.id]);
+
+  // Usar el examen completo si ya cargó, sino el original del state
+  const examenEfectivo = examenCompleto ?? examenOriginal;
+
   // Detectar si es un examen PDF
-  const isPdf = Boolean(examenOriginal?.archivoPDF);
+  const isPdf = Boolean(examenEfectivo?.archivoPDF);
   const pdfUrl = useMemo(() => {
-    if (!isPdf || !examenOriginal.archivoPDF) return null;
+    if (!isPdf || !examenEfectivo?.archivoPDF) return null;
     const examsUrl = import.meta.env.VITE_EXAMS_BASE || "http://localhost:3001";
-    if (examenOriginal.archivoPDF.startsWith("http")) {
-      return `${examsUrl}/api/pdfs/proxy?url=${encodeURIComponent(examenOriginal.archivoPDF)}`;
+    if (examenEfectivo.archivoPDF.startsWith("http")) {
+      return `${examsUrl}/api/pdfs/proxy?url=${encodeURIComponent(examenEfectivo.archivoPDF)}`;
     }
-    return `${examsUrl}/api/pdfs/${examenOriginal.archivoPDF}`;
-  }, [examenOriginal, isPdf]);
+    return `${examsUrl}/api/pdfs/${examenEfectivo.archivoPDF}`;
+  }, [examenEfectivo, isPdf]);
 
   // Transformar datos del formato de edición al formato de visualización (ExamPanel)
   const examData = useMemo(() => {
     // Si no hay examen real, usamos un objeto base para mostrar solo los ejemplos
-    const baseExamen = examenOriginal || {
+    const baseExamen = examenEfectivo || {
       nombre: "Vista Previa de Examen",
       descripcionExamen: "Este es un ejemplo de cómo se verá el examen.",
       questions: [],
@@ -38,116 +56,87 @@ export default function VerExamen({ darkMode }: VerExamenProps) {
     // 1. Mapear preguntas existentes del examen real
     const mappedQuestions = (baseExamen.questions || []).map(
       (p: any, index: number) => {
-        let type: "open" | "test" | "fill_blanks" | "match" = "open";
-        let textoCorrecto = undefined;
-        let pares = undefined;
+        // Detectar formato: backend usa p.type (inglés), creación usa p.tipo (español)
+        const isBackendFormat = p.type !== undefined;
 
-        // Mapeo de tipos de 'CrearPreguntas' a 'ExamenPreguntas'
-        if (p.tipo === "seleccion-multiple") type = "test";
-        else if (p.tipo === "rellenar-espacios") {
-          type = "fill_blanks";
-          // Generar texto con huecos visuales (___) basado en las palabras seleccionadas
-          if (p.textoCompleto) {
-            const palabras = p.textoCompleto.split(/\s+/);
-            textoCorrecto = palabras
-              .map((palabra: string, idx: number) => {
-                const seleccionada = p.palabrasSeleccionadas?.find(
-                  (ps: any) => ps.indice === idx,
-                );
-                return seleccionada ? "___" : palabra;
-              })
-              .join(" ");
-          }
-        } else if (p.tipo === "conectar") {
-          type = "match";
-          pares = p.paresConexion?.map((par: any, idx: number) => ({
+        let type: "open" | "test" | "fill_blanks" | "match" = "open";
+
+        if (isBackendFormat) {
+          // Formato backend: type ya es el valor correcto ("test","fill_blanks","match","open")
+          type = p.type;
+        } else {
+          // Formato creación: mapear tipo español al tipo inglés
+          if (p.tipo === "seleccion-multiple") type = "test";
+          else if (p.tipo === "rellenar-espacios") type = "fill_blanks";
+          else if (p.tipo === "conectar") type = "match";
+          else if (p.tipo === "abierta") type = "open";
+        }
+
+        // textoCorrecto: backend lo tiene como campo directo; creación lo construye
+        let textoCorrecto: string | undefined;
+        if (isBackendFormat) {
+          textoCorrecto = p.textoCorrecto;
+        } else if (p.textoCompleto) {
+          const palabras = p.textoCompleto.split(/\s+/);
+          textoCorrecto = palabras
+            .map((palabra: string, idx: number) => {
+              const seleccionada = p.palabrasSeleccionadas?.find(
+                (ps: any) => ps.indice === idx,
+              );
+              return seleccionada ? "___" : palabra;
+            })
+            .join(" ");
+        }
+
+        // pares: backend tiene { itemA: { id, text }, itemB: { id, text } }
+        // creación tiene paresConexion[].izquierda / .derecha
+        let pares: any[] | undefined;
+        if (isBackendFormat && p.pares?.length) {
+          pares = p.pares;
+        } else if (p.paresConexion?.length) {
+          pares = p.paresConexion.map((par: any, idx: number) => ({
             id: idx,
             itemA: { id: idx, text: par.izquierda },
             itemB: { id: idx, text: par.derecha },
           }));
-        } else if (p.tipo === "abierta") type = "open";
+        }
+
+        // options: backend usa p.options[].texto; creación usa p.opciones[].texto
+        const rawOptions = isBackendFormat ? p.options : p.opciones;
+        const options = rawOptions?.map((op: any) => ({
+          id: parseInt(op.id) || Math.random(),
+          texto: op.texto,
+        }));
 
         return {
-          id: parseInt(p.id) || index + 1000, // Asegurar ID numérico
-          enunciado: p.titulo || "Pregunta sin título",
-          puntaje: p.puntos || 1,
-          nombreImagen: p.imagen,
+          id: parseInt(p.id) || index + 1000,
+          enunciado: isBackendFormat ? p.enunciado : (p.titulo || "Pregunta sin título"),
+          puntaje: isBackendFormat ? p.puntaje : (p.puntos || 1),
+          nombreImagen: p.nombreImagen || p.imagen,
           type,
-          options: p.opciones?.map((op: any) => ({
-            id: parseInt(op.id) || Math.random(),
-            texto: op.texto,
-          })),
+          options,
           textoCorrecto,
           pares,
         };
       },
     );
 
-    // 2. Agregar Datos Dummy (1 de cada tipo) para visualización
-    const dummyQuestions = [
-      {
-        id: 9001,
-        enunciado:
-          "Ejemplo: Pregunta de Selección Múltiple. ¿Cuál es la capital de Francia?",
-        puntaje: 5,
-        type: "test" as const,
-        options: [
-          { id: 1, texto: "Madrid" },
-          { id: 2, texto: "París" },
-          { id: 3, texto: "Londres" },
-          { id: 4, texto: "Berlín" },
-        ],
-      },
-      {
-        id: 9002,
-        enunciado: "Ejemplo: Rellenar Espacios. Completa la frase célebre.",
-        puntaje: 10,
-        type: "fill_blanks" as const,
-        textoCorrecto: "Pienso, luego ___ .",
-      },
-      {
-        id: 9003,
-        enunciado:
-          "Ejemplo: Conectar columnas. Relaciona el animal con su sonido.",
-        puntaje: 8,
-        type: "match" as const,
-        pares: [
-          {
-            id: 1,
-            itemA: { id: 1, text: "Perro" },
-            itemB: { id: 1, text: "Ladra" },
-          },
-          {
-            id: 2,
-            itemA: { id: 2, text: "Gato" },
-            itemB: { id: 2, text: "Maulla" },
-          },
-          {
-            id: 3,
-            itemA: { id: 3, text: "Vaca" },
-            itemB: { id: 3, text: "Muge" },
-          },
-        ],
-      },
-      {
-        id: 9004,
-        enunciado:
-          "Ejemplo: Pregunta Abierta. Explique brevemente el ciclo del agua.",
-        puntaje: 15,
-        type: "open" as const,
-      },
-    ];
+    const usuario = obtenerUsuarioActual();
+    const nombreProfesor = usuario
+      ? `${usuario.nombre} ${usuario.apellido}`.trim()
+      : "Docente";
 
     return {
       nombre: baseExamen.nombre,
-      nombreProfesor: "Vista Previa Docente",
-      limiteTiempo: baseExamen.limiteTiempo?.valor || 60,
+      nombreProfesor,
+      limiteTiempo: baseExamen.limiteTiempo ?? baseExamen.limiteTiempo?.valor ?? null,
       descripcion:
+        baseExamen.descripcion ||
         baseExamen.descripcionExamen ||
-        "Esta es una vista previa del examen tal como lo verán los estudiantes.",
-      questions: [...mappedQuestions, ...dummyQuestions],
+        "",
+      questions: mappedQuestions,
     };
-  }, [examenOriginal]);
+  }, [examenEfectivo]);
 
   const handleAnswerChange = (preguntaId: number, respuesta: any) => {
     setAnswers((prev) => ({
@@ -237,6 +226,11 @@ export default function VerExamen({ darkMode }: VerExamenProps) {
           >
             Vista Previa: {examData.nombre}
           </h1>
+          {cargando && (
+            <p className={`text-xs ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+              Cargando preguntas completas...
+            </p>
+          )}
         </div>
       </div>
 
