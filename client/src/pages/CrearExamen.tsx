@@ -18,7 +18,87 @@ import VisorPDF from "../components/VisorPDF";
 import CrearPreguntas, { type Pregunta } from "../components/CrearPreguntas";
 import ModalExamenCreado from "../components/ModalExamenCreado";
 import { examsService, obtenerUsuarioActual } from "../services/examsService";
+import { examsApi } from "../services/examsApi";
 import ModalConfirmacion from "../components/ModalConfirmacion";
+
+// Convierte una pregunta del formato backend al formato Pregunta del editor
+function mapearPreguntaBackendAFrontend(p: any): any {
+  const tipoMap: Record<string, string> = {
+    test: "seleccion-multiple",
+    open: "abierta",
+    fill_blanks: "rellenar-espacios",
+    match: "conectar",
+  };
+
+  const base = {
+    id: String(p.id),
+    tipo: tipoMap[p.type] || "abierta",
+    titulo: p.enunciado || "",
+    puntos: p.puntaje || 1,
+    calificacionParcial: p.calificacionParcial || false,
+    imagen: (p.nombreImagen || null) as string | null,
+  };
+
+  switch (p.type) {
+    case "test":
+      return {
+        ...base,
+        opciones: (p.options || []).map((o: any) => ({
+          id: String(o.id),
+          texto: o.texto,
+          esCorrecta: o.esCorrecta,
+        })),
+      };
+
+    case "open":
+      return {
+        ...base,
+        metodoEvaluacion: p.textoRespuesta
+          ? "texto-exacto"
+          : p.keywords?.length
+            ? "palabras-clave"
+            : "manual",
+        textoExacto: p.textoRespuesta || "",
+        palabrasClave: (p.keywords || []).map((k: any) => k.texto),
+      };
+
+    case "fill_blanks": {
+      // Reconstruir textoCompleto y palabrasSeleccionadas desde textoCorrecto y respuestas
+      const words: string[] = (p.textoCorrecto || "").split(/\s+/);
+      const answers = [...(p.respuestas || [])].sort(
+        (a: any, b: any) => a.posicion - b.posicion,
+      );
+      let answerIdx = 0;
+      const palabrasSeleccionadas: { indice: number; palabra: string }[] = [];
+      const fullWords = words.map((w: string, idx: number) => {
+        if (w === "___" && answerIdx < answers.length) {
+          const answer = answers[answerIdx++];
+          palabrasSeleccionadas.push({ indice: idx, palabra: answer.textoCorrecto });
+          return answer.textoCorrecto;
+        }
+        return w;
+      });
+      return {
+        ...base,
+        textoCompleto: fullWords.join(" "),
+        palabrasSeleccionadas,
+      };
+    }
+
+    case "match":
+      return {
+        ...base,
+        paresConexion: (p.pares || []).map((par: any, idx: number) => ({
+          id: String(par.id ?? idx),
+          izquierda: par.itemA?.text || "",
+          derecha: par.itemB?.text || "",
+        })),
+      };
+
+    default:
+      return base;
+  }
+}
 
 interface CrearExamenProps {
   darkMode: boolean;
@@ -145,82 +225,94 @@ export default function CrearExamen({
 
   // Efecto para cargar datos si estamos en modo edición
   useEffect(() => {
-    if (examenAEditar) {
-      console.log("📝 Cargando datos para edición:", examenAEditar);
-      
-      setNombreExamen(examenAEditar.nombre || "");
-      setDescripcionExamen(examenAEditar.descripcionExamen || "");
-      
-      // Configurar tipo y contenido
-      if (examenAEditar.archivoPDF) {
-        setTipoPregunta("pdf");
-        setPdfExistente(examenAEditar.archivoPDF);
-      } else if (examenAEditar.questions && examenAEditar.questions.length > 0) {
-        setTipoPregunta("automatico");
-        // Mapear preguntas asegurando tipos compatibles
-        const preguntasMapeadas = examenAEditar.questions.map((p: any) => ({
-          ...p,
-          id: String(p.id), // Asegurar ID string para el editor
-          opciones: p.opciones?.map((o: any) => ({...o, id: String(o.id)})) || [],
-          paresConexion: p.paresConexion?.map((pc: any) => ({...pc, id: String(pc.id)})) || []
-        }));
-        setPreguntasAutomaticas(preguntasMapeadas);
-        setPreguntasAutomaticasTemp(preguntasMapeadas);
-        setTienePreguntasAutomaticas(true);
-        setPreguntasValidas(true); // Asumimos que un examen guardado es válido
-      }
+    if (!examenAEditar?.id) return;
 
-      // Fechas
-      if (examenAEditar.fechaInicio) {
-        setFechaInicioHabilitada(true);
-        setFechaInicio(new Date(examenAEditar.fechaInicio).toISOString().slice(0, 16));
-      }
-      if (examenAEditar.fechaCierre) {
-        setFechaCierreHabilitada(true);
-        setFechaCierre(new Date(examenAEditar.fechaCierre).toISOString().slice(0, 16));
-      }
+    examsApi
+      .get(`/by-id/${examenAEditar.id}`, { withCredentials: true })
+      .then((res) => {
+        const ex = res.data;
+        console.log("📝 Cargando datos para edición:", ex);
 
-      // Tiempo
-      if (examenAEditar.limiteTiempo) {
-        setLimiteHabilitado(true);
-        setLimiteTiempo(examenAEditar.limiteTiempo.valor);
-        setOpcionTiempoAgotado(examenAEditar.opcionTiempoAgotado || "envio-automatico");
-      }
+        // Campos básicos
+        setNombreExamen(ex.nombre || "");
+        setDescripcionExamen(ex.descripcion || "");
 
-      // Campos estudiante
-      if (examenAEditar.camposActivos) {
-        setCamposEstudiante(prev => prev.map(c => ({
-          ...c,
-          activo: examenAEditar.camposActivos.some((ca: any) => ca.id === c.id)
-        })));
-      }
-
-      // Herramientas
-      if (examenAEditar.herramientasActivas) {
-        const nuevasHerramientas = { ...herramientasActivas };
-        // Resetear
-        (Object.keys(nuevasHerramientas) as Array<keyof typeof herramientasActivas>).forEach(k => nuevasHerramientas[k] = false);
-        // Activar las que vengan
-        examenAEditar.herramientasActivas.forEach((h: string) => {
-          if (h in nuevasHerramientas) nuevasHerramientas[h as keyof typeof herramientasActivas] = true;
-        });
-        setHerramientasActivas(nuevasHerramientas);
-      }
-
-      // Seguridad
-      if (examenAEditar.seguridad) {
-        setConsecuenciaAbandono(examenAEditar.seguridad.consecuenciaAbandono);
-        if (examenAEditar.seguridad.contraseña) {
-          setContraseñaHabilitada(true);
-          setContraseñaExamen(examenAEditar.seguridad.contraseña);
+        // Tipo de examen y contenido
+        if (ex.archivoPDF) {
+          setTipoPregunta("pdf");
+          setPdfExistente(ex.archivoPDF);
+        } else if (ex.questions && ex.questions.length > 0) {
+          setTipoPregunta("automatico");
+          const preguntasMapeadas = ex.questions.map((p: any) => mapearPreguntaBackendAFrontend(p));
+          setPreguntasAutomaticas(preguntasMapeadas);
+          setPreguntasAutomaticasTemp(preguntasMapeadas);
+          setTienePreguntasAutomaticas(true);
+          setPreguntasValidas(true);
         }
-      }
 
-      // Marcar secciones como visitadas para permitir guardar
-      setSeccion4Visitada(true);
-      setSeccion5Visitada(true);
-    }
-  }, [examenAEditar]);
+        // Fechas
+        if (ex.horaApertura) {
+          setFechaInicioHabilitada(true);
+          setFechaInicio(new Date(ex.horaApertura).toISOString().slice(0, 16));
+        }
+        if (ex.horaCierre) {
+          setFechaCierreHabilitada(true);
+          setFechaCierre(new Date(ex.horaCierre).toISOString().slice(0, 16));
+        }
+
+        // Límite de tiempo
+        if (ex.limiteTiempo) {
+          setLimiteHabilitado(true);
+          setLimiteTiempo(ex.limiteTiempo);
+          setOpcionTiempoAgotado(
+            ex.limiteTiempoCumplido === "descartar" ? "debe-enviarse" : "envio-automatico"
+          );
+        }
+
+        // Campos requeridos del estudiante (booleanos individuales en backend)
+        setCamposEstudiante((prev) =>
+          prev.map((c) => ({
+            ...c,
+            activo:
+              (c.id === "nombre" && ex.necesitaNombreCompleto) ||
+              (c.id === "correo" && ex.necesitaCorreoElectrónico) ||
+              (c.id === "codigoEstudiante" && ex.necesitaCodigoEstudiantil) ||
+              false,
+          }))
+        );
+
+        // Herramientas (booleanos individuales en backend)
+        setHerramientasActivas({
+          dibujo: ex.incluirHerramientaDibujo || false,
+          calculadora: ex.incluirCalculadoraCientifica || false,
+          excel: ex.incluirHojaExcel || false,
+          javascript: ex.incluirJavascript || false,
+          python: ex.incluirPython || false,
+          java: ex.incluirJava || false,
+        });
+
+        // Consecuencia de abandono (backend: "notificar"/"bloquear"/"ninguna")
+        const consecuenciaMap: Record<string, string> = {
+          notificar: "notificar-profesor",
+          bloquear: "desbloqueo-manual",
+          ninguna: "desactivar-proteccion",
+        };
+        setConsecuenciaAbandono(consecuenciaMap[ex.consecuencia] || "");
+
+        // Contraseña
+        if (ex.necesitaContrasena && ex.contrasena) {
+          setContraseñaHabilitada(true);
+          setContraseñaExamen(ex.contrasena);
+        }
+
+        // Marcar secciones como visitadas para habilitar el guardado
+        setSeccion4Visitada(true);
+        setSeccion5Visitada(true);
+      })
+      .catch((err) => {
+        console.error("❌ Error cargando datos del examen para edición:", err);
+      });
+  }, [examenAEditar?.id]);
 
   const obtenerFechaMinima = () => {
     const now = new Date();
@@ -495,9 +587,7 @@ export default function CrearExamen({
       let resultado;
       if (isEditMode) {
         console.log("🔄 [EDITAR EXAMEN] Actualizando examen ID:", examenAEditar.id);
-        // AQUÍ IRÁ LA LLAMADA AL BACKEND PARA ACTUALIZAR
-        // resultado = await examsService.actualizarExamen(examenAEditar.id, datosExamen);
-        resultado = { success: true, codigoExamen: examenAEditar.codigoExamen }; // Simulación
+        resultado = await examsService.actualizarExamen(examenAEditar.id, datosExamen as any);
       } else {
         resultado = await examsService.crearExamen(datosExamen as any, usuario.id);
       }

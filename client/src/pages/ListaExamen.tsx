@@ -26,6 +26,7 @@ import {
   obtenerUsuarioActual,
   type ExamenCreado,
 } from "../services/examsService";
+import { examsAttemptsService } from "../services/examsAttempts";
 import ModalConfirmacion from "../components/ModalConfirmacion";
 
 interface ListaExamenesProps {
@@ -88,7 +89,7 @@ export default function ListaExamenes({
       const examenesConEstado = data.map((ex) => ({
         ...ex,
         activoManual: ex.estado === "open",
-        archivado: false,
+        archivado: ex.estado === "archivado",
       }));
 
       setExamenes(examenesConEstado);
@@ -164,15 +165,20 @@ export default function ListaExamenes({
   };
 
   const archivarExamen = (examen: ExamenConEstado) => {
-    const confirmarArchivo = () => {
-      setExamenes((prev) =>
-        prev.map((ex) =>
-          ex.codigoExamen === examen.codigoExamen
-            ? { ...ex, archivado: true, activoManual: false, estado: "closed" }
-            : ex,
-        ),
-      );
+    const confirmarArchivo = async () => {
       cerrarModal();
+      try {
+        await examsService.archiveExam(examen.id);
+        setExamenes((prev) =>
+          prev.map((ex) =>
+            ex.codigoExamen === examen.codigoExamen
+              ? { ...ex, archivado: true, activoManual: false, estado: "closed" }
+              : ex,
+          ),
+        );
+      } catch {
+        mostrarModal("advertencia", "Error", "No se pudo archivar el examen. Intenta de nuevo.", cerrarModal);
+      }
     };
 
     if (examen.activoManual) {
@@ -183,15 +189,38 @@ export default function ListaExamenes({
     setMenuAbierto(null);
   };
 
-  const desarchivarExamen = (codigo: string) => {
-    setExamenes((prev) =>
-      prev.map((ex) =>
-        ex.codigoExamen === codigo
-          ? { ...ex, archivado: false, activoManual: true }
-          : ex,
-      ),
-    );
+  const desarchivarExamen = async (codigo: string) => {
+    const examen = examenes.find((ex) => ex.codigoExamen === codigo);
+    if (!examen) return;
+    try {
+      await examsService.unarchiveExam(examen.id);
+      setExamenes((prev) =>
+        prev.map((ex) =>
+          ex.codigoExamen === codigo
+            ? { ...ex, archivado: false, activoManual: true }
+            : ex,
+        ),
+      );
+    } catch {
+      mostrarModal("advertencia", "Error", "No se pudo desarchivar el examen. Intenta de nuevo.", cerrarModal);
+    }
     setMenuAbierto(null);
+  };
+
+  const duplicarExamen = async (examen: ExamenConEstado) => {
+    setMenuAbierto(null);
+    try {
+      const copia = await examsService.duplicarExamen(examen.id);
+      const copiaConEstado: ExamenConEstado = {
+        ...copia,
+        activoManual: copia.estado === "open",
+        archivado: copia.estado === "archivado",
+      };
+      setExamenes((prev) => ordenarExamenes([...prev, copiaConEstado]));
+      mostrarModal("info", "Examen duplicado", `Se creó una copia: "${copia.nombre}"`, cerrarModal);
+    } catch {
+      mostrarModal("advertencia", "Error", "No se pudo duplicar el examen. Intenta de nuevo.", cerrarModal);
+    }
   };
 
   const compartirExamen = async (examen: ExamenConEstado) => {
@@ -816,9 +845,18 @@ export default function ListaExamenes({
 
                       <div className="flex items-center">
                         <button
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
                             if (examen.activoManual) return;
+                            try {
+                              const count = await examsAttemptsService.getAttemptCount(examen.id);
+                              if (count > 0) {
+                                mostrarModal("advertencia", "No se puede editar", `Este examen tiene ${count} intento(s) registrado(s). Crea una copia si deseas hacer cambios.`, cerrarModal);
+                                return;
+                              }
+                            } catch {
+                              // Si falla la verificación, dejar pasar y que el backend rechace
+                            }
                             navigate("/editar-examen", {
                               state: { examenAEditar: examen }
                             });
@@ -908,6 +946,18 @@ export default function ListaExamenes({
                             >
                               <Share2 className="w-4 h-4 text-emerald-500" />
                               Compartir
+                            </button>
+
+                            <button
+                              onClick={() => duplicarExamen(examen)}
+                              className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors ${
+                                darkMode
+                                  ? "text-gray-300 hover:bg-slate-700"
+                                  : "text-gray-700 hover:bg-gray-50"
+                              }`}
+                            >
+                              <Copy className="w-4 h-4 text-indigo-500" />
+                              Duplicar
                             </button>
 
                             {examen.archivado ? (

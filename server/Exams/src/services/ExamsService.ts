@@ -964,7 +964,7 @@ export class ExamService {
 
         examenGuardado.questions = preguntasGuardadas.map((q: any) => {
           delete q.exam;
-          if (q.type === "match" && q.pares) {
+          if (q.type === "matching" && q.pares) {
             q.pares.forEach((p: any) => {
               delete p.question;
             });

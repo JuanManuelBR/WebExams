@@ -102,6 +102,7 @@ export class SecurityEventService {
     if (attempt.consecuencia === "bloquear") {
       examInProgress.estado = AttemptState.BLOCKED;
       attempt.estado = AttemptState.BLOCKED;
+      attempt.fecha_fin = new Date();
 
       await progressRepo.save(examInProgress);
       await attemptRepo.save(attempt);
@@ -154,6 +155,7 @@ export class SecurityEventService {
 
     examInProgress.estado = AttemptState.ACTIVE;
     attempt.estado = AttemptState.ACTIVE;
+    attempt.fecha_fin = null;
 
     await progressRepo.save(examInProgress);
     await attemptRepo.save(attempt);

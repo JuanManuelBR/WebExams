@@ -369,7 +369,14 @@ export class ExamController {
         return res.status(400).json({ message: "ID de examen inválido" });
       }
 
-      const buffer = await ExamService.getGradesForDownload(examId);
+      const { buffer, examName } = await ExamService.getGradesForDownload(examId);
+
+      const safeName = examName
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9_\- ]/g, "")
+        .trim()
+        .replace(/\s+/g, "_");
+      const filename = `notas_${safeName}.xlsx`;
 
       res.setHeader(
         "Content-Type",
@@ -377,7 +384,7 @@ export class ExamController {
       );
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=notas_examen_${examId}.xlsx`,
+        `attachment; filename="${filename}"`,
       );
       res.status(200).send(buffer);
     } catch (err) {

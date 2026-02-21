@@ -2,6 +2,7 @@ import http from "http";
 import { Server } from "socket.io";
 import app from "./app";
 import { SocketHandler } from "./websocket/SocketHandler";
+import { AppDataSource } from "./data-source/AppDataSource";
 
 const port = process.env.PORT || 3002;
 
@@ -22,9 +23,18 @@ const io = new Server(server, {
 
 app.set("io", io);
 
-const socketHandler = new SocketHandler(io);
-app.set("socketHandler", socketHandler);
+AppDataSource.initialize()
+  .then(() => {
+    console.log("Base de datos conectada correctamente");
 
-server.listen(port, () => {
-  console.log(`Microservicio ExamsAttempts corriendo en http://localhost:${port}`);
-});
+    const socketHandler = new SocketHandler(io);
+    app.set("socketHandler", socketHandler);
+
+    server.listen(port, () => {
+      console.log(`Microservicio ExamsAttempts corriendo en http://localhost:${port}`);
+    });
+  })
+  .catch((err: unknown) => {
+    console.error("No se pudo conectar a la BD:", err);
+    process.exit(1);
+  });

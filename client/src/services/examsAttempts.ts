@@ -44,8 +44,35 @@ export const examsAttemptsService = {
     }
   },
 
+  async deleteAttemptEvents(attemptId: number) {
+    const response = await examsAttemptsApi.delete(`/attempt/${attemptId}/events`);
+    return response.data;
+  },
+
+  async deleteAttempt(attemptId: number) {
+    const response = await examsAttemptsApi.delete(`/attempt/${attemptId}`);
+    return response.data;
+  },
+
   async forceFinishExam(examId: number) {
     const response = await examsAttemptsApi.post(`/${examId}/force-finish`);
+    return response.data;
+  },
+
+  async forceFinishAttempt(attemptId: number) {
+    const response = await examsAttemptsApi.post(`/attempt/${attemptId}/force-finish`);
+    return response.data;
+  },
+
+  async getAttemptCount(examId: number): Promise<number> {
+    const response = await examsAttemptsApi.get(`/${examId}/attempt-count`);
+    return response.data.count;
+  },
+
+  async downloadGrades(examId: number): Promise<Blob> {
+    const response = await examsAttemptsApi.get(`/${examId}/grades/download`, {
+      responseType: 'blob',
+    });
     return response.data;
   },
 };
