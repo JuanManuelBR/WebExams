@@ -21,7 +21,7 @@ import { getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { usersService } from "../../services/authService";
 import { usersApi } from "../../services/api";
-import { getAuthToken } from "../../services/authToken";
+import { getAuthToken, clearAuthToken } from "../../services/authToken";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import AnimatedPage from "../../components/AnimatedPage";
 import {
@@ -265,20 +265,12 @@ export default function DashboardPage() {
   const handleLogout = async () => {
     try {
       if (usuarioData && usuarioData.id) {
-        // Llamar al backend para marcar como inactivo
-        await fetch("/api/users/logout", {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ userId: usuarioData.id }),
-        });
+        await usersApi.post("/logout", { userId: usuarioData.id });
       }
     } catch (error) {
       console.error("❌ Error al hacer logout:", error);
     } finally {
-      // Limpiar localStorage y redirigir
+      clearAuthToken();
       localStorage.removeItem("usuario");
       window.location.href = "/login";
     }
