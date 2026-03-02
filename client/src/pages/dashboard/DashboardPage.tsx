@@ -416,7 +416,7 @@ export default function DashboardPage() {
               className={`absolute left-4 top-16 right-4 anim-slideDown ${darkMode ? "bg-slate-800/95 backdrop-blur-md border-slate-700/50" : "bg-white/95 backdrop-blur-md border-gray-200/50"} border rounded-lg shadow-2xl z-50 py-1`}
             >
               <button
-                onClick={() => handleMenuItemClick("/mi-perfil")}
+                onClick={() => handleMenuItemClick("/profile")}
                 className={`w-full flex items-center gap-2 px-3 py-2 text-sm ${darkMode ? "text-gray-200 hover:bg-slate-700/50" : "text-gray-700 hover:bg-gray-100/50"} transition-colors`}
               >
                 <User className="w-4 h-4" />
