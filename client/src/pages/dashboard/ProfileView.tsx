@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { User, Mail, Save, X, FileEdit, Lock, AlertCircle } from 'lucide-react';
 import ConfirmModal from "../../components/ConfirmModal";
+import { usersApi } from "../../services/api";
 
 interface MiPerfilProps {
   darkMode: boolean;
@@ -65,26 +66,7 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
       const method = usuarioData.loginMethod || 'email';
       setLoginMethod(method);
 
-      const response = await fetch(`/api/users/${id}`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.status === 401) {
-        mostrarModal("error", "Sesión expirada", "Tu sesión ha expirado. Por favor inicia sesión nuevamente.", () => { cerrarModal(); localStorage.removeItem('usuario'); window.location.href = '/login'; });
-        return;
-      }
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Error del servidor:', errorText);
-        throw new Error(`Error ${response.status}: ${errorText}`);
-      }
-
-      const data: UserData = await response.json();
+      const { data } = await usersApi.get<UserData>(`/${id}`);
       setFormData({
         nombres: data.nombres || '',
         apellidos: data.apellidos || '',
@@ -190,21 +172,7 @@ export default function MiPerfil({ darkMode }: MiPerfilProps) {
         updateData.confirmar_nueva_contrasena = formData.confirmar_nueva_contrasena;
       }
 
-      const response = await fetch(`/api/users/${userId}`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updateData)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al actualizar el perfil');
-      }
-
-      const data = await response.json();
+      const { data } = await usersApi.put(`/${userId}`, updateData);
       
       const usuarioStorage = localStorage.getItem('usuario');
       if (usuarioStorage) {

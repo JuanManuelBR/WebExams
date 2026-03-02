@@ -1,5 +1,5 @@
 import axios from "axios";
-import { getAuthToken } from "./authToken";
+import { getAuthToken, clearAuthToken } from "./authToken";
 
 const EXAMS_BASE = import.meta.env.VITE_EXAMS_BASE;
 
@@ -45,6 +45,7 @@ examsApi.interceptors.response.use(
 
     // Redirigir a login si es 401 o 403
     if (error.response?.status === 401 || error.response?.status === 403) {
+      clearAuthToken();
       localStorage.removeItem("usuario");
 
       const currentPath = window.location.pathname;

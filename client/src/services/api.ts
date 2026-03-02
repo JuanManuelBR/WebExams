@@ -1,4 +1,5 @@
 import axios from "axios";
+import { clearAuthToken } from "./authToken";
 
 // Detecta automático: dev = proxy, prod = Railway
 const isDev = import.meta.env.DEV;
@@ -47,6 +48,7 @@ export const examsAttemptsApi = axios.create({
       );
 
       if (error.response?.status === 401 || error.response?.status === 403) {
+        clearAuthToken();
         localStorage.removeItem("usuario");
 
         const currentPath = window.location.pathname;
