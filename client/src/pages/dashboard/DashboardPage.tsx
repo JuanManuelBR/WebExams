@@ -20,6 +20,7 @@ import ConfirmModal from "../../components/ConfirmModal";
 import { getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { usersService } from "../../services/authService";
+import { usersApi } from "../../services/api";
 import { getAuthToken } from "../../services/authToken";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import AnimatedPage from "../../components/AnimatedPage";
@@ -157,25 +158,7 @@ export default function DashboardPage() {
         setTokenListo(true);
 
         // Verificar con el backend si la sesión es válida
-        const response = await fetch(`/api/users/${usuario.id}`, {
-          method: "GET",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (response.status === 401) {
-          localStorage.removeItem("usuario");
-          window.location.href = "/login";
-          return;
-        }
-
-        if (!response.ok) {
-          localStorage.removeItem("usuario");
-          window.location.href = "/login";
-          return;
-        }
+        await usersApi.get(`/${usuario.id}`);
 
       } catch (error) {
         console.error("❌ Error al verificar sesión:", error);
