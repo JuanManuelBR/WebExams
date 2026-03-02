@@ -2,6 +2,7 @@ import { AppDataSource } from "../data-source/AppDataSource";
 import { ExamAttempt, AttemptState } from "../models/ExamAttempt";
 import { ExamEvent } from "../models/ExamEvent";
 import { ExamInProgress } from "../models/ExamInProgress";
+import { TipoRespuesta } from "../models/ExamAnswer";
 import { ExamAttemptValidator } from "../validators/ExamAttemptValidator";
 import { In } from "typeorm";
 import { throwHttpError } from "../utils/errors";
@@ -41,23 +42,7 @@ export class AttemptQueryService {
       attempt.examen_id,
     );
 
-    const EXAM_MS_URL = process.env.EXAM_MS_URL;
-
-    console.log(
-      `🔍 Obteniendo examen completo desde: ${EXAM_MS_URL}/api/exams/forAttempt/${examBasic.codigoExamen}`,
-    );
-
-    const examResponse = await internalHttpClient.get(
-      `${EXAM_MS_URL}/api/exams/forAttempt/${examBasic.codigoExamen}`,
-    );
-    const exam = examResponse.data;
-
-    if (!exam) {
-      throwHttpError(
-        "No se pudo obtener la información completa del examen",
-        500,
-      );
-    }
+    const exam = examBasic;
 
     console.log(
       `✅ Examen obtenido: "${exam.nombre}" con ${exam.questions?.length || 0} preguntas`,
@@ -132,6 +117,10 @@ export class AttemptQueryService {
         preguntasConRespuestas,
       ),
       preguntas: preguntasConRespuestas,
+      ...((() => {
+        const herramientas = (attempt.respuestas || []).filter(r => r.tipo_respuesta !== TipoRespuesta.NORMAL);
+        return herramientas.length > 0 ? { respuestasPDF: QuestionResponseBuilder.buildPDFResponses(herramientas) } : {};
+      })()),
       eventos: eventosFormatted,
     };
   }
@@ -224,6 +213,10 @@ export class AttemptQueryService {
         preguntasConRespuestas,
       ),
       preguntas: preguntasConRespuestas,
+      ...((() => {
+        const herramientas = (attempt.respuestas || []).filter(r => r.tipo_respuesta !== TipoRespuesta.NORMAL);
+        return herramientas.length > 0 ? { respuestasPDF: QuestionResponseBuilder.buildPDFResponses(herramientas) } : {};
+      })()),
     };
   }
 

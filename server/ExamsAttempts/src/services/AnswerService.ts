@@ -1,7 +1,7 @@
 import { AppDataSource } from "../data-source/AppDataSource";
 import { Server } from "socket.io";
 import { ExamAttempt } from "../models/ExamAttempt";
-import { ExamAnswer } from "../models/ExamAnswer";
+import { ExamAnswer, TipoRespuesta } from "../models/ExamAnswer";
 import { ExamInProgress, } from "../models/ExamInProgress";
 import { AttemptState } from "../models/ExamAttempt";
 import { ExamAttemptValidator } from "../validators/ExamAttemptValidator";
@@ -77,7 +77,7 @@ export class AnswerService {
     );
 
     const totalAnswers = await repo.count({
-      where: { intento_id: data.intento_id },
+      where: { intento_id: data.intento_id, tipo_respuesta: TipoRespuesta.NORMAL },
     });
     console.log(`📝 Total respuestas guardadas: ${totalAnswers}`);
 

@@ -423,20 +423,6 @@ export default function CrearExamen({
     }));
   };
 
-  // Al cambiar a examen manual, deshabilitar herramientas que solo aplican a PDF
-  useEffect(() => {
-    if (tipoPregunta === 'automatico') {
-      setHerramientasActivas((prev) => ({
-        ...prev,
-        dibujo: false,
-        excel: false,
-        javascript: false,
-        python: false,
-        java: false,
-      }));
-    }
-  }, [tipoPregunta]);
-
   const handlePDFSelection = (file: File) => {
     setArchivoPDF(file);
     setMostrarVistaPreviaPDF(true);

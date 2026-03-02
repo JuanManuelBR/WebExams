@@ -58,10 +58,6 @@ export default function SeccionHerramientas({
     }
   ];
 
-  const herramientasVisibles = esManual
-    ? herramientas.filter(h => !h.soloParaPDF)
-    : herramientas;
-
   const borderActivo = darkMode ? 'border-teal-500' : 'border-slate-700';
   const bgActivoLight = darkMode ? 'bg-teal-500/10' : 'bg-slate-700/10';
   const bgCheckbox = darkMode ? 'bg-teal-500 border-teal-500' : 'bg-slate-700 border-slate-700';
@@ -69,14 +65,12 @@ export default function SeccionHerramientas({
   return (
     <div className="px-6 pb-6 space-y-6">
       <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-        {esManual
-          ? 'Para exámenes manuales solo está disponible la calculadora científica. Las demás herramientas requieren examen tipo PDF.'
-          : 'Seleccione las herramientas que se habilitarán durante el examen.'}
+        Seleccione las herramientas que se habilitarán durante el examen.
       </p>
 
       {/* Herramientas principales */}
       <div className="space-y-3">
-        {herramientasVisibles.map(herramienta => (
+        {herramientas.map(herramienta => (
           <div
             key={herramienta.id}
             onClick={() => onToggleHerramienta(herramienta.id)}
@@ -105,9 +99,8 @@ export default function SeccionHerramientas({
         ))}
       </div>
 
-      {/* Sección de Programación — solo para exámenes PDF */}
-      {!esManual && (
-        <div className="space-y-3">
+      {/* Sección de Programación */}
+      <div className="space-y-3">
           <h3 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
             Programación
           </h3>
@@ -132,7 +125,6 @@ export default function SeccionHerramientas({
             </div>
           ))}
         </div>
-      )}
     </div>
   );
 }

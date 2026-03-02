@@ -241,7 +241,7 @@ export class QuestionResponseBuilder {
     totalPreguntas: number,
     preguntasConRespuestas: any[],
   ): any {
-    const preguntasRespondidas = attempt.respuestas?.length || 0;
+    const preguntasRespondidas = attempt.respuestas?.filter(r => r.tipo_respuesta === TipoRespuesta.NORMAL).length || 0;
     const preguntasCorrectas = preguntasConRespuestas.filter(
       (p: any) =>
         p.respuestaEstudiante &&

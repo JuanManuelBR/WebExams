@@ -781,6 +781,35 @@ export default function RevisarCalificacion({
             </div>
           )}
 
+          {/* ===== HERRAMIENTAS EN EXAMEN MANUAL ===== */}
+          {!isPDF && (respuestasPDF || []).length > 0 && (
+            <div className="space-y-6 mb-10">
+              <h2 className={`text-lg font-bold ${darkMode ? "text-slate-200" : "text-slate-800"}`}>
+                Herramientas utilizadas
+              </h2>
+              <div className="space-y-6">
+                {[...(respuestasPDF || [])]
+                  .filter(resp => {
+                    if (!["python", "javascript", "java"].includes(resp.tipo_respuesta)) return true;
+                    let content: any = resp.respuesta;
+                    if (typeof content === "string") { try { content = JSON.parse(content); } catch { return true; } }
+                    if (!Array.isArray(content) || content.length !== 1) return true;
+                    const cell = content[0];
+                    const defaults: Record<string, string> = { python: "# Editor Python", javascript: "# Editor JavaScript", java: "# Editor Java" };
+                    const cellContent = String(cell.content ?? "").trim();
+                    return !((cell.type === "markdown" || cell.type === "text") && (cellContent === defaults[resp.tipo_respuesta] || cellContent === ""));
+                  })
+                  .sort((a, b) => {
+                    const ORDER: Record<string, number> = { normal: 0, texto_plano: 0, hoja_calculo: 1, diagrama: 2, javascript: 3, python: 4, java: 5 };
+                    return (ORDER[a.tipo_respuesta] ?? 99) - (ORDER[b.tipo_respuesta] ?? 99);
+                  })
+                  .map((resp, idx) => (
+                    <RenderPDFRespuesta key={resp.id} respuesta={resp} index={idx} darkMode={darkMode} disableRun={readOnly} tallContent={studentMode} />
+                  ))}
+              </div>
+            </div>
+          )}
+
           {/* ===== REGULAR MODE - PREGUNTAS ===== */}
           {!isPDF && (
           <div className="space-y-12">

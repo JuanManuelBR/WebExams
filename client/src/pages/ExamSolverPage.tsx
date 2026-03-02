@@ -302,7 +302,7 @@ export default function SecureExamPlatform() {
   const pdfSaveTimersRef = useRef<Record<number, number>>({});
 
   const savePdfAnswer = (id: number, data: any, tipo: string, metadata?: string, delay = 3000) => {
-    if (!examData?.archivoPDF || !studentData?.attemptId) return;
+    if (!studentData?.attemptId) return;
     if (pdfSaveTimersRef.current[id]) clearTimeout(pdfSaveTimersRef.current[id]);
     pdfSaveTimersRef.current[id] = window.setTimeout(() => {
       saveAnswer(id, data, tipo, metadata);
@@ -329,7 +329,7 @@ export default function SecureExamPlatform() {
 
   // Auto-save: Python cells
   useEffect(() => {
-    if (!examData?.archivoPDF || !examData?.incluirPython) return;
+    if (!examData?.incluirPython) return;
     if (pythonCells.length <= 1 && pythonCells[0]?.content === '# Editor Python\n') return;
     const cleaned = cleanCellsForSave(pythonCells);
     const codeCells = cleaned.filter((c: any) => c.type === 'code').length;
@@ -344,7 +344,7 @@ export default function SecureExamPlatform() {
 
   // Auto-save: JavaScript cells
   useEffect(() => {
-    if (!examData?.archivoPDF || !examData?.incluirJavascript) return;
+    if (!examData?.incluirJavascript) return;
     if (jsCells.length <= 1 && jsCells[0]?.content === '# Editor JavaScript\n') return;
     const cleaned = cleanCellsForSave(jsCells);
     const codeCells = cleaned.filter((c: any) => c.type === 'code').length;
@@ -360,7 +360,7 @@ export default function SecureExamPlatform() {
 
   // Auto-save: Java cells
   useEffect(() => {
-    if (!examData?.archivoPDF || !examData?.incluirJava) return;
+    if (!examData?.incluirJava) return;
     if (javaCells.length <= 1 && javaCells[0]?.content === '# Editor Java\n') return;
     const cleaned = cleanCellsForSave(javaCells);
     const codeCells = cleaned.filter((c: any) => c.type === 'code').length;
@@ -399,7 +399,7 @@ export default function SecureExamPlatform() {
 
   // Auto-save: Hoja de Cálculo
   useEffect(() => {
-    if (!examData?.archivoPDF || !examData?.incluirHojaExcel || !hojaCalcState) return;
+    if (!examData?.incluirHojaExcel || !hojaCalcState) return;
     const clean = cleanHojaForSave(hojaCalcState);
     const totalCells = Object.values(clean.allCells as Record<number, Record<string, any>>)
       .reduce((sum, sheet) => sum + Object.values(sheet).filter((c: any) => c.value || c.formula).length, 0);
@@ -415,7 +415,7 @@ export default function SecureExamPlatform() {
 
   // Auto-save: Lienzo / Diagrama
   useEffect(() => {
-    if (!examData?.archivoPDF || !examData?.incluirHerramientaDibujo || !lienzoState) return;
+    if (!examData?.incluirHerramientaDibujo || !lienzoState) return;
     const cleanState = cleanLienzoForSave(lienzoState);
     const totalNodes = cleanState.sheets.reduce((sum: number, s: any) => sum + s.nodes.length, 0);
     const totalConnections = cleanState.sheets.reduce((sum: number, s: any) => sum + s.connections.length, 0);
