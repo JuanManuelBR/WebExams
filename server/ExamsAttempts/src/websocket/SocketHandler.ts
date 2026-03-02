@@ -42,6 +42,12 @@ export class SocketHandler {
         console.log(`👋 Profesor ${socket.id} dejó de monitorear exam_${examId}`);
       });
 
+      socket.on("join_professor_dashboard", (profesorId: number) => {
+        socket.join(`professor_${profesorId}`);
+        this.connections.set(socket.id, { type: "professor_dashboard", id: profesorId });
+        console.log(`🔔 Profesor ${socket.id} unido a dashboard professor_${profesorId}`);
+      });
+
       socket.on("leave_attempt", (attemptId: number) => {
         socket.leave(`attempt_${attemptId}`);
         this.stopTimer(attemptId);
@@ -316,5 +322,9 @@ export class SocketHandler {
 
   public emitToExam(examId: number, event: string, data: any) {
     this.io.to(`exam_${examId}`).emit(event, data);
+  }
+
+  public emitToProfessor(profesorId: number, event: string, data: any) {
+    this.io.to(`professor_${profesorId}`).emit(event, data);
   }
 }

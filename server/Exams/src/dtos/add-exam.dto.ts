@@ -144,6 +144,10 @@ export class add_exam_dto {
   @IsOptional()
   permitirVolverPreguntas?: boolean;
 
+  @IsBoolean({ message: "ordenAleatorio debe ser true o false" })
+  @IsOptional()
+  ordenAleatorio?: boolean;
+
   @IsNotEmpty()
   @IsArray({ message: "Las preguntas deben ser un array" })
   @ValidateNested({ each: true })

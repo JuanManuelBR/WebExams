@@ -54,6 +54,7 @@ interface StudentData {
   startTime?: string;
   contrasena?: string;
   isResuming?: boolean;
+  ordenPreguntas?: string | null;
 }
 
 interface ExamData {
@@ -999,11 +1000,13 @@ export default function SecureExamPlatform() {
       }
   };
 
-  // Función auxiliar para mezclar array (Fisher-Yates Shuffle)
+  // Fisher-Yates usando crypto.getRandomValues() para mayor aleatoriedad
   const shuffleArray = (array: any[]) => {
     const newArray = [...array];
     for (let i = newArray.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const randomBytes = new Uint32Array(1);
+      crypto.getRandomValues(randomBytes);
+      const j = randomBytes[0] % (i + 1);
       [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
     }
     return newArray;
@@ -1078,9 +1081,35 @@ export default function SecureExamPlatform() {
 
       const examDetails = await examDetailsRes.json();
 
-      // Aleatorizar el orden de las preguntas solo en intentos nuevos
-      if (!studentData.isResuming && examDetails.questions && Array.isArray(examDetails.questions)) {
-        examDetails.questions = shuffleArray(examDetails.questions);
+      // Aleatorizar el orden de las preguntas
+      if (examDetails.questions && Array.isArray(examDetails.questions)) {
+        if (!studentData.isResuming && examDetails.ordenAleatorio) {
+          // Intento nuevo: mezclar y guardar el orden en el backend
+          examDetails.questions = shuffleArray(examDetails.questions);
+          const questionIds = examDetails.questions.map((q: any) => q.id);
+          try {
+            await fetch(`${ATTEMPTS_API_URL}/api/exam/attempt/${attempt.id}/question-order`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ questionIds }),
+            });
+          } catch (e) {
+            console.warn("No se pudo guardar el orden de preguntas:", e);
+          }
+        } else if (studentData.isResuming && studentData.ordenPreguntas) {
+          // Reanudación: aplicar el orden guardado
+          try {
+            const savedOrder: number[] = JSON.parse(studentData.ordenPreguntas);
+            const questionMap = new Map(examDetails.questions.map((q: any) => [q.id, q]));
+            const ordered = savedOrder.map((id: number) => questionMap.get(id)).filter(Boolean);
+            // Si hay preguntas nuevas que no estaban en el orden guardado, agregarlas al final
+            const savedSet = new Set(savedOrder);
+            const extras = examDetails.questions.filter((q: any) => !savedSet.has(q.id));
+            examDetails.questions = [...ordered, ...extras];
+          } catch (e) {
+            console.warn("No se pudo aplicar el orden guardado:", e);
+          }
+        }
       }
 
       console.log("✅ Preguntas cargadas:", examDetails);

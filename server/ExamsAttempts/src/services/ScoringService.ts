@@ -6,6 +6,7 @@ import { ExamAnswer } from "../models/ExamAnswer";
 import { ExamInProgress } from "../models/ExamInProgress";
 import { ExamAttemptValidator } from "../validators/ExamAttemptValidator";
 import { throwHttpError } from "../utils/errors";
+import { generateAccessCode } from "../utils/CodeGenerator";
 import { GradingService } from "./GradingService";
 import { internalHttpClient } from "../utils/httpClient";
 
@@ -193,7 +194,7 @@ export class ScoringService {
 
         attempt.fecha_fin = new Date();
         attempt.estado = AttemptState.FINISHED;
-        attempt.codigoRevision = examInProgress.codigo_acceso;
+        attempt.codigoRevision = generateAccessCode();
 
         await attemptRepo.save(attempt);
         await progressRepo.delete({ intento_id: attempt.id });
@@ -302,7 +303,7 @@ export class ScoringService {
 
         attempt.fecha_fin = new Date();
         attempt.estado = AttemptState.FINISHED;
-        attempt.codigoRevision = examInProgress.codigo_acceso;
+        attempt.codigoRevision = generateAccessCode();
 
         await attemptRepo.save(attempt);
         await progressRepo.delete({ intento_id: attempt.id });

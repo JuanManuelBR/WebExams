@@ -5,6 +5,7 @@
 
 // Importar componentes reutilizables
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { io, Socket } from "socket.io-client";
 import NotificationItem from "../../components/NotificationItem";
 import logoUniversidad from "../../../assets/logo-universidad.webp";
 import logoUniversidadNoche from "../../../assets/logo-universidad-noche.webp";
@@ -54,44 +55,8 @@ export default function DashboardPage() {
   const cerrarModal = () => setModal(prev => ({ ...prev, visible: false }));
 
   // Estado para notificaciones
-  const [notificaciones, setNotificaciones] = useState([
-    {
-      id: 1,
-      type: "exam_completed" as const,
-      read: false,
-      studentName: "Juan Pérez",
-      examName: "Matemáticas",
-      score: 85,
-      time: "Hace 5 min",
-    },
-    {
-      id: 2,
-      type: "exam_blocked" as const,
-      read: false,
-      studentName: "María González",
-      examName: "Física",
-      reason: "Salir de pantalla completa",
-      time: "Hace 15 min",
-    },
-    {
-      id: 3,
-      type: "exam_shared" as const,
-      read: false,
-      professorName: "Dr. Carlos Rodríguez",
-      examName: "Cálculo Diferencial - Parcial 2",
-      examId: "exam_123",
-      time: "Hace 1 hora",
-    },
-    {
-      id: 4,
-      type: "exam_completed" as const,
-      read: true,
-      studentName: "Ana Martínez",
-      examName: "Química",
-      score: 92,
-      time: "Hace 2 horas",
-    },
-  ]);
+  const [notificaciones, setNotificaciones] = useState<any[]>([]);
+  const socketRef = useRef<Socket | null>(null);
 
   const unreadCount = notificaciones.filter((n) => !n.read).length;
 
@@ -194,6 +159,42 @@ export default function DashboardPage() {
       window.removeEventListener("usuarioActualizado", handleStorageChange);
     };
   }, []);
+
+  // Conexión WebSocket para notificaciones del dashboard del profesor
+  useEffect(() => {
+    if (!usuarioData?.id) return;
+
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || "http://localhost:3002";
+    const socket = io(socketUrl, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+    });
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      socket.emit("join_professor_dashboard", usuarioData.id);
+    });
+
+    socket.on("exam_shared", (data: { nombreProfesorOrigen: string; nombreExamen: string; examId: number }) => {
+      const nueva = {
+        id: Date.now(),
+        type: "exam_shared" as const,
+        read: false,
+        professorName: data.nombreProfesorOrigen,
+        examName: data.nombreExamen,
+        examId: String(data.examId),
+        time: "Ahora",
+      };
+      setNotificaciones((prev) => [nueva, ...prev]);
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [usuarioData?.id]);
 
   // Cerrar sidebar mobile al cambiar de ruta
   useEffect(() => {

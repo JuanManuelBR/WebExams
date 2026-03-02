@@ -116,6 +116,10 @@ export class UpdateExamDto {
   @IsOptional()
   permitirVolverPreguntas?: boolean;
 
+  @IsBoolean({ message: "ordenAleatorio debe ser true o false" })
+  @IsOptional()
+  ordenAleatorio?: boolean;
+
   @IsString({
     message: "El nombre del archivo PDF debe ser una cadena de texto",
   })

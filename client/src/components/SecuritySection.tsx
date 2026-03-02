@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, Eye, EyeOff, Check, HelpCircle, ListOrdered, ChevronLeft } from 'lucide-react';
+import { Shield, Eye, EyeOff, Check, HelpCircle, ListOrdered, ChevronLeft, Shuffle } from 'lucide-react';
 
 interface SeccionSeguridadProps {
   darkMode: boolean;
@@ -15,6 +15,8 @@ interface SeccionSeguridadProps {
   onNavegacionSecuencialChange?: (habilitada: boolean) => void;
   permitirVolverPreguntas?: boolean;
   onPermitirVolverPreguntasChange?: (habilitada: boolean) => void;
+  ordenAleatorio?: boolean;
+  onOrdenAleatorioChange?: (habilitada: boolean) => void;
 }
 
 export default function SeccionSeguridad({
@@ -30,7 +32,9 @@ export default function SeccionSeguridad({
   navegacionSecuencial = false,
   onNavegacionSecuencialChange,
   permitirVolverPreguntas = false,
-  onPermitirVolverPreguntasChange
+  onPermitirVolverPreguntasChange,
+  ordenAleatorio = false,
+  onOrdenAleatorioChange
 }: SeccionSeguridadProps) {
   const [contraseña, setContraseña] = useState(contraseñaInicial);
   const [mostrarContraseña, setMostrarContraseña] = useState(false);
@@ -242,6 +246,34 @@ export default function SeccionSeguridad({
           )}
         </div>
       )}
+
+      {/* Orden aleatorio de preguntas */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <Shuffle className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+          <label className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Orden aleatorio de preguntas
+          </label>
+          <div className="relative group">
+            <HelpCircle className={`w-5 h-5 ${darkMode ? 'text-gray-500' : 'text-gray-400'} cursor-help`} />
+            <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg" style={{ minWidth: '240px', maxWidth: '320px' }}>
+              Si está activo, las preguntas se mostrarán en orden aleatorio a cada estudiante. Si no, se mostrarán en el orden exacto en que el profesor las creó.
+              <div className="absolute left-3 -bottom-1 w-2 h-2 bg-gray-900 transform rotate-45"></div>
+            </div>
+          </div>
+          <button
+            onClick={() => onOrdenAleatorioChange && onOrdenAleatorioChange(!ordenAleatorio)}
+            className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+              ordenAleatorio ? bgCheckbox : 'border-gray-300'
+            }`}
+          >
+            {ordenAleatorio && <Check className="w-3 h-3 text-white" />}
+          </button>
+          <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            Habilitar
+          </span>
+        </div>
+      </div>
 
       {/* Consecuencia de abandono */}
       <div className="space-y-3">

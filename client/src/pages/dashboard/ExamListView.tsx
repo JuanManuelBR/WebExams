@@ -72,6 +72,8 @@ export default function ListaExamenes({
   );
   const [correoDestino, setCorreoDestino] = useState("");
   const [compartiendoExito, setCompartiendoExito] = useState(false);
+  const [enviandoExamen, setEnviandoExamen] = useState(false);
+  const [errorCompartir, setErrorCompartir] = useState<string | null>(null);
   const [exportModal, setExportModal] = useState<ExamenConEstado | null>(null);
 
   const [modal, setModal] = useState<{ visible: boolean; tipo: "exito" | "error" | "advertencia" | "info" | "confirmar"; titulo: string; mensaje: string; onConfirmar: () => void; onCancelar?: () => void }>({ visible: false, tipo: "info", titulo: "", mensaje: "", onConfirmar: () => {} });
@@ -282,24 +284,37 @@ export default function ListaExamenes({
     setMenuAbierto(null);
   };
 
-  const enviarExamenPorCorreo = () => {
+  const enviarExamenPorCorreo = async () => {
+    setErrorCompartir(null);
+
     if (!correoDestino.trim()) {
-      mostrarModal("advertencia", "Campo requerido", "Por favor ingresa un correo electrónico", cerrarModal);
+      setErrorCompartir("Por favor ingresa un correo electrónico");
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(correoDestino)) {
-      mostrarModal("advertencia", "Correo inválido", "Por favor ingresa un correo electrónico válido", cerrarModal);
+      setErrorCompartir("Por favor ingresa un correo electrónico válido");
       return;
     }
 
-    setCompartiendoExito(true);
-    setTimeout(() => {
-      setCompartiendoExito(false);
-      setModalCompartir(null);
-      setCorreoDestino("");
-    }, 2000);
+    if (!modalCompartir) return;
+
+    setEnviandoExamen(true);
+    try {
+      await examsService.compartirExamen(modalCompartir.id, correoDestino.trim());
+      setCompartiendoExito(true);
+      setTimeout(() => {
+        setCompartiendoExito(false);
+        setModalCompartir(null);
+        setCorreoDestino("");
+      }, 2000);
+    } catch (error: any) {
+      const mensaje = error?.response?.data?.message || "Error al compartir el examen";
+      setErrorCompartir(mensaje);
+    } finally {
+      setEnviandoExamen(false);
+    }
   };
 
   const confirmarEliminar = (id: number, nombre: string) => {
@@ -475,6 +490,7 @@ export default function ListaExamenes({
           onClick={() => {
             setModalCompartir(null);
             setCorreoDestino("");
+            setErrorCompartir(null);
           }}
         >
           <div
@@ -485,6 +501,7 @@ export default function ListaExamenes({
               onClick={() => {
                 setModalCompartir(null);
                 setCorreoDestino("");
+                setErrorCompartir(null);
               }}
               className={`absolute top-4 right-4 p-2 rounded-lg ${
                 darkMode
@@ -536,14 +553,22 @@ export default function ListaExamenes({
                     <input
                       type="email"
                       value={correoDestino}
-                      onChange={(e) => setCorreoDestino(e.target.value)}
+                      onChange={(e) => { setCorreoDestino(e.target.value); setErrorCompartir(null); }}
                       placeholder="profesor@ejemplo.com"
                       className={`w-full px-4 py-3 rounded-lg border outline-none transition-all ${
-                        darkMode
+                        errorCompartir
+                          ? "border-red-500"
+                          : darkMode
                           ? "bg-slate-800 border-slate-700 text-white placeholder-gray-500 focus:border-blue-500"
                           : "bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500"
-                      }`}
+                      } ${darkMode ? "bg-slate-800 text-white placeholder-gray-500" : "bg-white text-gray-900 placeholder-gray-400"}`}
                     />
+                    {errorCompartir && (
+                      <p className="mt-2 text-sm text-red-500 flex items-center gap-1">
+                        <X className="w-3.5 h-3.5 shrink-0" />
+                        {errorCompartir}
+                      </p>
+                    )}
                   </div>
 
                   <div
@@ -578,6 +603,7 @@ export default function ListaExamenes({
                     onClick={() => {
                       setModalCompartir(null);
                       setCorreoDestino("");
+                      setErrorCompartir(null);
                     }}
                     className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${
                       darkMode
@@ -589,10 +615,15 @@ export default function ListaExamenes({
                   </button>
                   <button
                     onClick={enviarExamenPorCorreo}
-                    className="flex-1 px-4 py-3 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                    disabled={enviandoExamen}
+                    className="flex-1 px-4 py-3 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    <Share2 className="w-4 h-4" />
-                    Enviar
+                    {enviandoExamen ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Share2 className="w-4 h-4" />
+                    )}
+                    {enviandoExamen ? "Enviando..." : "Enviar"}
                   </button>
                 </div>
               </>

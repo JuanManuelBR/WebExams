@@ -63,7 +63,7 @@ export class UserService {
       apellidos: usuario.apellidos
     };
 
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "1h" });
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "12h" });
 
     // Actualizar último acceso (activo se actualiza en el controller)
     await this.user_repository.update(usuario.id, {
@@ -114,7 +114,7 @@ export class UserService {
       apellidos: usuario.apellidos
     };
 
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "1h" });
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "12h" });
 
     await this.user_repository.update(usuario.id, {
       ultimo_acceso: new Date()

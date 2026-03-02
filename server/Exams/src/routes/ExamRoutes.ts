@@ -518,4 +518,79 @@ router.patch("/:id/regenerate-code", authenticateToken, ExamsController.regenera
  */
 router.patch("/:id/remove-time-limit", ExamsController.removeTimeLimit);
 
+/**
+ * @openapi
+ * /api/exams/{id}/share:
+ *   post:
+ *     tags:
+ *       - Exams
+ *     summary: Compartir un examen con otro profesor
+ *     description: |
+ *       Crea una copia exacta del examen (con preguntas, imágenes y PDFs duplicados)
+ *       y la asigna al profesor identificado por el correo electrónico de destino.
+ *       El examen compartido queda en estado 'closed'. Si el correo no existe retorna 404.
+ *       El profesor destino recibe una notificación en tiempo real vía WebSocket.
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: number
+ *         example: 19
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - correoDestino
+ *             properties:
+ *               correoDestino:
+ *                 type: string
+ *                 format: email
+ *                 example: otro.profesor@universidad.edu.co
+ *     responses:
+ *       201:
+ *         description: Examen compartido exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Examen compartido correctamente
+ *                 examen:
+ *                   $ref: '#/components/schemas/Exam'
+ *       400:
+ *         description: Datos inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: No eres el propietario del examen
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Examen no encontrado o correo no existe
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             examples:
+ *               correo_no_existe:
+ *                 value:
+ *                   message: El correo no existe
+ *               examen_no_encontrado:
+ *                 value:
+ *                   message: Examen no encontrado
+ */
+router.post("/:id/share", authenticateToken, ExamsController.shareExam);
+
 export default router;

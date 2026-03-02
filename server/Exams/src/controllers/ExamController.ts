@@ -273,4 +273,22 @@ export class ExamsController {
       next(error);
     }
   }
+
+  static async shareExam(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const examId = Number(req.params.id);
+      const profesorId = req.user.id;
+      const { correoDestino } = req.body;
+
+      if (isNaN(examId)) throwHttpError("ID de examen inválido", 400);
+      if (!correoDestino || typeof correoDestino !== "string") {
+        throwHttpError("El correo de destino es requerido", 400);
+      }
+
+      const examen = await exam_service.shareExam(examId, profesorId, correoDestino.trim(), req.headers.cookie);
+      return res.status(201).json({ message: "Examen compartido correctamente", examen });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

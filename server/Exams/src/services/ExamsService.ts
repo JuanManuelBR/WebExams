@@ -124,6 +124,7 @@ export class ExamService {
         cambioEstadoAutomatico,
         dividirPreguntas: data.dividirPreguntas ?? false,
         permitirVolverPreguntas: data.permitirVolverPreguntas ?? false,
+        ordenAleatorio: data.ordenAleatorio ?? false,
       });
 
       const examen_guardado = await manager.save(Exam, nuevo_examen);
@@ -378,6 +379,8 @@ export class ExamService {
         existingExam.dividirPreguntas = data.dividirPreguntas;
       if (data.permitirVolverPreguntas !== undefined)
         existingExam.permitirVolverPreguntas = data.permitirVolverPreguntas;
+      if (data.ordenAleatorio !== undefined)
+        existingExam.ordenAleatorio = data.ordenAleatorio;
 
       // Validar que limiteTiempo no supere la ventana disponible
       if (existingExam.limiteTiempo && existingExam.horaCierre) {
@@ -641,6 +644,7 @@ export class ExamService {
 
       dividirPreguntas: exam.dividirPreguntas,
       permitirVolverPreguntas: exam.permitirVolverPreguntas,
+      ordenAleatorio: exam.ordenAleatorio,
 
       questions: sanitizedQuestions,
       nombreProfesor: nombreProfesor,
@@ -963,6 +967,7 @@ export class ExamService {
         tienePreguntasAbiertas: original.tienePreguntasAbiertas,
         dividirPreguntas: original.dividirPreguntas,
         permitirVolverPreguntas: original.permitirVolverPreguntas,
+        ordenAleatorio: original.ordenAleatorio,
       });
 
       const examenGuardado = await manager.save(Exam, nuevoExamen);
@@ -1053,6 +1058,201 @@ export class ExamService {
 
       return examenGuardado;
     });
+  }
+
+  async shareExam(
+    examId: number,
+    sourceProfesorId: number,
+    targetEmail: string,
+    cookies?: string,
+  ): Promise<Exam> {
+    await examenValidator.verificarPropietarioExamen(examId, sourceProfesorId, cookies);
+
+    const repo = AppDataSource.getRepository(Exam);
+    const original = await repo.findOne({
+      where: { id: examId },
+      relations: [
+        "questions",
+        "questions.options",
+        "questions.respuestas",
+        "questions.keywords",
+        "questions.pares",
+        "questions.pares.itemA",
+        "questions.pares.itemB",
+      ],
+    });
+
+    if (!original) {
+      throwHttpError("Examen no encontrado", 404);
+    }
+
+    const usersMsUrl = process.env.USERS_MS_URL;
+
+    let targetProfesor: any;
+    try {
+      const response = await internalHttpClient.get<any>(
+        `${usersMsUrl}/api/users/email/${encodeURIComponent(targetEmail)}`,
+      );
+      targetProfesor = response.data;
+    } catch {
+      throwHttpError("El correo no existe", 404);
+    }
+
+    if (!targetProfesor?.id) {
+      throwHttpError("El correo no existe", 404);
+    }
+
+    let sourceProfesorNombre = "Un profesor";
+    try {
+      const response = await internalHttpClient.get<any>(
+        `${usersMsUrl}/api/users/${sourceProfesorId}`,
+      );
+      const p = response.data;
+      sourceProfesorNombre = `${p.nombres} ${p.apellidos}`.trim();
+    } catch {
+      // non-fatal
+    }
+
+    const copiedExam = await AppDataSource.transaction(async (manager) => {
+      const { imageService } = await import("./ImageService");
+      const { pdfService } = await import("./PDFService");
+
+      let codigoExamen: string = "";
+      let codigoExiste = true;
+      let intentos = 0;
+      const MAX_INTENTOS = 10;
+
+      while (codigoExiste && intentos < MAX_INTENTOS) {
+        codigoExamen = generateExamCode();
+        const examenConCodigo = await manager.findOne(Exam, { where: { codigoExamen } });
+        codigoExiste = !!examenConCodigo;
+        intentos++;
+      }
+
+      if (codigoExiste) {
+        throwHttpError("No se pudo generar un código único para el examen", 500);
+      }
+
+      let nuevoPDF: string | null = null;
+      if (original.archivoPDF) {
+        nuevoPDF = await pdfService.duplicatePDF(original.archivoPDF);
+      }
+
+      const nuevoExamen = manager.create(Exam, {
+        nombre: original.nombre,
+        descripcion: original.descripcion,
+        contrasena: original.contrasena,
+        estado: ExamenState.CLOSED,
+        id_profesor: targetProfesor.id,
+        fecha_creacion: new Date(),
+        necesitaNombreCompleto: original.necesitaNombreCompleto,
+        necesitaCorreoElectrónico: original.necesitaCorreoElectrónico,
+        necesitaCodigoEstudiantil: original.necesitaCodigoEstudiantil,
+        necesitaContrasena: original.necesitaContrasena,
+        incluirHerramientaDibujo: original.incluirHerramientaDibujo,
+        incluirCalculadoraCientifica: original.incluirCalculadoraCientifica,
+        incluirHojaExcel: original.incluirHojaExcel,
+        incluirJavascript: original.incluirJavascript,
+        incluirPython: original.incluirPython,
+        incluirJava: original.incluirJava,
+        horaApertura: null,
+        horaCierre: null,
+        limiteTiempo: original.limiteTiempo,
+        limiteTiempoCumplido: original.limiteTiempoCumplido,
+        consecuencia: original.consecuencia,
+        codigoExamen,
+        archivoPDF: nuevoPDF,
+        cambioEstadoAutomatico: false,
+        tienePreguntasAbiertas: original.tienePreguntasAbiertas,
+        dividirPreguntas: original.dividirPreguntas,
+        permitirVolverPreguntas: original.permitirVolverPreguntas,
+        ordenAleatorio: original.ordenAleatorio,
+      });
+
+      const examenGuardado = await manager.save(Exam, nuevoExamen);
+
+      if (original.questions?.length) {
+        const questionDtos = await Promise.all(
+          original.questions.map(async (q: any) => {
+            let nuevaImagen: string | null = null;
+            if (q.nombreImagen) {
+              nuevaImagen = await imageService.duplicateImage(q.nombreImagen);
+            }
+
+            const tipoDto = q.type === "match" ? "matching" : q.type;
+            const baseDto: any = {
+              enunciado: q.enunciado,
+              puntaje: q.puntaje,
+              type: tipoDto,
+              calificacionParcial: q.calificacionParcial,
+              nombreImagen: nuevaImagen,
+            };
+
+            switch (q.type) {
+              case "test":
+                baseDto.shuffleOptions = q.shuffleOptions ?? false;
+                baseDto.options = q.options?.map((opt: any) => ({
+                  texto: opt.texto,
+                  esCorrecta: opt.esCorrecta,
+                })) || [];
+                break;
+              case "open":
+                baseDto.textoRespuesta = q.textoRespuesta ?? null;
+                if (q.keywords?.length) {
+                  baseDto.palabrasClave = q.keywords.map((kw: any) => ({ texto: kw.texto }));
+                }
+                break;
+              case "fill_blanks":
+                baseDto.textoCorrecto = q.textoCorrecto;
+                baseDto.respuestas = q.respuestas?.map((r: any) => ({
+                  posicion: r.posicion,
+                  textoCorrecto: r.textoCorrecto,
+                })) || [];
+                break;
+              case "match":
+                baseDto.pares = q.pares?.map((p: any) => ({
+                  itemA: p.itemA?.text,
+                  itemB: p.itemB?.text,
+                })) || [];
+                break;
+            }
+
+            return baseDto;
+          }),
+        );
+
+        const preguntasNuevas = QuestionValidator.crearPreguntasDesdeDto(questionDtos, examenGuardado);
+        const preguntasGuardadas = await manager.save(Question, preguntasNuevas);
+        examenGuardado.questions = preguntasGuardadas.map((q: any) => {
+          delete q.exam;
+          if (q.type === "matching" && q.pares) {
+            q.pares.forEach((p: any) => { delete p.question; });
+          }
+          return q;
+        });
+      }
+
+      return examenGuardado;
+    });
+
+    try {
+      await internalHttpClient.post(
+        `${this.EXAM_ATTEMPTS_MS_URL}/api/exam/internal/notify-professor`,
+        {
+          profesorId: targetProfesor.id,
+          event: "exam_shared",
+          data: {
+            nombreProfesorOrigen: sourceProfesorNombre,
+            nombreExamen: original.nombre,
+            examId: copiedExam.id,
+          },
+        },
+      );
+    } catch (err: any) {
+      console.error("Error al notificar al profesor destino:", err.message);
+    }
+
+    return copiedExam;
   }
 
   async removeTimeLimit(examId: number): Promise<Exam> {

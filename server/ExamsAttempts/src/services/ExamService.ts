@@ -44,6 +44,9 @@ export class ExamService {
   static deleteAttempt(attemptId: number, io?: Server) {
     return AttemptLifecycleService.deleteAttempt(attemptId, io);
   }
+  static saveQuestionOrder(attemptId: number, questionIds: number[]) {
+    return AttemptLifecycleService.saveQuestionOrder(attemptId, questionIds);
+  }
 
   // ── Respuestas y calificación manual ──
   static saveAnswer(data: CreateExamAnswerDto, io: Server) {

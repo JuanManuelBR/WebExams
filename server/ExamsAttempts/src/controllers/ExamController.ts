@@ -428,6 +428,31 @@ export class ExamController {
     }
   }
 
+  static async saveQuestionOrder(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const attemptId = Number(req.params.attemptId);
+
+      if (isNaN(attemptId)) {
+        return res.status(400).json({ message: "ID de intento inválido" });
+      }
+
+      const { questionIds } = req.body;
+
+      if (!Array.isArray(questionIds)) {
+        return res.status(400).json({ message: "questionIds debe ser un array" });
+      }
+
+      const result = await ExamService.saveQuestionOrder(attemptId, questionIds);
+      res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async removeTimeLimit(
     req: Request,
     res: Response,
@@ -451,6 +476,29 @@ export class ExamController {
       }
 
       res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async notifyProfessor(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const { profesorId, event, data } = req.body;
+
+      if (!profesorId || !event) {
+        return res.status(400).json({ message: "profesorId y event son requeridos" });
+      }
+
+      const socketHandler = req.app.get("socketHandler");
+      if (socketHandler) {
+        socketHandler.emitToProfessor(Number(profesorId), event, data);
+      }
+
+      res.status(200).json({ message: "Notificación enviada" });
     } catch (err) {
       next(err);
     }

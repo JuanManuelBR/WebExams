@@ -20,6 +20,7 @@ export interface DatosExamen {
     consecuenciaAbandono: string;
     navegacionSecuencial?: boolean;
     permitirVolverPreguntas?: boolean;
+    ordenAleatorio?: boolean;
   };
   herramientasActivas: string[];
 }
@@ -289,6 +290,7 @@ export const examsService = {
 
         dividirPreguntas: datosExamen.seguridad.navegacionSecuencial ?? false,
         permitirVolverPreguntas: datosExamen.seguridad.permitirVolverPreguntas ?? false,
+        ordenAleatorio: datosExamen.seguridad.ordenAleatorio ?? false,
 
         questions: preguntasMapeadas,
       };
@@ -534,6 +536,7 @@ export const examsService = {
 
         dividirPreguntas: datosExamen.seguridad.navegacionSecuencial ?? false,
         permitirVolverPreguntas: datosExamen.seguridad.permitirVolverPreguntas ?? false,
+        ordenAleatorio: datosExamen.seguridad.ordenAleatorio ?? false,
 
         questions: preguntasMapeadas,
       };
@@ -574,6 +577,11 @@ export const examsService = {
 
   duplicarExamen: async (examId: number): Promise<ExamenCreado> => {
     const response = await examsApi.post(`/${examId}/copy`, {}, { withCredentials: true });
+    return response.data.examen;
+  },
+
+  compartirExamen: async (examId: number, correoDestino: string): Promise<ExamenCreado> => {
+    const response = await examsApi.post(`/${examId}/share`, { correoDestino }, { withCredentials: true });
     return response.data.examen;
   },
 

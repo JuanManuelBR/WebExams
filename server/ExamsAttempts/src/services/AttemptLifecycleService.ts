@@ -260,7 +260,7 @@ export class AttemptLifecycleService {
 
     attempt.fecha_fin = new Date();
     attempt.estado = AttemptState.FINISHED;
-    attempt.codigoRevision = examInProgress.codigo_acceso;
+    attempt.codigoRevision = generateAccessCode();
 
     await attemptRepo.save(attempt);
     await progressRepo.delete({ intento_id });
@@ -289,7 +289,7 @@ export class AttemptLifecycleService {
 
   static async handleTimeExpired(
     attempt: ExamAttempt,
-    examInProgress: ExamInProgress,
+    _examInProgress: ExamInProgress,
     io: Server,
   ) {
     const attemptRepo = AppDataSource.getRepository(ExamAttempt);
@@ -312,7 +312,7 @@ export class AttemptLifecycleService {
 
     attempt.fecha_fin = new Date();
     attempt.estado = AttemptState.FINISHED;
-    attempt.codigoRevision = examInProgress.codigo_acceso;
+    attempt.codigoRevision = generateAccessCode();
 
     await attemptRepo.save(attempt);
     await progressRepo.delete({ intento_id: attempt.id });
@@ -449,5 +449,23 @@ export class AttemptLifecycleService {
         },
       };
     });
+  }
+
+  static async saveQuestionOrder(attemptId: number, questionIds: number[]) {
+    const attemptRepo = AppDataSource.getRepository(ExamAttempt);
+
+    const attempt = await attemptRepo.findOne({ where: { id: attemptId } });
+    if (!attempt) {
+      throwHttpError("Intento no encontrado", 404);
+    }
+
+    if (attempt.estado === AttemptState.FINISHED) {
+      throwHttpError("No se puede modificar un intento finalizado", 400);
+    }
+
+    attempt.ordenPreguntas = JSON.stringify(questionIds);
+    await attemptRepo.save(attempt);
+
+    return { message: "Orden de preguntas guardado", attemptId };
   }
 }

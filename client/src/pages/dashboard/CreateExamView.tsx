@@ -226,6 +226,7 @@ export default function CrearExamen({
   const [consecuenciaAbandono, setConsecuenciaAbandono] = useState("");
   const [navegacionSecuencial, setNavegacionSecuencial] = useState(false);
   const [permitirVolverPreguntas, setPermitirVolverPreguntas] = useState(false);
+  const [ordenAleatorio, setOrdenAleatorio] = useState(false);
 
   const [seccion1Abierta, setSeccion1Abierta] = useState(true);
   const [seccion2Abierta, setSeccion2Abierta] = useState(false);
@@ -348,6 +349,9 @@ export default function CrearExamen({
         }
         if (ex.permitirVolverPreguntas) {
           setPermitirVolverPreguntas(true);
+        }
+        if (ex.ordenAleatorio) {
+          setOrdenAleatorio(true);
         }
 
         // Marcar secciones como visitadas para habilitar el guardado
@@ -636,6 +640,7 @@ export default function CrearExamen({
           consecuenciaAbandono,
           navegacionSecuencial: tipoPregunta === "automatico" ? navegacionSecuencial : false,
           permitirVolverPreguntas: tipoPregunta === "automatico" && navegacionSecuencial ? permitirVolverPreguntas : false,
+          ordenAleatorio,
         },
         herramientasActivas: Object.entries(herramientasActivas)
           .filter(([_, activo]) => activo)
@@ -1394,6 +1399,8 @@ export default function CrearExamen({
             onNavegacionSecuencialChange={setNavegacionSecuencial}
             permitirVolverPreguntas={permitirVolverPreguntas}
             onPermitirVolverPreguntasChange={setPermitirVolverPreguntas}
+            ordenAleatorio={ordenAleatorio}
+            onOrdenAleatorioChange={setOrdenAleatorio}
           />
         </Collapsible>
       </div>

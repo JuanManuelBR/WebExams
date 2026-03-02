@@ -79,6 +79,9 @@ export class ExamAttempt {
   @Column({ type: "varchar", length: 10, nullable: true, unique: true, default: null })
   codigoRevision?: string | null;
 
+  @Column({ type: "text", nullable: true, default: null })
+  ordenPreguntas?: string | null;
+
   @OneToMany(() => ExamAnswer, (answer) => answer.intento, {
     cascade: true,
   })

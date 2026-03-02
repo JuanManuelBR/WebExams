@@ -102,6 +102,9 @@ export class Exam {
   @Column({ type: "boolean", default: false })
   permitirVolverPreguntas!: boolean;
 
+  @Column({ type: "boolean", default: false })
+  ordenAleatorio!: boolean;
+
   @OneToMany(() => Question, (question) => question.exam, {
     onDelete: "CASCADE",
     eager: true,

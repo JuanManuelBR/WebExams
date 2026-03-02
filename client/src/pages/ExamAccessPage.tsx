@@ -336,6 +336,7 @@ export default function ExamAccessPage() {
         nombre: attempt.nombre_estudiante || undefined,
         correoElectronico: attempt.correo_estudiante || undefined,
         codigoEstudiante: attempt.identificacion_estudiante || undefined,
+        ordenPreguntas: attempt.ordenPreguntas || null,
       };
 
       localStorage.setItem("studentData", JSON.stringify(studentData));

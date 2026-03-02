@@ -469,6 +469,8 @@ router.get("/attempt/:attemptId/events", ExamController.getAttemptEvents);
  */
 router.patch("/attempt/:attemptId/events/read", ExamController.markEventsAsRead);
 
+router.patch("/attempt/:attemptId/question-order", ExamController.saveQuestionOrder);
+
 /**
  * @openapi
  * /api/exam/attempt/{intento_id}/details:
@@ -1000,5 +1002,7 @@ router.get('/:examId/grades/download', ExamController.downloadGrades);
  *         description: Código de acceso inválido o intento no encontrado
  */
 router.get('/attempt/feedback/:codigo_acceso', ExamController.getAttemptFeedback);
+
+router.post('/internal/notify-professor', ExamController.notifyProfessor);
 
 export default router;
