@@ -78,6 +78,32 @@ export class SocketHandler {
               clearTimeout(existingGrace);
             }
 
+            // RACE CONDITION: cuando el frontend detecta la caída vía `offline` y reconecta
+            // inmediatamente, el nuevo socket puede llegar ANTES de que este disconnect dispare.
+            // En ese caso el socket ya fue removido de la room por socket.io, así que si hay
+            // otros sockets en la room significa que el estudiante ya se reconectó.
+            const roomNow = this.io.sockets.adapter.rooms.get(`attempt_${attemptId}`);
+            const alreadyReconnected = roomNow !== undefined && roomNow.size > 0;
+
+            if (alreadyReconnected) {
+              console.log(
+                `✅ Nuevo socket activo en attempt_${attemptId}, disconnect ignorado (reconexión rápida)`,
+              );
+              // Limpiar el badge "Sin señal" que el HTTP /connection-lost pudo haber activado
+              try {
+                const attemptRepo = AppDataSource.getRepository(ExamAttempt);
+                const attempt = await attemptRepo.findOne({ where: { id: attemptId } });
+                if (attempt) {
+                  this.io.to(`exam_${attempt.examen_id}`).emit("student_reconnected", {
+                    attemptId,
+                    estudiante: { nombre: attempt.nombre_estudiante },
+                  });
+                }
+              } catch (e) { /* ignorar */ }
+              this.connections.delete(socket.id);
+              return;
+            }
+
             try {
               const attemptRepo = AppDataSource.getRepository(ExamAttempt);
               const attempt = await attemptRepo.findOne({
@@ -85,9 +111,7 @@ export class SocketHandler {
               });
               if (attempt) {
                 const graceSeconds = DISCONNECT_GRACE_MS / 1000;
-                // El frontend ya notificó al profesor vía HTTP (/connection-lost).
-                // Esta emit actúa como fallback por si la llamada HTTP falló
-                // (p.ej. el proceso del cliente murió antes de enviarla).
+                // Fallback por si la llamada HTTP del cliente falló
                 this.io
                   .to(`exam_${attempt.examen_id}`)
                   .emit("student_connection_lost", {
@@ -199,36 +223,32 @@ export class SocketHandler {
 
     // Cancelar timer de gracia si el estudiante se está reconectando
     const graceTimer = this.disconnectGraceTimers.get(attemptId);
-    const isReconnection = graceTimer !== undefined;
     if (graceTimer) {
       clearTimeout(graceTimer);
       this.disconnectGraceTimers.delete(attemptId);
       console.log(
         `✅ Reconexión detectada para attempt_${attemptId}, timer de gracia cancelado`,
       );
-
-      socket.join(`attempt_${attemptId}`);
       // Notificar al estudiante que su conexión fue restaurada
       socket.emit("connection_restored", {
         message: "¡Conexión restaurada! Puedes continuar.",
       });
-      // Notificar al profesor
-      if (attemptCheck) {
-        const room = this.io.sockets.adapter.rooms.get(`attempt_${attemptId}`);
-        const isDoubleSocket = room ? room.size > 1 : false;
-        if (isReconnection || isDoubleSocket) {
-          this.io
-            .to(`exam_${attemptCheck.examen_id}`)
-            .emit("student_reconnected", {
-              attemptId,
-              estudiante: { nombre: attemptCheck.nombre_estudiante },
-            });
-        }
-      }
     }
 
     socket.join(`attempt_${attemptId}`);
     this.connections.set(socket.id, { type: "student", id: attemptId });
+
+    // Siempre notificar al profesor que el estudiante está conectado.
+    // Esto limpia el badge "Sin señal" sin importar cómo se produjo la reconexión
+    // (grace timer, reconexión rápida antes del disconnect, o primera conexión).
+    if (attemptCheck) {
+      this.io
+        .to(`exam_${attemptCheck.examen_id}`)
+        .emit("student_reconnected", {
+          attemptId,
+          estudiante: { nombre: attemptCheck.nombre_estudiante },
+        });
+    }
     console.log(`👨‍🎓 Estudiante ${socket.id} unido a attempt_${attemptId}`);
 
     if (examInProgress.fecha_expiracion) {
