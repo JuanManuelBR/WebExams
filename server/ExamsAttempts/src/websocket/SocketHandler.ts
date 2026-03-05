@@ -4,7 +4,7 @@ import { AttemptState, ExamInProgress } from "../models/ExamInProgress";
 import { ExamAttempt } from "../models/ExamAttempt";
 import { ExamService } from "../services/ExamService";
 
-const DISCONNECT_GRACE_MS = 60000; // 15 segundos de gracia para reconexión
+const DISCONNECT_GRACE_MS = 60000; // 60 segundos de gracia para reconexión
 
 export class SocketHandler {
   private io: Server;
@@ -21,7 +21,6 @@ export class SocketHandler {
 
   private setupSocketHandlers() {
     this.io.on("connection", (socket: Socket) => {
-      const attemptRepo = AppDataSource.getRepository(ExamAttempt);
       console.log(`✅ Cliente conectado: ${socket.id}`);
 
       socket.on(
@@ -60,7 +59,7 @@ export class SocketHandler {
         socket.leave(`attempt_${attemptId}`);
         this.stopTimer(attemptId);
         this.connections.delete(socket.id);
-        console.log(` Cliente ${socket.id} abandonó attempt_${attemptId}`);
+        console.log(`❌ Cliente ${socket.id} abandonó attempt_${attemptId}`);
       });
 
       socket.on("disconnect", async () => {
@@ -70,30 +69,40 @@ export class SocketHandler {
           if (connection.type === "student") {
             const attemptId = connection.id as number;
             console.log(
-              ` Estudiante desconectado: ${socket.id} (attempt_${attemptId}). Esperando ${DISCONNECT_GRACE_MS / 1000}s para reconexión...`,
+              `🔌 Estudiante desconectado: ${socket.id} (attempt_${attemptId}). Esperando ${DISCONNECT_GRACE_MS / 1000}s para reconexión...`,
             );
 
-            this.io.to(`attempt${attemptId}`).emit("connection_lost", {
-              message: "Se perdió la conexión con el servidor. Reconectando...",
-              graceSeconds: DISCONNECT_GRACE_MS / 1000,
-            });
-
-            const attempt = await attemptRepo.findOne({
-              where: { id: attemptId },
-            });
-            if (attempt) {
-              this.io
-                .to(`exam${attempt.examen_id}`)
-                .emit("student_connection_lost", {
-                  attemptId,
-                  estudiante: { nombre: attempt.nombre_estudiante },
-                  graceSeconds: DISCONNECT_GRACE_MS / 1000,
-                });
-            }
             // Cancelar timer de gracia anterior si existe (doble desconexión)
             const existingGrace = this.disconnectGraceTimers.get(attemptId);
             if (existingGrace) {
               clearTimeout(existingGrace);
+            }
+
+            // Notificar al estudiante (si sigue conectado brevemente) y al profesor
+            const graceSeconds = DISCONNECT_GRACE_MS / 1000;
+            this.io.to(`attempt_${attemptId}`).emit("connection_lost", {
+              message:
+                "Tu conexión se ha perdido. Tienes 60 segundos para reconectarte.",
+              graceSeconds,
+            });
+
+            // Notificar al profesor que el estudiante perdió conexión
+            try {
+              const attemptRepo = AppDataSource.getRepository(ExamAttempt);
+              const attempt = await attemptRepo.findOne({
+                where: { id: attemptId },
+              });
+              if (attempt) {
+                this.io
+                  .to(`exam_${attempt.examen_id}`)
+                  .emit("student_connection_lost", {
+                    attemptId,
+                    estudiante: { nombre: attempt.nombre_estudiante },
+                    graceSeconds,
+                  });
+              }
+            } catch (e) {
+              console.error("Error notificando desconexión al profesor:", e);
             }
 
             // Iniciar periodo de gracia antes de marcar como abandonado
@@ -114,6 +123,13 @@ export class SocketHandler {
               console.log(
                 `⏰ Periodo de gracia expirado para attempt_${attemptId}. Marcando como abandonado.`,
               );
+              // Notificar al estudiante antes de marcar (por si reconectó justo al final)
+              this.io
+                .to(`attempt_${attemptId}`)
+                .emit("attempt_auto_abandoned", {
+                  message:
+                    "Tu conexión estuvo inactiva demasiado tiempo. El examen fue marcado como abandonado.",
+                });
               try {
                 await this.handleStudentDisconnect(attemptId);
               } catch (error) {
@@ -170,28 +186,44 @@ export class SocketHandler {
       return;
     }
 
+    // Si el timer de gracia ya expiró → intento ABANDONADO, notificar y salir
+    const attemptCheckRepo = AppDataSource.getRepository(ExamAttempt);
+    const attemptCheck = await attemptCheckRepo.findOne({
+      where: { id: attemptId },
+    });
+    if (attemptCheck && attemptCheck.estado === AttemptState.ABANDONADO) {
+      console.log(
+        `⚠️ Estudiante reconectó en attempt_${attemptId} pero ya estaba ABANDONADO`,
+      );
+      socket.emit("attempt_auto_abandoned", {
+        message:
+          "Tu conexión estuvo inactiva demasiado tiempo. El examen fue marcado como abandonado.",
+      });
+      return;
+    }
+
     // Cancelar timer de gracia si el estudiante se está reconectando
     const graceTimer = this.disconnectGraceTimers.get(attemptId);
-if (graceTimer) {
-  clearTimeout(graceTimer);
-  this.disconnectGraceTimers.delete(attemptId);
-  console.log(`✅ Reconexión detectada para attempt_${attemptId}, timer de gracia cancelado`);
-
-  socket.emit("connection_restored", {
-    message: "Conexión restaurada correctamente.",
-  });
-
-  // ✅ Traer el ExamAttempt para obtener datos del estudiante y examenid
-  const attemptRepo = AppDataSource.getRepository(ExamAttempt);
-  const attempt = await attemptRepo.findOne({ where: { id: attemptId } });
-
-  if (attempt) {
-    this.io.to(`exam${attempt.examen_id}`).emit("student_reconnected", {
-      attemptId,
-      estudiante: { nombre: attempt.nombre_estudiante },
-    });
-  }
-}
+    if (graceTimer) {
+      clearTimeout(graceTimer);
+      this.disconnectGraceTimers.delete(attemptId);
+      console.log(
+        `✅ Reconexión detectada para attempt_${attemptId}, timer de gracia cancelado`,
+      );
+      // Notificar al estudiante que su conexión fue restaurada
+      socket.emit("connection_restored", {
+        message: "¡Conexión restaurada! Puedes continuar.",
+      });
+      // Notificar al profesor
+      if (attemptCheck) {
+        this.io
+          .to(`exam_${attemptCheck.examen_id}`)
+          .emit("student_reconnected", {
+            attemptId,
+            estudiante: { nombre: attemptCheck.nombre_estudiante },
+          });
+      }
+    }
 
     socket.join(`attempt_${attemptId}`);
     this.connections.set(socket.id, { type: "student", id: attemptId });

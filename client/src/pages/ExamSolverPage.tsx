@@ -316,6 +316,7 @@ export default function SecureExamPlatform() {
   const [connectionGraceSeconds, setConnectionGraceSeconds] = useState<
     number | null
   >(null);
+  const [graceCountdown, setGraceCountdown] = useState<number | null>(null);
 
   const [openPanels, setOpenPanels] = useState<PanelType[]>([]);
   const [layout, setLayout] = useState<Layout>("vertical");
@@ -882,32 +883,29 @@ export default function SecureExamPlatform() {
     };
   }, [examStarted, studentData, examData, examBlocked]);
 
-  // Sincronizar isSocketConnectedRef y vaciar cola de respuestas al reconectar
+  // Sincronizar isSocketConnectedRef con el estado React (evita stale closure)
   useEffect(() => {
     isSocketConnectedRef.current = isSocketConnected;
-    if (isSocketConnected && pendingAnswersQueueRef.current.length > 0) {
-      const pending = [...pendingAnswersQueueRef.current];
-      pendingAnswersQueueRef.current = [];
-      console.log(
-        `📤 Sincronizando ${pending.length} respuestas encoladas tras reconexión...`,
-      );
-      pending.forEach(
-        ({ preguntaId, respuesta, tipo_respuesta, metadata_codigo }, i) => {
-          // Escalonar para no saturar el servidor
-          setTimeout(
-            () =>
-              saveAnswer(
-                preguntaId,
-                respuesta,
-                tipo_respuesta,
-                metadata_codigo,
-              ),
-            i * 150,
-          );
-        },
-      );
+  }, [isSocketConnected]);
+
+  // Countdown regresivo durante pérdida de conexión
+  useEffect(() => {
+    if (!connectionLost || connectionGraceSeconds === null) {
+      setGraceCountdown(null);
+      return;
     }
-  }, [isSocketConnected]); // eslint-disable-line react-hooks/exhaustive-deps
+    setGraceCountdown(connectionGraceSeconds);
+    const interval = setInterval(() => {
+      setGraceCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [connectionLost, connectionGraceSeconds]);
 
   // Guardar respuestas pendientes al cambiar panel
   useEffect(() => {
@@ -958,28 +956,10 @@ export default function SecureExamPlatform() {
     metadata_codigo?: string,
   ) => {
     if (!studentData?.attemptId) return;
-    // Si el socket está caído, encolar la respuesta para sincronizar al reconectar
+    // Bloquear guardado cuando no hay conexión — el overlay impide que el estudiante responda
     if (!isSocketConnectedRef.current) {
-      const existingIdx = pendingAnswersQueueRef.current.findIndex(
-        (a) => a.preguntaId === preguntaId,
-      );
-      if (existingIdx >= 0) {
-        pendingAnswersQueueRef.current[existingIdx] = {
-          preguntaId,
-          respuesta,
-          tipo_respuesta,
-          metadata_codigo,
-        };
-      } else {
-        pendingAnswersQueueRef.current.push({
-          preguntaId,
-          respuesta,
-          tipo_respuesta,
-          metadata_codigo,
-        });
-      }
       console.warn(
-        `📥 Pregunta ${preguntaId} encolada (${pendingAnswersQueueRef.current.length} pendientes — sin conexión)`,
+        `⚠️ saveAnswer bloqueado — sin conexión. Pregunta ${preguntaId} no guardada.`,
       );
       return;
     }
@@ -1618,6 +1598,19 @@ export default function SecureExamPlatform() {
       newSocket.on("connection_restored", () => {
         setConnectionLost(false);
         setConnectionGraceSeconds(null);
+        setGraceCountdown(null);
+      });
+
+      // El timer de gracia expiró — intento marcado como abandonado mientras no había conexión
+      newSocket.on("attempt_auto_abandoned", () => {
+        setConnectionLost(false);
+        setGraceCountdown(null);
+        setWasAbandoned(true);
+        setExamFinished(true);
+        limpiarDatosExamen();
+        if (document.fullscreenElement)
+          document.exitFullscreen().catch(() => {});
+        newSocket.disconnect();
       });
 
       setSocket(newSocket);
@@ -1968,36 +1961,87 @@ export default function SecureExamPlatform() {
             />
             {/* Overlay de desconexión — bloquea inputs visualmente */}
             {connectionLost && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl backdrop-blur-sm bg-black/40 pointer-events-auto cursor-not-allowed select-none">
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-xl backdrop-blur-md bg-black/60 pointer-events-auto select-none">
                 <div
-                  className={`flex flex-col items-center gap-2 px-6 py-4 rounded-2xl border shadow-xl ${darkMode ? "bg-slate-900/90 border-amber-500/30 text-amber-300" : "bg-white/90 border-amber-300 text-amber-700"}`}
+                  className={`flex flex-col items-center gap-4 px-8 py-6 rounded-2xl border shadow-2xl max-w-sm w-full mx-4 ${darkMode ? "bg-slate-900 border-amber-500/40" : "bg-white border-amber-300"}`}
                 >
-                  <svg
-                    className="w-8 h-8 animate-pulse"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
+                  {/* Ícono sin señal */}
+                  <div
+                    className={`p-4 rounded-full ${graceCountdown !== null && graceCountdown <= 15 ? "bg-red-500/20" : "bg-amber-500/20"}`}
                   >
-                    <path d="M1 6s4-4 11-4 11 4 11 4" />
-                    <path d="M5 10s2.5-2 7-2 7 2 7 2" />
-                    <path d="M9 14s1.5-1 3-1 3 1 3 1" />
-                    <line x1="12" y1="18" x2="12.01" y2="18" />
-                    <line x1="2" y1="2" x2="22" y2="22" strokeLinecap="round" />
-                  </svg>
-                  <p className="font-bold text-base">Sin conexión a internet</p>
-                  <p className="text-xs text-center opacity-80">
-                    Reconectando... Tus respuestas se guardarán
-                    <br />
-                    automáticamente cuando vuelva la conexión.
-                  </p>
-                  {pendingAnswersQueueRef.current.length > 0 && (
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/30">
-                      {pendingAnswersQueueRef.current.length} respuesta
-                      {pendingAnswersQueueRef.current.length !== 1 ? "s" : ""}{" "}
-                      en cola
-                    </span>
+                    <svg
+                      className={`w-10 h-10 animate-pulse ${graceCountdown !== null && graceCountdown <= 15 ? "text-red-500" : "text-amber-500"}`}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path d="M1 6s4-4 11-4 11 4 11 4" />
+                      <path d="M5 10s2.5-2 7-2 7 2 7 2" />
+                      <path d="M9 14s1.5-1 3-1 3 1 3 1" />
+                      <line x1="12" y1="18" x2="12.01" y2="18" />
+                      <line
+                        x1="2"
+                        y1="2"
+                        x2="22"
+                        y2="22"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </div>
+                  {/* Título */}
+                  <div className="text-center">
+                    <p
+                      className={`font-bold text-lg mb-1 ${darkMode ? "text-white" : "text-slate-800"}`}
+                    >
+                      Sin conexión a internet
+                    </p>
+                    <p
+                      className={`text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}
+                    >
+                      No puedes responder mientras no hay conexión.
+                      <br />
+                      Tus respuestas anteriores están guardadas.
+                    </p>
+                  </div>
+                  {/* Countdown */}
+                  {graceCountdown !== null && graceCountdown > 0 && (
+                    <div className="flex flex-col items-center gap-1">
+                      <span
+                        className={`text-5xl font-black tabular-nums ${graceCountdown <= 15 ? "text-red-500 animate-pulse" : darkMode ? "text-amber-400" : "text-amber-600"}`}
+                      >
+                        {graceCountdown}s
+                      </span>
+                      <span
+                        className={`text-xs font-medium ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+                      >
+                        tiempo para reconectar
+                      </span>
+                      {/* Barra de progreso */}
+                      <div
+                        className={`w-48 h-2 rounded-full overflow-hidden mt-1 ${darkMode ? "bg-slate-700" : "bg-slate-200"}`}
+                      >
+                        <div
+                          className={`h-full rounded-full transition-all duration-1000 ${graceCountdown <= 15 ? "bg-red-500" : "bg-amber-500"}`}
+                          style={{
+                            width: `${connectionGraceSeconds ? (graceCountdown / connectionGraceSeconds) * 100 : 100}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
                   )}
+                  {graceCountdown === 0 && (
+                    <p className="text-sm font-bold text-red-500 animate-pulse text-center">
+                      ⚠️ Tiempo agotado — procesando abandono...
+                    </p>
+                  )}
+                  {/* Aviso */}
+                  <p
+                    className={`text-xs text-center px-2 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+                  >
+                    No cierres esta ventana. Si reconectas a tiempo, el examen
+                    continuará normalmente.
+                  </p>
                 </div>
               </div>
             )}
