@@ -986,6 +986,15 @@ export default function SecureExamPlatform() {
       setGraceCountdown((prev) => {
         if (prev === null || prev <= 1) {
           clearInterval(interval);
+          // Gracia agotada y el estudiante sigue sin conexión → mostrar pantalla de abandono
+          // El servidor marcará el intento como ABANDONADO al mismo tiempo.
+          setTimeout(() => {
+            if (isSocketConnectedRef.current) return; // reconectó justo a tiempo
+            setConnectionLost(false);
+            setGraceCountdown(null);
+            setWasAbandoned(true);
+            setExamFinished(true);
+          }, 1500);
           return 0;
         }
         return prev - 1;
