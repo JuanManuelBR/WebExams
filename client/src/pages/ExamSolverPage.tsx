@@ -175,6 +175,31 @@ function TimerNotification({ alert, onClose, darkMode }: { alert: {message: stri
 const ATTEMPTS_API_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3002";
 const EXAMS_API_URL = import.meta.env.VITE_EXAMS_URL || "http://localhost:3001";
 
+
+// --- INDICADOR DE SEÑAL TIPO CELULAR ---
+function SignalIndicator({ connected, darkMode }: { connected: boolean; darkMode: boolean }) {
+  const bars = [
+    { height: "h-2" },
+    { height: "h-3.5" },
+    { height: "h-5" },
+    { height: "h-[26px]" },
+  ];
+  const activeCount = connected ? 4 : 1;
+  const activeColor = connected ? "bg-emerald-500" : "bg-red-500 animate-pulse";
+  return (
+    <div className="flex items-end gap-[3px]" title={connected ? "Conexión estable" : "Sin conexión — respuestas en pausa"}>
+      {bars.map((bar, i) => (
+        <div
+          key={i}
+          className={`w-[5px] rounded-sm transition-all duration-300 ${bar.height} ${
+            i < activeCount ? activeColor : (darkMode ? "bg-slate-600" : "bg-gray-300")
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function SecureExamPlatform() {
   // ----------------------------------------------------------------------
   // 1. ESTADOS
@@ -219,6 +244,11 @@ export default function SecureExamPlatform() {
   const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
   const [isCharging, setIsCharging] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
+
+  // --- ESTADOS DE CONEXIÓN WEBSOCKET ---
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
+  const [connectionLost, setConnectionLost] = useState(false);
+  const [connectionGraceSeconds, setConnectionGraceSeconds] = useState<number | null>(null);
 
   const [openPanels, setOpenPanels] = useState<PanelType[]>([]);
   const [layout, setLayout] = useState<Layout>("vertical");
@@ -757,6 +787,11 @@ export default function SecureExamPlatform() {
     metadata_codigo?: string,
   ) => {
     if (!studentData?.attemptId) return;
+    // Bloquear guardado si el socket está caído — evita errores 403 por intento abandonado
+    if (!isSocketConnected) {
+      console.warn(`⚠️ Respuesta pregunta ${preguntaId} no guardada — socket desconectado`);
+      return;
+    }
     const respuestaStr = JSON.stringify(respuesta);
     const cacheKey = tipo_respuesta ? `${preguntaId}_${tipo_respuesta}` : String(preguntaId);
     if (lastSavedAnswers[cacheKey] === respuestaStr) return;
@@ -1242,6 +1277,27 @@ export default function SecureExamPlatform() {
 
         // Desconectar el socket
         newSocket.disconnect();
+      });
+
+      // --- EVENTOS DE CONEXIÓN / DESCONEXIÓN ---
+      newSocket.on("connect", () => {
+        setIsSocketConnected(true);
+        setConnectionLost(false);
+        setConnectionGraceSeconds(null);
+      });
+
+      newSocket.on("disconnect", () => {
+        setIsSocketConnected(false);
+      });
+
+      newSocket.on("connection_lost", (data: { message: string; graceSeconds: number }) => {
+        setConnectionLost(true);
+        setConnectionGraceSeconds(data.graceSeconds);
+      });
+
+      newSocket.on("connection_restored", () => {
+        setConnectionLost(false);
+        setConnectionGraceSeconds(null);
       });
 
       setSocket(newSocket);
@@ -1823,6 +1879,20 @@ export default function SecureExamPlatform() {
         <SavingIndicator savingStates={savingStates} darkMode={darkMode} />
         <TimerNotification alert={timerAlert} onClose={() => setTimerAlert(null)} darkMode={darkMode} />
 
+      {/* Banner pérdida de conexión */}
+      {connectionLost && examStarted && !examBlocked && (
+        <div className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-3 px-6 py-3 text-white font-bold text-sm shadow-2xl animate-in slide-in-from-top duration-300 ${
+          connectionGraceSeconds !== null && connectionGraceSeconds <= 20 ? "bg-red-600" : "bg-amber-500"
+        }`}>
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 animate-pulse" />
+          <span>
+            ⚠️ Conexión perdida — Reconectando... Las respuestas están en pausa.{" "}
+            <strong>No cierres esta ventana.</strong>
+          </span>
+          <SignalIndicator connected={false} darkMode={false} />
+        </div>
+      )}
+
         {/* Backdrop para sidebar en mobile */}
         {!sidebarCollapsed && (
           <div
@@ -1968,6 +2038,8 @@ export default function SecureExamPlatform() {
                       <span className={`tabular-nums text-lg font-bold tracking-widest ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
                           {currentTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                       </span>
+                      {/* Indicador de señal WiFi */}
+                      <SignalIndicator connected={isSocketConnected} darkMode={darkMode} />
                       <div className={`w-px h-6 ${darkMode ? "bg-slate-700" : "bg-gray-300"}`}></div>
                       <div className={`flex items-center gap-2 tabular-nums text-lg font-bold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
                           <span>{batteryLevel ?? "--"}%</span>

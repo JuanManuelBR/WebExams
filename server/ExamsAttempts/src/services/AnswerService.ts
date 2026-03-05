@@ -71,34 +71,25 @@ export class AnswerService {
       io.to(`attempt_${data.intento_id}`).emit("answer_saved", answer);
     }
 
-    // Calcular progreso
-    console.log(
-      `🔍 Intentando calcular progreso para intento ${data.intento_id}`,
-    );
-
     const totalAnswers = await repo.count({
       where: { intento_id: data.intento_id, tipo_respuesta: TipoRespuesta.NORMAL },
     });
-    console.log(`📝 Total respuestas guardadas: ${totalAnswers}`);
+
 
     const attempt = await attemptRepo.findOne({
       where: { id: data.intento_id },
     });
 
     if (!attempt) {
-      console.log(`❌ Intento ${data.intento_id} no encontrado`);
       return answer;
     }
 
-    console.log(`✅ Intento encontrado, examen_id: ${attempt.examen_id}`);
 
     // Para exámenes PDF, el progreso se calcula diferente (no hay preguntas)
     if (attempt.esExamenPDF) {
       const progreso = totalAnswers > 0 ? 100 : 0;
-      console.log(`📊 Examen PDF - Progreso: ${progreso}% (${totalAnswers} respuesta(s))`);
       attempt.progreso = progreso;
       const savedAttempt = await attemptRepo.save(attempt);
-      console.log(`💾 Progreso guardado: ${savedAttempt.progreso}`);
       io.to(`exam_${attempt.examen_id}`).emit("progress_updated", {
         attemptId: data.intento_id,
         progreso,
@@ -109,22 +100,17 @@ export class AnswerService {
     const totalQuestions = await getExamQuestionCount(attempt.examen_id);
 
     if (totalQuestions === 0) {
-      console.log(`⚠️ El examen no tiene preguntas`);
       return answer;
     }
 
     const progreso = Math.round((totalAnswers / totalQuestions) * 100);
 
-    console.log(
-      `📊 Progreso calculado: ${totalAnswers}/${totalQuestions} = ${progreso}%`,
-    );
-    console.log(`📝 Progreso anterior: ${attempt.progreso}`);
+   
 
     attempt.progreso = progreso;
 
     const savedAttempt = await attemptRepo.save(attempt);
 
-    console.log(`💾 Progreso guardado: ${savedAttempt.progreso}`);
 
     io.to(`exam_${attempt.examen_id}`).emit("progress_updated", {
       attemptId: data.intento_id,

@@ -4,7 +4,7 @@ import { AttemptState, ExamInProgress } from "../models/ExamInProgress";
 import { ExamAttempt } from "../models/ExamAttempt";
 import { ExamService } from "../services/ExamService";
 
-const DISCONNECT_GRACE_MS = 15000; // 15 segundos de gracia para reconexión
+const DISCONNECT_GRACE_MS = 60000; // 15 segundos de gracia para reconexión
 
 export class SocketHandler {
   private io: Server;
@@ -21,6 +21,7 @@ export class SocketHandler {
 
   private setupSocketHandlers() {
     this.io.on("connection", (socket: Socket) => {
+      const attemptRepo = AppDataSource.getRepository(ExamAttempt);
       console.log(`✅ Cliente conectado: ${socket.id}`);
 
       socket.on(
@@ -39,20 +40,27 @@ export class SocketHandler {
       socket.on("leave_exam_monitoring", (examId: number) => {
         socket.leave(`exam_${examId}`);
         this.connections.delete(socket.id);
-        console.log(`👋 Profesor ${socket.id} dejó de monitorear exam_${examId}`);
+        console.log(
+          `👋 Profesor ${socket.id} dejó de monitorear exam_${examId}`,
+        );
       });
 
       socket.on("join_professor_dashboard", (profesorId: number) => {
         socket.join(`professor_${profesorId}`);
-        this.connections.set(socket.id, { type: "professor_dashboard", id: profesorId });
-        console.log(`🔔 Profesor ${socket.id} unido a dashboard professor_${profesorId}`);
+        this.connections.set(socket.id, {
+          type: "professor_dashboard",
+          id: profesorId,
+        });
+        console.log(
+          `🔔 Profesor ${socket.id} unido a dashboard professor_${profesorId}`,
+        );
       });
 
       socket.on("leave_attempt", (attemptId: number) => {
         socket.leave(`attempt_${attemptId}`);
         this.stopTimer(attemptId);
         this.connections.delete(socket.id);
-        console.log(`❌ Cliente ${socket.id} abandonó attempt_${attemptId}`);
+        console.log(` Cliente ${socket.id} abandonó attempt_${attemptId}`);
       });
 
       socket.on("disconnect", async () => {
@@ -62,9 +70,26 @@ export class SocketHandler {
           if (connection.type === "student") {
             const attemptId = connection.id as number;
             console.log(
-              `🔌 Estudiante desconectado: ${socket.id} (attempt_${attemptId}). Esperando ${DISCONNECT_GRACE_MS / 1000}s para reconexión...`,
+              ` Estudiante desconectado: ${socket.id} (attempt_${attemptId}). Esperando ${DISCONNECT_GRACE_MS / 1000}s para reconexión...`,
             );
 
+            this.io.to(`attempt${attemptId}`).emit("connection_lost", {
+              message: "Se perdió la conexión con el servidor. Reconectando...",
+              graceSeconds: DISCONNECT_GRACE_MS / 1000,
+            });
+
+            const attempt = await attemptRepo.findOne({
+              where: { id: attemptId },
+            });
+            if (attempt) {
+              this.io
+                .to(`exam${attempt.examen_id}`)
+                .emit("student_connection_lost", {
+                  attemptId,
+                  estudiante: { nombre: attempt.nombre_estudiante },
+                  graceSeconds: DISCONNECT_GRACE_MS / 1000,
+                });
+            }
             // Cancelar timer de gracia anterior si existe (doble desconexión)
             const existingGrace = this.disconnectGraceTimers.get(attemptId);
             if (existingGrace) {
@@ -76,13 +101,19 @@ export class SocketHandler {
               this.disconnectGraceTimers.delete(attemptId);
 
               // Verificar si el estudiante se reconectó (otro socket en la misma room)
-              const room = this.io.sockets.adapter.rooms.get(`attempt_${attemptId}`);
+              const room = this.io.sockets.adapter.rooms.get(
+                `attempt_${attemptId}`,
+              );
               if (room && room.size > 0) {
-                console.log(`✅ Estudiante se reconectó a attempt_${attemptId}, no se marca como abandonado`);
+                console.log(
+                  `✅ Estudiante se reconectó a attempt_${attemptId}, no se marca como abandonado`,
+                );
                 return;
               }
 
-              console.log(`⏰ Periodo de gracia expirado para attempt_${attemptId}. Marcando como abandonado.`);
+              console.log(
+                `⏰ Periodo de gracia expirado para attempt_${attemptId}. Marcando como abandonado.`,
+              );
               try {
                 await this.handleStudentDisconnect(attemptId);
               } catch (error) {
@@ -141,11 +172,26 @@ export class SocketHandler {
 
     // Cancelar timer de gracia si el estudiante se está reconectando
     const graceTimer = this.disconnectGraceTimers.get(attemptId);
-    if (graceTimer) {
-      clearTimeout(graceTimer);
-      this.disconnectGraceTimers.delete(attemptId);
-      console.log(`✅ Reconexión detectada para attempt_${attemptId}, timer de gracia cancelado`);
-    }
+if (graceTimer) {
+  clearTimeout(graceTimer);
+  this.disconnectGraceTimers.delete(attemptId);
+  console.log(`✅ Reconexión detectada para attempt_${attemptId}, timer de gracia cancelado`);
+
+  socket.emit("connection_restored", {
+    message: "Conexión restaurada correctamente.",
+  });
+
+  // ✅ Traer el ExamAttempt para obtener datos del estudiante y examenid
+  const attemptRepo = AppDataSource.getRepository(ExamAttempt);
+  const attempt = await attemptRepo.findOne({ where: { id: attemptId } });
+
+  if (attempt) {
+    this.io.to(`exam${attempt.examen_id}`).emit("student_reconnected", {
+      attemptId,
+      estudiante: { nombre: attempt.nombre_estudiante },
+    });
+  }
+}
 
     socket.join(`attempt_${attemptId}`);
     this.connections.set(socket.id, { type: "student", id: attemptId });
@@ -209,7 +255,9 @@ export class SocketHandler {
 
       // Si fecha_expiracion fue eliminada (removeTimeLimit), abortar
       if (!examInProgress || !examInProgress.fecha_expiracion) {
-        console.log(`ℹ️ Tiempo límite eliminado para intento ${attemptId}, ignorando expiración`);
+        console.log(
+          `ℹ️ Tiempo límite eliminado para intento ${attemptId}, ignorando expiración`,
+        );
         this.stopTimer(attemptId);
         return;
       }
@@ -226,11 +274,15 @@ export class SocketHandler {
 
       // Solo procesar si el intento sigue activo
       if (attempt.estado !== AttemptState.ACTIVE) {
-        console.log(`ℹ️ Intento ${attemptId} ya no está activo (${attempt.estado}), ignorando expiración`);
+        console.log(
+          `ℹ️ Intento ${attemptId} ya no está activo (${attempt.estado}), ignorando expiración`,
+        );
         return;
       }
 
-      console.log(`⏰ Tiempo expirado para intento ${attemptId}. Finalizando...`);
+      console.log(
+        `⏰ Tiempo expirado para intento ${attemptId}. Finalizando...`,
+      );
 
       // Usar ExamService.handleTimeExpired para calificar y finalizar
       await ExamService.handleTimeExpired(attempt, examInProgress, this.io);
@@ -245,9 +297,14 @@ export class SocketHandler {
         puntaje: attempt.puntaje,
       });
 
-      console.log(`✅ Intento ${attemptId} finalizado por expiración de tiempo`);
+      console.log(
+        `✅ Intento ${attemptId} finalizado por expiración de tiempo`,
+      );
     } catch (error) {
-      console.error(`❌ Error al finalizar intento ${attemptId} por timer:`, error);
+      console.error(
+        `❌ Error al finalizar intento ${attemptId} por timer:`,
+        error,
+      );
       // Fallback: al menos emitir el evento al cliente
       this.io.to(`attempt_${attemptId}`).emit("time_expired", {
         message: "El tiempo ha expirado",
@@ -312,7 +369,9 @@ export class SocketHandler {
       // Detener timer si existe
       this.stopTimer(attemptId);
     } else {
-      console.log(`ℹ️ Intento ${attemptId} ya estaba en estado: ${attempt.estado}`);
+      console.log(
+        `ℹ️ Intento ${attemptId} ya estaba en estado: ${attempt.estado}`,
+      );
     }
   }
 
