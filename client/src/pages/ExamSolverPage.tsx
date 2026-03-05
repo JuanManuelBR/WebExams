@@ -24,20 +24,20 @@ import {
   LayoutGrid,
   CheckCircle2,
   LogOut,
-  Coffee
+  Coffee,
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import ExamPanel from "../components/ExamQuestionsPanel";
 import MonitoreoSupervisado from "../components/SupervisedMonitor";
 import ConfirmModal from "../components/ConfirmModal";
 
-const EditorTexto = lazy(() => import('../components/TextEditor'));
-const Calculadora = lazy(() => import('../components/Calculator'));
-const HojaCalculo = lazy(() => import('../components/Spreadsheet'));
-const Lienzo = lazy(() => import('../components/DrawingBoard'));
-const EditorJavaScript = lazy(() => import('../components/EditorJavaScript'));
-const EditorPython = lazy(() => import('../components/EditorPython'));
-const EditorJava = lazy(() => import('../components/EditorJava'));
+const EditorTexto = lazy(() => import("../components/TextEditor"));
+const Calculadora = lazy(() => import("../components/Calculator"));
+const HojaCalculo = lazy(() => import("../components/Spreadsheet"));
+const Lienzo = lazy(() => import("../components/DrawingBoard"));
+const EditorJavaScript = lazy(() => import("../components/EditorJavaScript"));
+const EditorPython = lazy(() => import("../components/EditorPython"));
+const EditorJava = lazy(() => import("../components/EditorJava"));
 import logoUniversidad from "../../assets/logo-universidad.webp";
 import logoUniversidadNoche from "../../assets/logo-universidad-noche.webp";
 
@@ -102,27 +102,36 @@ function SavingIndicator({
   return (
     <div
       className={`fixed bottom-6 left-24 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl z-50 border transition-all animate-in slide-in-from-bottom-5 duration-300 ${
-        darkMode 
-          ? "bg-slate-800 border-blue-500/50 text-blue-200" 
+        darkMode
+          ? "bg-slate-800 border-blue-500/50 text-blue-200"
           : "bg-white border-blue-100 text-blue-800"
       }`}
     >
       <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent"></div>
-      <span className="text-sm font-bold tracking-tight">
-        Guardando...
-      </span>
+      <span className="text-sm font-bold tracking-tight">Guardando...</span>
     </div>
   );
 }
 
 // --- COMPONENTE NOTIFICACIÓN TIMER ---
-function TimerNotification({ alert, onClose, darkMode }: { alert: {message: string, type: 'warning' | 'critical' | 'success'} | null, onClose: () => void, darkMode: boolean }) {
+function TimerNotification({
+  alert,
+  onClose,
+  darkMode,
+}: {
+  alert: { message: string; type: "warning" | "critical" | "success" } | null;
+  onClose: () => void;
+  darkMode: boolean;
+}) {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     if (alert) {
       const showTimer = setTimeout(() => setIsVisible(true), 10);
-      const hideTimer = setTimeout(() => setIsVisible(false), alert.type === 'success' ? 8000 : 6000);
+      const hideTimer = setTimeout(
+        () => setIsVisible(false),
+        alert.type === "success" ? 8000 : 6000,
+      );
       return () => {
         clearTimeout(showTimer);
         clearTimeout(hideTimer);
@@ -139,45 +148,79 @@ function TimerNotification({ alert, onClose, darkMode }: { alert: {message: stri
 
   if (!alert) return null;
 
-  const isCritical = alert.type === 'critical';
-  const isSuccess = alert.type === 'success';
+  const isCritical = alert.type === "critical";
+  const isSuccess = alert.type === "success";
 
   return (
-    <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md w-max px-6 py-3 rounded-xl shadow-2xl border backdrop-blur-md flex items-center gap-4 transition-all duration-500 ease-in-out ${
+    <div
+      className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md w-max px-6 py-3 rounded-xl shadow-2xl border backdrop-blur-md flex items-center gap-4 transition-all duration-500 ease-in-out ${
         isVisible
-        ? "opacity-100 scale-100"
-        : "opacity-0 scale-95 pointer-events-none"
-    } ${
+          ? "opacity-100 scale-100"
+          : "opacity-0 scale-95 pointer-events-none"
+      } ${
         isSuccess
-        ? (darkMode ? "bg-green-900/90 border-green-500 text-green-100" : "bg-green-50 border-green-200 text-green-800")
-        : isCritical
-        ? (darkMode ? "bg-red-900/90 border-red-500 text-red-100" : "bg-red-50 border-red-200 text-red-800")
-        : (darkMode ? "bg-amber-900/90 border-amber-500 text-amber-100" : "bg-amber-50 border-amber-200 text-amber-800")
-    }`}>
-       <div className={`p-2 rounded-full flex-shrink-0 ${
-           isSuccess
-           ? (darkMode ? "bg-green-800 text-green-200" : "bg-green-100 text-green-600")
-           : isCritical
-           ? (darkMode ? "bg-red-800 text-red-200" : "bg-red-100 text-red-600")
-           : (darkMode ? "bg-amber-800 text-amber-200" : "bg-amber-100 text-amber-600")
-       }`}>
-           {isSuccess ? <CheckCircle2 className="w-5 h-5" /> : isCritical ? <AlertTriangle className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
-       </div>
-       <div>
-         <h4 className="font-bold text-sm">{isSuccess ? "Aviso del profesor" : isCritical ? "¡Atención!" : "Recordatorio"}</h4>
-         <p className="text-xs opacity-90 font-medium">{alert.message}</p>
-       </div>
+          ? darkMode
+            ? "bg-green-900/90 border-green-500 text-green-100"
+            : "bg-green-50 border-green-200 text-green-800"
+          : isCritical
+            ? darkMode
+              ? "bg-red-900/90 border-red-500 text-red-100"
+              : "bg-red-50 border-red-200 text-red-800"
+            : darkMode
+              ? "bg-amber-900/90 border-amber-500 text-amber-100"
+              : "bg-amber-50 border-amber-200 text-amber-800"
+      }`}
+    >
+      <div
+        className={`p-2 rounded-full flex-shrink-0 ${
+          isSuccess
+            ? darkMode
+              ? "bg-green-800 text-green-200"
+              : "bg-green-100 text-green-600"
+            : isCritical
+              ? darkMode
+                ? "bg-red-800 text-red-200"
+                : "bg-red-100 text-red-600"
+              : darkMode
+                ? "bg-amber-800 text-amber-200"
+                : "bg-amber-100 text-amber-600"
+        }`}
+      >
+        {isSuccess ? (
+          <CheckCircle2 className="w-5 h-5" />
+        ) : isCritical ? (
+          <AlertTriangle className="w-5 h-5" />
+        ) : (
+          <Clock className="w-5 h-5" />
+        )}
+      </div>
+      <div>
+        <h4 className="font-bold text-sm">
+          {isSuccess
+            ? "Aviso del profesor"
+            : isCritical
+              ? "¡Atención!"
+              : "Recordatorio"}
+        </h4>
+        <p className="text-xs opacity-90 font-medium">{alert.message}</p>
+      </div>
     </div>
   );
 }
 
 // --- COMPONENTE PRINCIPAL ---
-const ATTEMPTS_API_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3002";
+const ATTEMPTS_API_URL =
+  import.meta.env.VITE_SOCKET_URL || "http://localhost:3002";
 const EXAMS_API_URL = import.meta.env.VITE_EXAMS_URL || "http://localhost:3001";
 
-
 // --- INDICADOR DE SEÑAL TIPO CELULAR ---
-function SignalIndicator({ connected, darkMode }: { connected: boolean; darkMode: boolean }) {
+function SignalIndicator({
+  connected,
+  darkMode,
+}: {
+  connected: boolean;
+  darkMode: boolean;
+}) {
   const bars = [
     { height: "h-2" },
     { height: "h-3.5" },
@@ -187,12 +230,21 @@ function SignalIndicator({ connected, darkMode }: { connected: boolean; darkMode
   const activeCount = connected ? 4 : 1;
   const activeColor = connected ? "bg-emerald-500" : "bg-red-500 animate-pulse";
   return (
-    <div className="flex items-end gap-[3px]" title={connected ? "Conexión estable" : "Sin conexión — respuestas en pausa"}>
+    <div
+      className="flex items-end gap-[3px]"
+      title={
+        connected ? "Conexión estable" : "Sin conexión — respuestas en pausa"
+      }
+    >
       {bars.map((bar, i) => (
         <div
           key={i}
           className={`w-[5px] rounded-sm transition-all duration-300 ${bar.height} ${
-            i < activeCount ? activeColor : (darkMode ? "bg-slate-600" : "bg-gray-300")
+            i < activeCount
+              ? activeColor
+              : darkMode
+                ? "bg-slate-600"
+                : "bg-gray-300"
           }`}
         />
       ))}
@@ -209,13 +261,17 @@ export default function SecureExamPlatform() {
   const [isStarting, setIsStarting] = useState(false);
   const [blockReason, setBlockReason] = useState("");
   const [showUnlockScreen, setShowUnlockScreen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(window.innerWidth < 768);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    window.innerWidth < 768,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [examFinished, setExamFinished] = useState(false);
   const [wasForced, setWasForced] = useState<"" | "individual" | "todos">("");
   const [wasAbandoned, setWasAbandoned] = useState(false);
-  const [wasTimeExpired, setWasTimeExpired] = useState<"" | "enviar" | "descartar">("");
-  
+  const [wasTimeExpired, setWasTimeExpired] = useState<
+    "" | "enviar" | "descartar"
+  >("");
+
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem("darkMode");
     return saved ? JSON.parse(saved) : false;
@@ -224,9 +280,9 @@ export default function SecureExamPlatform() {
   useEffect(() => {
     localStorage.setItem("darkMode", JSON.stringify(darkMode));
     if (darkMode) {
-      document.documentElement.classList.add('dark');
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove("dark");
     }
   }, [darkMode]);
 
@@ -235,9 +291,17 @@ export default function SecureExamPlatform() {
   };
 
   const [remainingTime, setRemainingTime] = useState("02:30:00");
-  const [timerStatus, setTimerStatus] = useState<'normal' | 'warning' | 'critical'>('normal');
-  const [timerAlert, setTimerAlert] = useState<{message: string, type: 'warning' | 'critical' | 'success'} | null>(null);
-  const alertsShownRef = useRef<{warning: boolean, critical: boolean}>({ warning: false, critical: false });
+  const [timerStatus, setTimerStatus] = useState<
+    "normal" | "warning" | "critical"
+  >("normal");
+  const [timerAlert, setTimerAlert] = useState<{
+    message: string;
+    type: "warning" | "critical" | "success";
+  } | null>(null);
+  const alertsShownRef = useRef<{ warning: boolean; critical: boolean }>({
+    warning: false,
+    critical: false,
+  });
   const [timeLimitRemoved, setTimeLimitRemoved] = useState(false);
 
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -247,8 +311,11 @@ export default function SecureExamPlatform() {
 
   // --- ESTADOS DE CONEXIÓN WEBSOCKET ---
   const [isSocketConnected, setIsSocketConnected] = useState(false);
+  const isSocketConnectedRef = useRef(false); // Ref para evitar stale closure en saveAnswer
   const [connectionLost, setConnectionLost] = useState(false);
-  const [connectionGraceSeconds, setConnectionGraceSeconds] = useState<number | null>(null);
+  const [connectionGraceSeconds, setConnectionGraceSeconds] = useState<
+    number | null
+  >(null);
 
   const [openPanels, setOpenPanels] = useState<PanelType[]>([]);
   const [layout, setLayout] = useState<Layout>("vertical");
@@ -262,9 +329,22 @@ export default function SecureExamPlatform() {
   const [answerPanelContent, setAnswerPanelContent] = useState<string>("");
   const [savingStates, setSavingStates] = useState<Record<number, boolean>>({});
   const saveTimersRef = useRef<Record<number, number>>({});
-  const [lastSavedAnswers, setLastSavedAnswers] = useState<Record<string, string>>({});
+  // Cola de respuestas pendientes durante desconexión — se sincronizan al reconectar
+  const pendingAnswersQueueRef = useRef<
+    Array<{
+      preguntaId: number;
+      respuesta: any;
+      tipo_respuesta?: string;
+      metadata_codigo?: string;
+    }>
+  >([]);
+  const [lastSavedAnswers, setLastSavedAnswers] = useState<
+    Record<string, string>
+  >({});
 
-  const [draggedPanelIndex, setDraggedPanelIndex] = useState<number | null>(null);
+  const [draggedPanelIndex, setDraggedPanelIndex] = useState<number | null>(
+    null,
+  );
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [securityViolations, setSecurityViolations] = useState<string[]>([]);
 
@@ -278,31 +358,31 @@ export default function SecureExamPlatform() {
   // Estado persistente para el editor de Python
   const [pythonCells, setPythonCells] = useState<any[]>([
     {
-      id: '1',
-      type: 'markdown',
-      content: '# Editor Python\n',
-      status: 'idle'
-    }
+      id: "1",
+      type: "markdown",
+      content: "# Editor Python\n",
+      status: "idle",
+    },
   ]);
 
   // Estado persistente para el editor de JavaScript
   const [jsCells, setJsCells] = useState<any[]>([
     {
-      id: '1',
-      type: 'markdown',
-      content: '# Editor JavaScript\n',
-      status: 'idle'
-    }
+      id: "1",
+      type: "markdown",
+      content: "# Editor JavaScript\n",
+      status: "idle",
+    },
   ]);
 
   // Estado persistente para el editor de Java
   const [javaCells, setJavaCells] = useState<any[]>([
     {
-      id: '1',
-      type: 'markdown',
-      content: '# Editor Java\n',
-      status: 'idle'
-    }
+      id: "1",
+      type: "markdown",
+      content: "# Editor Java\n",
+      status: "idle",
+    },
   ]);
 
   // Estado persistente para Lienzo (Dibujo)
@@ -317,24 +397,36 @@ export default function SecureExamPlatform() {
   // Estados para Modales de Confirmación
   const [showExitModal, setShowExitModal] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [errorModal, setErrorModal] = useState<{ visible: boolean; titulo: string; mensaje: string }>({ visible: false, titulo: "", mensaje: "" });
-  const mostrarError = (titulo: string, mensaje: string) => setErrorModal({ visible: true, titulo, mensaje });
+  const [errorModal, setErrorModal] = useState<{
+    visible: boolean;
+    titulo: string;
+    mensaje: string;
+  }>({ visible: false, titulo: "", mensaje: "" });
+  const mostrarError = (titulo: string, mensaje: string) =>
+    setErrorModal({ visible: true, titulo, mensaje });
 
   // --- IDs VIRTUALES PARA RESPUESTAS PDF ---
   // Cada herramienta usa un pregunta_id virtual diferente para guardar su respuesta por separado
-  const PDF_ANSWER_ID = 0;    // Panel "Responder" (texto plano)
-  const PDF_PYTHON_ID = 1;    // Editor Python
-  const PDF_JS_ID = 2;        // Editor JavaScript/HTML
-  const PDF_JAVA_ID = 3;      // Editor Java
-  const PDF_LIENZO_ID = 4;    // Lienzo / Diagrama
-  const PDF_HOJA_ID = 5;      // Hoja de Cálculo
+  const PDF_ANSWER_ID = 0; // Panel "Responder" (texto plano)
+  const PDF_PYTHON_ID = 1; // Editor Python
+  const PDF_JS_ID = 2; // Editor JavaScript/HTML
+  const PDF_JAVA_ID = 3; // Editor Java
+  const PDF_LIENZO_ID = 4; // Lienzo / Diagrama
+  const PDF_HOJA_ID = 5; // Hoja de Cálculo
 
   // Refs para debounce de auto-save PDF
   const pdfSaveTimersRef = useRef<Record<number, number>>({});
 
-  const savePdfAnswer = (id: number, data: any, tipo: string, metadata?: string, delay = 3000) => {
+  const savePdfAnswer = (
+    id: number,
+    data: any,
+    tipo: string,
+    metadata?: string,
+    delay = 3000,
+  ) => {
     if (!studentData?.attemptId) return;
-    if (pdfSaveTimersRef.current[id]) clearTimeout(pdfSaveTimersRef.current[id]);
+    if (pdfSaveTimersRef.current[id])
+      clearTimeout(pdfSaveTimersRef.current[id]);
     pdfSaveTimersRef.current[id] = window.setTimeout(() => {
       saveAnswer(id, data, tipo, metadata);
       delete pdfSaveTimersRef.current[id];
@@ -361,10 +453,14 @@ export default function SecureExamPlatform() {
   // Auto-save: Python cells
   useEffect(() => {
     if (!examData?.incluirPython) return;
-    if (pythonCells.length <= 1 && pythonCells[0]?.content === '# Editor Python\n') return;
+    if (
+      pythonCells.length <= 1 &&
+      pythonCells[0]?.content === "# Editor Python\n"
+    )
+      return;
     const cleaned = cleanCellsForSave(pythonCells);
-    const codeCells = cleaned.filter((c: any) => c.type === 'code').length;
-    const textCells = cleaned.filter((c: any) => c.type === 'markdown').length;
+    const codeCells = cleaned.filter((c: any) => c.type === "code").length;
+    const textCells = cleaned.filter((c: any) => c.type === "markdown").length;
     savePdfAnswer(
       PDF_PYTHON_ID,
       cleaned,
@@ -376,26 +472,33 @@ export default function SecureExamPlatform() {
   // Auto-save: JavaScript cells
   useEffect(() => {
     if (!examData?.incluirJavascript) return;
-    if (jsCells.length <= 1 && jsCells[0]?.content === '# Editor JavaScript\n') return;
+    if (jsCells.length <= 1 && jsCells[0]?.content === "# Editor JavaScript\n")
+      return;
     const cleaned = cleanCellsForSave(jsCells);
-    const codeCells = cleaned.filter((c: any) => c.type === 'code').length;
-    const htmlCells = cleaned.filter((c: any) => c.type === 'html').length;
-    const textCells = cleaned.filter((c: any) => c.type === 'markdown').length;
+    const codeCells = cleaned.filter((c: any) => c.type === "code").length;
+    const htmlCells = cleaned.filter((c: any) => c.type === "html").length;
+    const textCells = cleaned.filter((c: any) => c.type === "markdown").length;
     savePdfAnswer(
       PDF_JS_ID,
       cleaned,
       "javascript",
-      JSON.stringify({ totalCells: cleaned.length, codeCells, htmlCells, textCells }),
+      JSON.stringify({
+        totalCells: cleaned.length,
+        codeCells,
+        htmlCells,
+        textCells,
+      }),
     );
   }, [jsCells]);
 
   // Auto-save: Java cells
   useEffect(() => {
     if (!examData?.incluirJava) return;
-    if (javaCells.length <= 1 && javaCells[0]?.content === '# Editor Java\n') return;
+    if (javaCells.length <= 1 && javaCells[0]?.content === "# Editor Java\n")
+      return;
     const cleaned = cleanCellsForSave(javaCells);
-    const codeCells = cleaned.filter((c: any) => c.type === 'code').length;
-    const textCells = cleaned.filter((c: any) => c.type === 'markdown').length;
+    const codeCells = cleaned.filter((c: any) => c.type === "code").length;
+    const textCells = cleaned.filter((c: any) => c.type === "markdown").length;
     savePdfAnswer(
       PDF_JAVA_ID,
       cleaned,
@@ -432,15 +535,26 @@ export default function SecureExamPlatform() {
   useEffect(() => {
     if (!examData?.incluirHojaExcel || !hojaCalcState) return;
     const clean = cleanHojaForSave(hojaCalcState);
-    const totalCells = Object.values(clean.allCells as Record<number, Record<string, any>>)
-      .reduce((sum, sheet) => sum + Object.values(sheet).filter((c: any) => c.value || c.formula).length, 0);
-    const chartsCount = Object.values(clean.allCharts as Record<number, any[]>)
-      .reduce((sum, charts) => sum + charts.length, 0);
+    const totalCells = Object.values(
+      clean.allCells as Record<number, Record<string, any>>,
+    ).reduce(
+      (sum, sheet) =>
+        sum +
+        Object.values(sheet).filter((c: any) => c.value || c.formula).length,
+      0,
+    );
+    const chartsCount = Object.values(
+      clean.allCharts as Record<number, any[]>,
+    ).reduce((sum, charts) => sum + charts.length, 0);
     savePdfAnswer(
       PDF_HOJA_ID,
       clean,
       "hoja_calculo",
-      JSON.stringify({ sheetsCount: clean.sheets.length, totalCells, chartsCount }),
+      JSON.stringify({
+        sheetsCount: clean.sheets.length,
+        totalCells,
+        chartsCount,
+      }),
     );
   }, [hojaCalcState]);
 
@@ -448,39 +562,50 @@ export default function SecureExamPlatform() {
   useEffect(() => {
     if (!examData?.incluirHerramientaDibujo || !lienzoState) return;
     const cleanState = cleanLienzoForSave(lienzoState);
-    const totalNodes = cleanState.sheets.reduce((sum: number, s: any) => sum + s.nodes.length, 0);
-    const totalConnections = cleanState.sheets.reduce((sum: number, s: any) => sum + s.connections.length, 0);
+    const totalNodes = cleanState.sheets.reduce(
+      (sum: number, s: any) => sum + s.nodes.length,
+      0,
+    );
+    const totalConnections = cleanState.sheets.reduce(
+      (sum: number, s: any) => sum + s.connections.length,
+      0,
+    );
     savePdfAnswer(
       PDF_LIENZO_ID,
       cleanState,
       "diagrama",
-      JSON.stringify({ sheetsCount: cleanState.sheets.length, totalNodes, totalConnections }),
+      JSON.stringify({
+        sheetsCount: cleanState.sheets.length,
+        totalNodes,
+        totalConnections,
+      }),
     );
   }, [lienzoState]);
 
   // --- HELPERS DE DIMENSIONAMIENTO ---
   const getMinSize = (type: PanelType, panelCount: number) => {
-      if (type === "dibujo") return 50; // Lienzo requiere 60% mínimo
-      // Si hay 3 paneles, relajamos un poco los mínimos para que quepan
-      if (type === "exam") return 50;
-      if (type === "python" || type === "javascript" || type === "java") return panelCount === 3 ? 30 : 40;
-      if (type === "answer") return 30;
-      if (type === "calculadora") return 35;
-      return 20; // Excel, etc.
+    if (type === "dibujo") return 50; // Lienzo requiere 60% mínimo
+    // Si hay 3 paneles, relajamos un poco los mínimos para que quepan
+    if (type === "exam") return 50;
+    if (type === "python" || type === "javascript" || type === "java")
+      return panelCount === 3 ? 30 : 40;
+    if (type === "answer") return 30;
+    if (type === "calculadora") return 35;
+    return 20; // Excel, etc.
   };
 
   const calculateOptimalSizes = (panels: PanelType[]) => {
-      const count = panels.length;
-      const minSizes = panels.map(p => getMinSize(p, count));
-      const totalMin = minSizes.reduce((a, b) => a + b, 0);
-      
-      // Si los mínimos superan el 100% (raro con la lógica actual), escalamos
-      if (totalMin > 100) return minSizes.map(m => (m / totalMin) * 100);
-      
-      // Si sobra espacio, se lo damos al primer panel (Examen)
-      const sizes = [...minSizes];
-      sizes[0] += (100 - totalMin);
-      return sizes;
+    const count = panels.length;
+    const minSizes = panels.map((p) => getMinSize(p, count));
+    const totalMin = minSizes.reduce((a, b) => a + b, 0);
+
+    // Si los mínimos superan el 100% (raro con la lógica actual), escalamos
+    if (totalMin > 100) return minSizes.map((m) => (m / totalMin) * 100);
+
+    // Si sobra espacio, se lo damos al primer panel (Examen)
+    const sizes = [...minSizes];
+    sizes[0] += 100 - totalMin;
+    return sizes;
   };
 
   // ----------------------------------------------------------------------
@@ -548,7 +673,9 @@ export default function SecureExamPlatform() {
         return updated;
       });
       setShowUnlockScreen(true);
-      try { window.focus(); } catch (e) {}
+      try {
+        window.focus();
+      } catch (e) {}
       blockedSocket.disconnect();
     });
 
@@ -565,7 +692,10 @@ export default function SecureExamPlatform() {
       if (examStarted && !examBlocked) {
         const elements = document.querySelectorAll("[data-protected]");
         elements.forEach((el) => {
-          if (el.getAttribute("data-integrity") !== integrityCheckRef.current.toString()) {
+          if (
+            el.getAttribute("data-integrity") !==
+            integrityCheckRef.current.toString()
+          ) {
             blockExam("Manipulación del código detectada", "CRITICAL");
           }
         });
@@ -692,47 +822,54 @@ export default function SecureExamPlatform() {
       }
 
       const remHours = Math.floor(remaining / (1000 * 60 * 60));
-      const remMinutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+      const remMinutes = Math.floor(
+        (remaining % (1000 * 60 * 60)) / (1000 * 60),
+      );
       const remSeconds = Math.floor((remaining % (1000 * 60)) / 1000);
-      
-      const timeString = `${String(remHours).padStart(2, "0")}:${String(remMinutes).padStart(2,"0")}:${String(remSeconds).padStart(2, "0")}`;
-      
+
+      const timeString = `${String(remHours).padStart(2, "0")}:${String(remMinutes).padStart(2, "0")}:${String(remSeconds).padStart(2, "0")}`;
+
       // --- LÓGICA DE ALERTAS DE TIEMPO ---
       const percentage = (remaining / duration) * 100;
-      let newStatus: 'normal' | 'warning' | 'critical' = 'normal';
+      let newStatus: "normal" | "warning" | "critical" = "normal";
 
       const policyMsg =
-          examData?.limiteTiempoCumplido === 'descartar'
-              ? ' Su examen se descartará si se acaba el tiempo, le recomendamos finalizar pronto.'
-              : examData?.limiteTiempoCumplido === 'enviar'
-              ? ' Su examen se enviará automáticamente al finalizar el tiempo.'
-              : '';
+        examData?.limiteTiempoCumplido === "descartar"
+          ? " Su examen se descartará si se acaba el tiempo, le recomendamos finalizar pronto."
+          : examData?.limiteTiempoCumplido === "enviar"
+            ? " Su examen se enviará automáticamente al finalizar el tiempo."
+            : "";
 
       if (percentage <= 10) {
-          newStatus = 'critical';
-          if (!alertsShownRef.current.critical) {
-              setTimerAlert({ message: `Queda ${timeString} para terminar el examen.${policyMsg}`, type: 'critical' });
-              alertsShownRef.current.critical = true;
-          }
+        newStatus = "critical";
+        if (!alertsShownRef.current.critical) {
+          setTimerAlert({
+            message: `Queda ${timeString} para terminar el examen.${policyMsg}`,
+            type: "critical",
+          });
+          alertsShownRef.current.critical = true;
+        }
       } else if (percentage <= 40) {
-          newStatus = 'warning';
-          if (!alertsShownRef.current.warning) {
-              setTimerAlert({ message: `Queda ${timeString} para terminar el examen.${policyMsg}`, type: 'warning' });
-              alertsShownRef.current.warning = true;
-          }
+        newStatus = "warning";
+        if (!alertsShownRef.current.warning) {
+          setTimerAlert({
+            message: `Queda ${timeString} para terminar el examen.${policyMsg}`,
+            type: "warning",
+          });
+          alertsShownRef.current.warning = true;
+        }
       }
-      
+
       setTimerStatus(newStatus);
       // Solo actualizamos si el texto cambia, evitando renders innecesarios
-      setRemainingTime(prev => prev !== timeString ? timeString : prev);
+      setRemainingTime((prev) => (prev !== timeString ? timeString : prev));
     };
 
     // Sincronización precisa con el reloj del sistema
     updateTimer();
     const now = Date.now();
     const msToNextSecond = 1000 - (now % 1000);
-    
- 
+
     let interval: any;
     const timeout = setTimeout(() => {
       updateTimer();
@@ -745,16 +882,45 @@ export default function SecureExamPlatform() {
     };
   }, [examStarted, studentData, examData, examBlocked]);
 
+  // Sincronizar isSocketConnectedRef y vaciar cola de respuestas al reconectar
+  useEffect(() => {
+    isSocketConnectedRef.current = isSocketConnected;
+    if (isSocketConnected && pendingAnswersQueueRef.current.length > 0) {
+      const pending = [...pendingAnswersQueueRef.current];
+      pendingAnswersQueueRef.current = [];
+      console.log(
+        `📤 Sincronizando ${pending.length} respuestas encoladas tras reconexión...`,
+      );
+      pending.forEach(
+        ({ preguntaId, respuesta, tipo_respuesta, metadata_codigo }, i) => {
+          // Escalonar para no saturar el servidor
+          setTimeout(
+            () =>
+              saveAnswer(
+                preguntaId,
+                respuesta,
+                tipo_respuesta,
+                metadata_codigo,
+              ),
+            i * 150,
+          );
+        },
+      );
+    }
+  }, [isSocketConnected]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Guardar respuestas pendientes al cambiar panel
   useEffect(() => {
     return () => {
-      Object.entries(saveTimersRef.current).forEach(([preguntaIdStr, timer]) => {
-        const preguntaId = Number(preguntaIdStr);
-        clearTimeout(timer);
-        if (answers[preguntaId] !== undefined) {
-          saveAnswer(preguntaId, answers[preguntaId]);
-        }
-      });
+      Object.entries(saveTimersRef.current).forEach(
+        ([preguntaIdStr, timer]) => {
+          const preguntaId = Number(preguntaIdStr);
+          clearTimeout(timer);
+          if (answers[preguntaId] !== undefined) {
+            saveAnswer(preguntaId, answers[preguntaId]);
+          }
+        },
+      );
       saveTimersRef.current = {};
     };
   }, [openPanels]);
@@ -772,12 +938,17 @@ export default function SecureExamPlatform() {
     sessionStorage.clear();
     // Cookies del dominio
     document.cookie.split(";").forEach((c) => {
-      document.cookie = c.trim().split("=")[0] + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+      document.cookie =
+        c.trim().split("=")[0] +
+        "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
     });
   };
 
   const addSecurityViolation = (violation: string) => {
-    setSecurityViolations((prev) => [...prev, `${new Date().toLocaleTimeString()}: ${violation}`]);
+    setSecurityViolations((prev) => [
+      ...prev,
+      `${new Date().toLocaleTimeString()}: ${violation}`,
+    ]);
   };
 
   const saveAnswer = async (
@@ -787,13 +958,35 @@ export default function SecureExamPlatform() {
     metadata_codigo?: string,
   ) => {
     if (!studentData?.attemptId) return;
-    // Bloquear guardado si el socket está caído — evita errores 403 por intento abandonado
-    if (!isSocketConnected) {
-      console.warn(`⚠️ Respuesta pregunta ${preguntaId} no guardada — socket desconectado`);
+    // Si el socket está caído, encolar la respuesta para sincronizar al reconectar
+    if (!isSocketConnectedRef.current) {
+      const existingIdx = pendingAnswersQueueRef.current.findIndex(
+        (a) => a.preguntaId === preguntaId,
+      );
+      if (existingIdx >= 0) {
+        pendingAnswersQueueRef.current[existingIdx] = {
+          preguntaId,
+          respuesta,
+          tipo_respuesta,
+          metadata_codigo,
+        };
+      } else {
+        pendingAnswersQueueRef.current.push({
+          preguntaId,
+          respuesta,
+          tipo_respuesta,
+          metadata_codigo,
+        });
+      }
+      console.warn(
+        `📥 Pregunta ${preguntaId} encolada (${pendingAnswersQueueRef.current.length} pendientes — sin conexión)`,
+      );
       return;
     }
     const respuestaStr = JSON.stringify(respuesta);
-    const cacheKey = tipo_respuesta ? `${preguntaId}_${tipo_respuesta}` : String(preguntaId);
+    const cacheKey = tipo_respuesta
+      ? `${preguntaId}_${tipo_respuesta}`
+      : String(preguntaId);
     if (lastSavedAnswers[cacheKey] === respuestaStr) return;
 
     setSavingStates((prev) => ({ ...prev, [preguntaId]: true }));
@@ -821,9 +1014,14 @@ export default function SecureExamPlatform() {
     }
   };
 
-  const handleAnswerChange = (preguntaId: number, respuesta: any, delayMs: number = 3000) => {
+  const handleAnswerChange = (
+    preguntaId: number,
+    respuesta: any,
+    delayMs: number = 3000,
+  ) => {
     setAnswers((prev) => ({ ...prev, [preguntaId]: respuesta }));
-    if (saveTimersRef.current[preguntaId]) clearTimeout(saveTimersRef.current[preguntaId]);
+    if (saveTimersRef.current[preguntaId])
+      clearTimeout(saveTimersRef.current[preguntaId]);
     saveTimersRef.current[preguntaId] = window.setTimeout(() => {
       saveAnswer(preguntaId, respuesta);
       delete saveTimersRef.current[preguntaId];
@@ -831,208 +1029,290 @@ export default function SecureExamPlatform() {
   };
 
   const mapReasonToEventType = (reason: string): string => {
-    if (reason.includes("pantalla completa")) return "pantalla_completa_cerrada";
-    if (reason.includes("combinación") || reason.includes("tecla")) return "combinacion_teclas_prohibida";
+    if (reason.includes("pantalla completa"))
+      return "pantalla_completa_cerrada";
+    if (reason.includes("combinación") || reason.includes("tecla"))
+      return "combinacion_teclas_prohibida";
     if (reason.includes("foco")) return "foco_perdido";
-    if (reason.includes("copiar") || reason.includes("pegar") || reason.includes("imprimir")) return "intento_copiar_pegar_imprimir";
+    if (
+      reason.includes("copiar") ||
+      reason.includes("pegar") ||
+      reason.includes("imprimir")
+    )
+      return "intento_copiar_pegar_imprimir";
     if (reason.includes("código")) return "manipulacion_codigo";
     if (reason.includes("pestaña")) return "pestana_cambiada";
     return "pestana_cambiada";
   };
 
-  const blockExam = async (reason: string, severity: "INFO" | "WARNING" | "CRITICAL" = "CRITICAL") => {
+  const blockExam = async (
+    reason: string,
+    severity: "INFO" | "WARNING" | "CRITICAL" = "CRITICAL",
+  ) => {
     if (examBlocked) return;
     if (examData?.consecuencia === "ninguna") return;
-    
+
     const tipoEvento = mapReasonToEventType(reason);
     addSecurityViolation(`[${severity}] ${reason}`);
-    
+
     if (studentData?.attemptId) {
-        try {
-             await fetch(`${ATTEMPTS_API_URL}/api/exam/event`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    intento_id: studentData.attemptId,
-                    tipo_evento: tipoEvento,
-                    fecha_envio: new Date().toISOString(),
-                }),
-            });
-        } catch(e) { console.error("Error enviando evento:", e) }
+      try {
+        await fetch(`${ATTEMPTS_API_URL}/api/exam/event`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            intento_id: studentData.attemptId,
+            tipo_evento: tipoEvento,
+            fecha_envio: new Date().toISOString(),
+          }),
+        });
+      } catch (e) {
+        console.error("Error enviando evento:", e);
+      }
     }
 
     if (examData?.consecuencia === "notificar") return;
     setExamBlocked(true);
     setBlockReason(reason);
     if (studentData?.attemptId) {
-      localStorage.setItem("examBlockedState", JSON.stringify({ attemptId: studentData.attemptId, reason }));
+      localStorage.setItem(
+        "examBlockedState",
+        JSON.stringify({ attemptId: studentData.attemptId, reason }),
+      );
     }
   };
 
   // Función para cerrar la página / salir
   const handleCloseApp = () => {
-      examFinishedRef.current = true;
-      if (studentData?.attemptId) {
-        if (socket) socket.emit("leave_attempt", studentData.attemptId);
-        fetch(`${ATTEMPTS_API_URL}/api/exam/attempt/${studentData.attemptId}/abandon`, {
+    examFinishedRef.current = true;
+    if (studentData?.attemptId) {
+      if (socket) socket.emit("leave_attempt", studentData.attemptId);
+      fetch(
+        `${ATTEMPTS_API_URL}/api/exam/attempt/${studentData.attemptId}/abandon`,
+        {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           keepalive: true,
-        }).catch(() => {});
-      }
+        },
+      ).catch(() => {});
+    }
 
-      // Salir de pantalla completa
-      if (document.fullscreenElement) {
-        document.exitFullscreen().catch(() => {});
-      }
+    // Salir de pantalla completa
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
 
-      // Mostrar pantalla de abandono en vez de redirigir
-      setWasAbandoned(true);
-      setExamFinished(true);
-      limpiarDatosExamen();
+    // Mostrar pantalla de abandono en vez de redirigir
+    setWasAbandoned(true);
+    setExamFinished(true);
+    limpiarDatosExamen();
 
-      try {
-          window.close();
-      } catch (e) {
-          console.log("No se pudo cerrar la ventana automáticamente");
-      }
+    try {
+      window.close();
+    } catch (e) {
+      console.log("No se pudo cerrar la ventana automáticamente");
+    }
   };
 
   // Calcular preguntas sin responder
   const getUnansweredCount = () => {
-      if (!examData?.questions || !Array.isArray(examData.questions)) return 0;
-      let answered = 0;
-      examData.questions.forEach((q: any) => {
-          const ans = answers[q.id];
-          if (ans) {
-              if (Array.isArray(ans) && ans.length > 0) {
-                   // Verificar si es fill_blanks que tenga al menos un campo lleno
-                   if (q.type === 'fill_blanks') {
-                       if (ans.some((s: string) => s && s.trim().length > 0)) answered++;
-                   } else {
-                       answered++;
-                   }
-              }
-              else if (typeof ans === 'string' && ans.trim().length > 0) answered++;
+    if (!examData?.questions || !Array.isArray(examData.questions)) return 0;
+    let answered = 0;
+    examData.questions.forEach((q: any) => {
+      const ans = answers[q.id];
+      if (ans) {
+        if (Array.isArray(ans) && ans.length > 0) {
+          // Verificar si es fill_blanks que tenga al menos un campo lleno
+          if (q.type === "fill_blanks") {
+            if (ans.some((s: string) => s && s.trim().length > 0)) answered++;
+          } else {
+            answered++;
           }
-      });
-      return examData.questions.length - answered;
+        } else if (typeof ans === "string" && ans.trim().length > 0) answered++;
+      }
+    });
+    return examData.questions.length - answered;
   };
 
   // Lógica de entrega final
   const submitExam = async () => {
-      setIsSubmitting(true);
-      console.log("💾 Guardando respuestas pendientes antes de entregar...");
+    setIsSubmitting(true);
+    console.log("💾 Guardando respuestas pendientes antes de entregar...");
 
-      // Guardar respuestas normales pendientes (exámenes con preguntas)
-      const savePromises = Object.entries(saveTimersRef.current).map(async ([preguntaIdStr, timer]) => {
-          const preguntaId = Number(preguntaIdStr);
-          clearTimeout(timer);
-          if (answers[preguntaId] !== undefined) await saveAnswer(preguntaId, answers[preguntaId]);
-      });
-      await Promise.all(savePromises);
-      saveTimersRef.current = {};
+    // Guardar respuestas normales pendientes (exámenes con preguntas)
+    const savePromises = Object.entries(saveTimersRef.current).map(
+      async ([preguntaIdStr, timer]) => {
+        const preguntaId = Number(preguntaIdStr);
+        clearTimeout(timer);
+        if (answers[preguntaId] !== undefined)
+          await saveAnswer(preguntaId, answers[preguntaId]);
+      },
+    );
+    await Promise.all(savePromises);
+    saveTimersRef.current = {};
 
-      // Guardar respuestas PDF pendientes (texto, código, diagrama)
-      if (examData?.archivoPDF) {
-        // Cancelar timers pendientes de PDF
-        Object.values(pdfSaveTimersRef.current).forEach((t) => clearTimeout(t));
-        pdfSaveTimersRef.current = {};
+    // Guardar respuestas PDF pendientes (texto, código, diagrama)
+    if (examData?.archivoPDF) {
+      // Cancelar timers pendientes de PDF
+      Object.values(pdfSaveTimersRef.current).forEach((t) => clearTimeout(t));
+      pdfSaveTimersRef.current = {};
 
-        const pdfSaves: Promise<void>[] = [];
-        if (answerPanelContent) {
-          pdfSaves.push(saveAnswer(PDF_ANSWER_ID, answerPanelContent, "texto_plano"));
-        }
-        if (examData.incluirPython && pythonCells.length > 0) {
-          const cleaned = cleanCellsForSave(pythonCells);
-          const codeCells = cleaned.filter((c: any) => c.type === 'code').length;
-          const textCells = cleaned.filter((c: any) => c.type === 'markdown').length;
-          pdfSaves.push(saveAnswer(
+      const pdfSaves: Promise<void>[] = [];
+      if (answerPanelContent) {
+        pdfSaves.push(
+          saveAnswer(PDF_ANSWER_ID, answerPanelContent, "texto_plano"),
+        );
+      }
+      if (examData.incluirPython && pythonCells.length > 0) {
+        const cleaned = cleanCellsForSave(pythonCells);
+        const codeCells = cleaned.filter((c: any) => c.type === "code").length;
+        const textCells = cleaned.filter(
+          (c: any) => c.type === "markdown",
+        ).length;
+        pdfSaves.push(
+          saveAnswer(
             PDF_PYTHON_ID,
             cleaned,
             "python",
-            JSON.stringify({ totalCells: cleaned.length, codeCells, textCells }),
-          ));
-        }
-        if (examData.incluirJavascript && jsCells.length > 0) {
-          const cleaned = cleanCellsForSave(jsCells);
-          const codeCells = cleaned.filter((c: any) => c.type === 'code').length;
-          const htmlCells = cleaned.filter((c: any) => c.type === 'html').length;
-          const textCells = cleaned.filter((c: any) => c.type === 'markdown').length;
-          pdfSaves.push(saveAnswer(
+            JSON.stringify({
+              totalCells: cleaned.length,
+              codeCells,
+              textCells,
+            }),
+          ),
+        );
+      }
+      if (examData.incluirJavascript && jsCells.length > 0) {
+        const cleaned = cleanCellsForSave(jsCells);
+        const codeCells = cleaned.filter((c: any) => c.type === "code").length;
+        const htmlCells = cleaned.filter((c: any) => c.type === "html").length;
+        const textCells = cleaned.filter(
+          (c: any) => c.type === "markdown",
+        ).length;
+        pdfSaves.push(
+          saveAnswer(
             PDF_JS_ID,
             cleaned,
             "javascript",
-            JSON.stringify({ totalCells: cleaned.length, codeCells, htmlCells, textCells }),
-          ));
-        }
-        if (examData.incluirJava && javaCells.length > 0) {
-          const cleaned = cleanCellsForSave(javaCells);
-          const codeCells = cleaned.filter((c: any) => c.type === 'code').length;
-          const textCells = cleaned.filter((c: any) => c.type === 'markdown').length;
-          pdfSaves.push(saveAnswer(
+            JSON.stringify({
+              totalCells: cleaned.length,
+              codeCells,
+              htmlCells,
+              textCells,
+            }),
+          ),
+        );
+      }
+      if (examData.incluirJava && javaCells.length > 0) {
+        const cleaned = cleanCellsForSave(javaCells);
+        const codeCells = cleaned.filter((c: any) => c.type === "code").length;
+        const textCells = cleaned.filter(
+          (c: any) => c.type === "markdown",
+        ).length;
+        pdfSaves.push(
+          saveAnswer(
             PDF_JAVA_ID,
             cleaned,
             "java",
-            JSON.stringify({ totalCells: cleaned.length, codeCells, textCells }),
-          ));
-        }
-        if (examData.incluirHojaExcel && hojaCalcState) {
-          const clean = cleanHojaForSave(hojaCalcState);
-          const totalCells = Object.values(clean.allCells as Record<number, Record<string, any>>)
-            .reduce((sum, sheet) => sum + Object.values(sheet).filter((c: any) => c.value || c.formula).length, 0);
-          const chartsCount = Object.values(clean.allCharts as Record<number, any[]>)
-            .reduce((sum, charts) => sum + charts.length, 0);
-          pdfSaves.push(saveAnswer(
+            JSON.stringify({
+              totalCells: cleaned.length,
+              codeCells,
+              textCells,
+            }),
+          ),
+        );
+      }
+      if (examData.incluirHojaExcel && hojaCalcState) {
+        const clean = cleanHojaForSave(hojaCalcState);
+        const totalCells = Object.values(
+          clean.allCells as Record<number, Record<string, any>>,
+        ).reduce(
+          (sum, sheet) =>
+            sum +
+            Object.values(sheet).filter((c: any) => c.value || c.formula)
+              .length,
+          0,
+        );
+        const chartsCount = Object.values(
+          clean.allCharts as Record<number, any[]>,
+        ).reduce((sum, charts) => sum + charts.length, 0);
+        pdfSaves.push(
+          saveAnswer(
             PDF_HOJA_ID,
             clean,
             "hoja_calculo",
-            JSON.stringify({ sheetsCount: clean.sheets.length, totalCells, chartsCount }),
-          ));
-        }
-        if (examData.incluirHerramientaDibujo && lienzoState) {
-          const cleanState = cleanLienzoForSave(lienzoState);
-          const totalNodes = cleanState.sheets.reduce((sum: number, s: any) => sum + s.nodes.length, 0);
-          const totalConnections = cleanState.sheets.reduce((sum: number, s: any) => sum + s.connections.length, 0);
-          pdfSaves.push(saveAnswer(
+            JSON.stringify({
+              sheetsCount: clean.sheets.length,
+              totalCells,
+              chartsCount,
+            }),
+          ),
+        );
+      }
+      if (examData.incluirHerramientaDibujo && lienzoState) {
+        const cleanState = cleanLienzoForSave(lienzoState);
+        const totalNodes = cleanState.sheets.reduce(
+          (sum: number, s: any) => sum + s.nodes.length,
+          0,
+        );
+        const totalConnections = cleanState.sheets.reduce(
+          (sum: number, s: any) => sum + s.connections.length,
+          0,
+        );
+        pdfSaves.push(
+          saveAnswer(
             PDF_LIENZO_ID,
             cleanState,
             "diagrama",
-            JSON.stringify({ sheetsCount: cleanState.sheets.length, totalNodes, totalConnections }),
-          ));
+            JSON.stringify({
+              sheetsCount: cleanState.sheets.length,
+              totalNodes,
+              totalConnections,
+            }),
+          ),
+        );
+      }
+      await Promise.all(pdfSaves);
+      console.log("✅ Respuestas PDF guardadas");
+    }
+    console.log("✅ Todas las respuestas guardadas, entregando examen...");
+
+    if (studentData?.attemptId) {
+      try {
+        await fetch(
+          `${ATTEMPTS_API_URL}/api/exam/attempt/${studentData.attemptId}/finish`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+        // Mostrar pantalla de finalización
+        examFinishedRef.current = true;
+        setExamFinished(true);
+        limpiarDatosExamen();
+
+        // Salir de pantalla completa
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
         }
-        await Promise.all(pdfSaves);
-        console.log("✅ Respuestas PDF guardadas");
-      }
-      console.log("✅ Todas las respuestas guardadas, entregando examen...");
-      
-      if (studentData?.attemptId) {
-          try {
-              await fetch(`${ATTEMPTS_API_URL}/api/exam/attempt/${studentData.attemptId}/finish`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" }
-              });
-              // Mostrar pantalla de finalización
-              examFinishedRef.current = true;
-              setExamFinished(true);
-              limpiarDatosExamen();
 
-              // Salir de pantalla completa
-              if (document.fullscreenElement) {
-                  document.exitFullscreen().catch(() => {});
-              }
-
-              try {
-                  window.close();
-              } catch (e) { console.log("No se pudo cerrar automáticamente"); }
-          } catch (error: any) {
-              console.error("Error al entregar el examen:", error);
-              mostrarError("Error al entregar el examen", error?.message || "No se pudo completar la entrega. Intenta nuevamente o contacta a tu profesor.");
-              setIsSubmitting(false);
-          }
-      } else {
-          setIsSubmitting(false);
+        try {
+          window.close();
+        } catch (e) {
+          console.log("No se pudo cerrar automáticamente");
+        }
+      } catch (error: any) {
+        console.error("Error al entregar el examen:", error);
+        mostrarError(
+          "Error al entregar el examen",
+          error?.message ||
+            "No se pudo completar la entrega. Intenta nuevamente o contacta a tu profesor.",
+        );
+        setIsSubmitting(false);
       }
+    } else {
+      setIsSubmitting(false);
+    }
   };
 
   // Fisher-Yates usando crypto.getRandomValues() para mayor aleatoriedad
@@ -1053,7 +1333,10 @@ export default function SecureExamPlatform() {
     setIsStarting(true);
     try {
       if (!studentData || !examData) {
-        mostrarError("Error al iniciar", "No se encontraron los datos del examen. Regresa al acceso y vuelve a intentarlo.");
+        mostrarError(
+          "Error al iniciar",
+          "No se encontraron los datos del examen. Regresa al acceso y vuelve a intentarlo.",
+        );
         setIsStarting(false);
         return;
       }
@@ -1066,9 +1349,17 @@ export default function SecureExamPlatform() {
       }
 
       let attempt: { id: number };
-      let examInProgress: { codigo_acceso: string; id_sesion: string; fecha_expiracion: string | null };
+      let examInProgress: {
+        codigo_acceso: string;
+        id_sesion: string;
+        fecha_expiracion: string | null;
+      };
 
-      if (studentData.isResuming && studentData.attemptId && studentData.id_sesion) {
+      if (
+        studentData.isResuming &&
+        studentData.attemptId &&
+        studentData.id_sesion
+      ) {
         // Caso reanudación: usar datos de sesión existentes, sin crear nuevo intento
         console.log("🔄 Reanudando intento:", studentData.attemptId);
         attempt = { id: studentData.attemptId };
@@ -1109,10 +1400,11 @@ export default function SecureExamPlatform() {
       console.log("📘 Cargando preguntas del examen...");
 
       const examDetailsRes = await fetch(
-        `${EXAMS_API_URL}/api/exams/forAttempt/${studentData.examCode}`
+        `${EXAMS_API_URL}/api/exams/forAttempt/${studentData.examCode}`,
       );
 
-      if (!examDetailsRes.ok) throw new Error("Error al cargar detalles del examen");
+      if (!examDetailsRes.ok)
+        throw new Error("Error al cargar detalles del examen");
 
       const examDetails = await examDetailsRes.json();
 
@@ -1123,11 +1415,14 @@ export default function SecureExamPlatform() {
           examDetails.questions = shuffleArray(examDetails.questions);
           const questionIds = examDetails.questions.map((q: any) => q.id);
           try {
-            await fetch(`${ATTEMPTS_API_URL}/api/exam/attempt/${attempt.id}/question-order`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ questionIds }),
-            });
+            await fetch(
+              `${ATTEMPTS_API_URL}/api/exam/attempt/${attempt.id}/question-order`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ questionIds }),
+              },
+            );
           } catch (e) {
             console.warn("No se pudo guardar el orden de preguntas:", e);
           }
@@ -1135,11 +1430,17 @@ export default function SecureExamPlatform() {
           // Reanudación: aplicar el orden guardado
           try {
             const savedOrder: number[] = JSON.parse(studentData.ordenPreguntas);
-            const questionMap = new Map(examDetails.questions.map((q: any) => [q.id, q]));
-            const ordered = savedOrder.map((id: number) => questionMap.get(id)).filter(Boolean);
+            const questionMap = new Map(
+              examDetails.questions.map((q: any) => [q.id, q]),
+            );
+            const ordered = savedOrder
+              .map((id: number) => questionMap.get(id))
+              .filter(Boolean);
             // Si hay preguntas nuevas que no estaban en el orden guardado, agregarlas al final
             const savedSet = new Set(savedOrder);
-            const extras = examDetails.questions.filter((q: any) => !savedSet.has(q.id));
+            const extras = examDetails.questions.filter(
+              (q: any) => !savedSet.has(q.id),
+            );
             examDetails.questions = [...ordered, ...extras];
           } catch (e) {
             console.warn("No se pudo aplicar el orden guardado:", e);
@@ -1169,8 +1470,11 @@ export default function SecureExamPlatform() {
         const savedAnswersRaw = localStorage.getItem("savedAnswers");
         if (savedAnswersRaw) {
           try {
-            const savedAnswers: Array<{ pregunta_id: number; respuesta: string; tipo_respuesta: string }> =
-              JSON.parse(savedAnswersRaw);
+            const savedAnswers: Array<{
+              pregunta_id: number;
+              respuesta: string;
+              tipo_respuesta: string;
+            }> = JSON.parse(savedAnswersRaw);
 
             const restoredAnswers: Record<number, any> = {};
             for (const answer of savedAnswers) {
@@ -1226,15 +1530,25 @@ export default function SecureExamPlatform() {
         blockExam(data.message, "CRITICAL");
         newSocket.disconnect();
       });
-      newSocket.on("time_expired", (data: { limiteTiempoCumplido?: string }) => {
-        setWasTimeExpired(data?.limiteTiempoCumplido === 'descartar' ? 'descartar' : 'enviar');
-        setExamFinished(true);
-        if (document.fullscreenElement) {
-          document.exitFullscreen().catch(() => {});
-        }
+      newSocket.on(
+        "time_expired",
+        (data: { limiteTiempoCumplido?: string }) => {
+          setWasTimeExpired(
+            data?.limiteTiempoCumplido === "descartar" ? "descartar" : "enviar",
+          );
+          setExamFinished(true);
+          if (document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {});
+          }
+        },
+      );
+      newSocket.on("fraud_detected", (data) =>
+        addSecurityViolation(`Fraude: ${data.tipo_evento}`),
+      );
+      newSocket.on("attempt_blocked", (data) => {
+        setExamBlocked(true);
+        setBlockReason(data.message);
       });
-      newSocket.on("fraud_detected", (data) => addSecurityViolation(`Fraude: ${data.tipo_evento}`));
-      newSocket.on("attempt_blocked", (data) => { setExamBlocked(true); setBlockReason(data.message); });
       newSocket.on("attempt_unlocked", (data) => {
         console.log("✅ Examen desbloqueado por el profesor", data);
         setExamBlocked(false);
@@ -1259,8 +1573,11 @@ export default function SecureExamPlatform() {
       newSocket.on("time_limit_removed", () => {
         console.log("✅ Profesor eliminó el tiempo límite");
         setTimeLimitRemoved(true);
-        setTimerStatus('normal');
-        setTimerAlert({ message: "El profesor ha quitado el tiempo límite del examen", type: 'success' });
+        setTimerStatus("normal");
+        setTimerAlert({
+          message: "El profesor ha quitado el tiempo límite del examen",
+          type: "success",
+        });
         alertsShownRef.current = { warning: false, critical: false };
       });
 
@@ -1290,10 +1607,13 @@ export default function SecureExamPlatform() {
         setIsSocketConnected(false);
       });
 
-      newSocket.on("connection_lost", (data: { message: string; graceSeconds: number }) => {
-        setConnectionLost(true);
-        setConnectionGraceSeconds(data.graceSeconds);
-      });
+      newSocket.on(
+        "connection_lost",
+        (data: { message: string; graceSeconds: number }) => {
+          setConnectionLost(true);
+          setConnectionGraceSeconds(data.graceSeconds);
+        },
+      );
 
       newSocket.on("connection_restored", () => {
         setConnectionLost(false);
@@ -1302,10 +1622,10 @@ export default function SecureExamPlatform() {
 
       setSocket(newSocket);
       setExamStarted(true);
-      
+
       // Resetear alertas de tiempo
       alertsShownRef.current = { warning: false, critical: false };
-      setTimerStatus('normal');
+      setTimerStatus("normal");
       setTimerAlert(null);
 
       setOpenPanels(["exam"]);
@@ -1314,17 +1634,23 @@ export default function SecureExamPlatform() {
 
       setTimeout(async () => {
         if (fullscreenRef.current) {
-            try { await fullscreenRef.current.requestFullscreen(); }
-            catch (err) {
-              // Si la página estaba oculta, los handlers de focus/visibilitychange lo detectarán al volver
-              if (!document.hidden) addSecurityViolation("No se pudo activar pantalla completa");
-            }
+          try {
+            await fullscreenRef.current.requestFullscreen();
+          } catch (err) {
+            // Si la página estaba oculta, los handlers de focus/visibilitychange lo detectarán al volver
+            if (!document.hidden)
+              addSecurityViolation("No se pudo activar pantalla completa");
+          }
         }
       }, 100);
     } catch (error: any) {
-        console.error("❌ Error al iniciar examen:", error);
-        mostrarError("Error al iniciar el examen", error?.message || "Ocurrió un error inesperado. Recarga la página e intenta nuevamente.");
-        setIsStarting(false);
+      console.error("❌ Error al iniciar examen:", error);
+      mostrarError(
+        "Error al iniciar el examen",
+        error?.message ||
+          "Ocurrió un error inesperado. Recarga la página e intenta nuevamente.",
+      );
+      setIsStarting(false);
     }
   };
 
@@ -1337,7 +1663,13 @@ export default function SecureExamPlatform() {
     const handleFullscreenChange = () => {
       clearTimeout(fullscreenTimeout);
       fullscreenTimeout = setTimeout(() => {
-        if (examStarted && !document.fullscreenElement && !examBlocked && !isSubmitting && !examFinished) {
+        if (
+          examStarted &&
+          !document.fullscreenElement &&
+          !examBlocked &&
+          !isSubmitting &&
+          !examFinished
+        ) {
           blockExam("Salida de pantalla completa detectada", "CRITICAL");
         }
       }, 100);
@@ -1363,22 +1695,32 @@ export default function SecureExamPlatform() {
     };
 
     const handleWindowFocus = () => {
-      if (examStarted && !examBlocked && !isSubmitting && !examFinished && !document.fullscreenElement) {
+      if (
+        examStarted &&
+        !examBlocked &&
+        !isSubmitting &&
+        !examFinished &&
+        !document.fullscreenElement
+      ) {
         blockExam("Examen iniciado sin pantalla completa", "CRITICAL");
       }
     };
 
     const handleBlur = () => {
-      if (examStarted && !examBlocked && !isSubmitting && !examFinished) blockExam("Pérdida de foco detectada", "CRITICAL");
+      if (examStarted && !examBlocked && !isSubmitting && !examFinished)
+        blockExam("Pérdida de foco detectada", "CRITICAL");
     };
 
     const handleBeforeUnload = () => {
       if (examStarted && !examFinishedRef.current && studentData?.attemptId) {
-        fetch(`${ATTEMPTS_API_URL}/api/exam/attempt/${studentData.attemptId}/abandon`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          keepalive: true,
-        }).catch(() => {});
+        fetch(
+          `${ATTEMPTS_API_URL}/api/exam/attempt/${studentData.attemptId}/abandon`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            keepalive: true,
+          },
+        ).catch(() => {});
       }
     };
 
@@ -1426,7 +1768,14 @@ export default function SecureExamPlatform() {
     }
 
     // Lógica para reemplazar herramientas si ya hay una abierta (o el panel "answer")
-    const tools: PanelType[] = ["calculadora", "excel", "dibujo", "javascript", "python", "java"];
+    const tools: PanelType[] = [
+      "calculadora",
+      "excel",
+      "dibujo",
+      "javascript",
+      "python",
+      "java",
+    ];
 
     // Si se abre "answer" y hay una herramienta abierta, reemplazarla
     if (panelType === "answer") {
@@ -1452,14 +1801,14 @@ export default function SecureExamPlatform() {
       if (existingToolIndex !== -1) {
         let newPanels = [...openPanels];
         newPanels[existingToolIndex] = panelType;
-        
+
         // Restricción Lienzo: Si hay dibujo, máximo 2 paneles para evitar bugs visuales
         if (newPanels.includes("dibujo") && newPanels.length > 2) {
-             newPanels = [newPanels[0], panelType];
-             setOpenPanels(newPanels);
-             setPanelSizes(calculateOptimalSizes(newPanels));
-             setPanelZooms([panelZooms[0], 100]);
-             return;
+          newPanels = [newPanels[0], panelType];
+          setOpenPanels(newPanels);
+          setPanelSizes(calculateOptimalSizes(newPanels));
+          setPanelZooms([panelZooms[0], 100]);
+          return;
         }
 
         setOpenPanels(newPanels);
@@ -1474,18 +1823,23 @@ export default function SecureExamPlatform() {
     }
 
     // Restricción Lienzo al agregar nuevo panel: Si ya hay 2 y uno es dibujo o el nuevo es dibujo -> Reemplazar el segundo
-    if (openPanels.length >= 2 && (panelType === "dibujo" || openPanels.includes("dibujo"))) {
-         const newPanels = [openPanels[0], panelType];
-         setOpenPanels(newPanels);
-         setPanelSizes(calculateOptimalSizes(newPanels));
-         setPanelZooms([panelZooms[0], 100]);
-         return;
+    if (
+      openPanels.length >= 2 &&
+      (panelType === "dibujo" || openPanels.includes("dibujo"))
+    ) {
+      const newPanels = [openPanels[0], panelType];
+      setOpenPanels(newPanels);
+      setPanelSizes(calculateOptimalSizes(newPanels));
+      setPanelZooms([panelZooms[0], 100]);
+      return;
     }
 
-    if (openPanels.length >= 2) { return; }
+    if (openPanels.length >= 2) {
+      return;
+    }
     const newPanels = [...openPanels, panelType];
     setOpenPanels(newPanels);
-    
+
     // Calcular tamaños iniciales basados en los mínimos de cada panel
     setPanelSizes(calculateOptimalSizes(newPanels));
     setPanelZooms([...panelZooms, 100]);
@@ -1505,24 +1859,38 @@ export default function SecureExamPlatform() {
   };
 
   const handleDragStart = (index: number) => setDraggedPanelIndex(index);
-  const handleDragOver = (e: React.DragEvent, index: number) => { e.preventDefault(); if (draggedPanelIndex !== null && draggedPanelIndex !== index) setDragOverIndex(index); };
-  const handleDrop = (index: number) => { 
-      if (draggedPanelIndex !== null && draggedPanelIndex !== index) {
-        const newPanels = [...openPanels];
-        const newSizes = [...panelSizes];
-        const newZooms = [...panelZooms];
-
-        [newPanels[draggedPanelIndex], newPanels[index]] = [newPanels[index], newPanels[draggedPanelIndex]];
-        [newSizes[draggedPanelIndex], newSizes[index]] = [newSizes[index], newSizes[draggedPanelIndex]];
-        [newZooms[draggedPanelIndex], newZooms[index]] = [newZooms[index], newZooms[draggedPanelIndex]];
-
-        setOpenPanels(newPanels);
-        setPanelSizes(newSizes);
-        setPanelZooms(newZooms);
-      }
-      setDraggedPanelIndex(null); setDragOverIndex(null); 
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedPanelIndex !== null && draggedPanelIndex !== index)
+      setDragOverIndex(index);
   };
-  
+  const handleDrop = (index: number) => {
+    if (draggedPanelIndex !== null && draggedPanelIndex !== index) {
+      const newPanels = [...openPanels];
+      const newSizes = [...panelSizes];
+      const newZooms = [...panelZooms];
+
+      [newPanels[draggedPanelIndex], newPanels[index]] = [
+        newPanels[index],
+        newPanels[draggedPanelIndex],
+      ];
+      [newSizes[draggedPanelIndex], newSizes[index]] = [
+        newSizes[index],
+        newSizes[draggedPanelIndex],
+      ];
+      [newZooms[draggedPanelIndex], newZooms[index]] = [
+        newZooms[index],
+        newZooms[draggedPanelIndex],
+      ];
+
+      setOpenPanels(newPanels);
+      setPanelSizes(newSizes);
+      setPanelZooms(newZooms);
+    }
+    setDraggedPanelIndex(null);
+    setDragOverIndex(null);
+  };
+
   const startResize = (index: number, e: React.MouseEvent) => {
     setIsResizing(true);
     setResizingIndex(index);
@@ -1534,101 +1902,180 @@ export default function SecureExamPlatform() {
     const handleMouseMove = (e: MouseEvent) => {
       if (isResizing && resizingIndex !== null) {
         const currentPos = layout === "vertical" ? e.clientX : e.clientY;
-        const containerSize = layout === "vertical" ? window.innerWidth - (sidebarCollapsed ? 80 : 256) : window.innerHeight; 
+        const containerSize =
+          layout === "vertical"
+            ? window.innerWidth - (sidebarCollapsed ? 80 : 256)
+            : window.innerHeight;
         const delta = ((currentPos - startPos) / containerSize) * 100;
         const newSizes = [...panelSizes];
-        
-        const minSizeLeft = getMinSize(openPanels[resizingIndex], openPanels.length);
-        const minSizeRight = getMinSize(openPanels[resizingIndex + 1], openPanels.length);
 
-        if (newSizes[resizingIndex] + delta >= minSizeLeft && newSizes[resizingIndex + 1] - delta >= minSizeRight) {
-            newSizes[resizingIndex] += delta;
-            newSizes[resizingIndex + 1] -= delta;
-            setPanelSizes(newSizes);
-            setStartPos(currentPos);
+        const minSizeLeft = getMinSize(
+          openPanels[resizingIndex],
+          openPanels.length,
+        );
+        const minSizeRight = getMinSize(
+          openPanels[resizingIndex + 1],
+          openPanels.length,
+        );
+
+        if (
+          newSizes[resizingIndex] + delta >= minSizeLeft &&
+          newSizes[resizingIndex + 1] - delta >= minSizeRight
+        ) {
+          newSizes[resizingIndex] += delta;
+          newSizes[resizingIndex + 1] -= delta;
+          setPanelSizes(newSizes);
+          setStartPos(currentPos);
         }
       }
     };
     const handleMouseUp = () => setIsResizing(false);
     if (isResizing) {
-        window.addEventListener("mousemove", handleMouseMove);
-        window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
     }
     return () => {
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isResizing, resizingIndex, layout, sidebarCollapsed, panelSizes, openPanels]);
+  }, [
+    isResizing,
+    resizingIndex,
+    layout,
+    sidebarCollapsed,
+    panelSizes,
+    openPanels,
+  ]);
 
   // ----------------------------------------------------------------------
   // 5. RENDERIZADO DE PANELES - ✅ AQUÍ ESTÁN LAS HERRAMIENTAS INTEGRADAS
   // ----------------------------------------------------------------------
-  
+
   const renderPanel = (panel: PanelType, zoomLevel: number = 100) => {
     switch (panel) {
-        case "exam": 
-          return <ExamPanel examData={examData} darkMode={darkMode} answers={answers} onAnswerChange={handleAnswerChange} onTerminarRevision={() => setShowSubmitModal(true)} remainingTime={remainingTime} timerStatus={timerStatus} timeLimitRemoved={timeLimitRemoved} />;
-        
-        case "answer": 
-          return (
-            <div className="h-full w-full">
-              <EditorTexto 
-                value={answerPanelContent} 
-                onChange={setAnswerPanelContent} 
-                darkMode={darkMode} 
-                fullHeight={true} 
-                maxLength={10000} 
-              />
-            </div>
-          );
-        
-        case "calculadora": 
-          return (
-            <Calculadora 
-              darkMode={darkMode} 
-              initialState={calculatorState}
-              onSave={setCalculatorState}
-            />
-          );
-        
-        case "excel":
-          return <HojaCalculo darkMode={darkMode} initialData={hojaCalcState} onSave={setHojaCalcState} />;
-        
-        case "dibujo": 
-          return <Lienzo darkMode={darkMode} initialData={lienzoState} onSave={setLienzoState} />;
-        
-        case "javascript": 
-          return (
-            <EditorJavaScript 
-              darkMode={darkMode} 
-              initialCells={jsCells}
-              onSave={(data) => setJsCells(data.cells)}
-              zoomLevel={zoomLevel}
-            />
-          );
-        
-        case "python": 
-          return (
-            <EditorPython 
-              darkMode={darkMode} 
-              initialCells={pythonCells}
-              onSave={(data) => setPythonCells(data.cells)}
-              zoomLevel={zoomLevel}
-            />
-          );
-
-        case "java":
-          return (
-            <EditorJava
+      case "exam":
+        return (
+          <div className="relative h-full w-full">
+            <ExamPanel
+              examData={examData}
               darkMode={darkMode}
-              initialCells={javaCells}
-              onSave={(data: any) => setJavaCells(data.cells)}
-              zoomLevel={zoomLevel}
+              answers={answers}
+              onAnswerChange={handleAnswerChange}
+              onTerminarRevision={() => setShowSubmitModal(true)}
+              remainingTime={remainingTime}
+              timerStatus={timerStatus}
+              timeLimitRemoved={timeLimitRemoved}
             />
-          );
-        
-        default: 
-          return null;
+            {/* Overlay de desconexión — bloquea inputs visualmente */}
+            {connectionLost && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl backdrop-blur-sm bg-black/40 pointer-events-auto cursor-not-allowed select-none">
+                <div
+                  className={`flex flex-col items-center gap-2 px-6 py-4 rounded-2xl border shadow-xl ${darkMode ? "bg-slate-900/90 border-amber-500/30 text-amber-300" : "bg-white/90 border-amber-300 text-amber-700"}`}
+                >
+                  <svg
+                    className="w-8 h-8 animate-pulse"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path d="M1 6s4-4 11-4 11 4 11 4" />
+                    <path d="M5 10s2.5-2 7-2 7 2 7 2" />
+                    <path d="M9 14s1.5-1 3-1 3 1 3 1" />
+                    <line x1="12" y1="18" x2="12.01" y2="18" />
+                    <line x1="2" y1="2" x2="22" y2="22" strokeLinecap="round" />
+                  </svg>
+                  <p className="font-bold text-base">Sin conexión a internet</p>
+                  <p className="text-xs text-center opacity-80">
+                    Reconectando... Tus respuestas se guardarán
+                    <br />
+                    automáticamente cuando vuelva la conexión.
+                  </p>
+                  {pendingAnswersQueueRef.current.length > 0 && (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/30">
+                      {pendingAnswersQueueRef.current.length} respuesta
+                      {pendingAnswersQueueRef.current.length !== 1 ? "s" : ""}{" "}
+                      en cola
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+
+      case "answer":
+        return (
+          <div className="h-full w-full">
+            <EditorTexto
+              value={answerPanelContent}
+              onChange={setAnswerPanelContent}
+              darkMode={darkMode}
+              fullHeight={true}
+              maxLength={10000}
+            />
+          </div>
+        );
+
+      case "calculadora":
+        return (
+          <Calculadora
+            darkMode={darkMode}
+            initialState={calculatorState}
+            onSave={setCalculatorState}
+          />
+        );
+
+      case "excel":
+        return (
+          <HojaCalculo
+            darkMode={darkMode}
+            initialData={hojaCalcState}
+            onSave={setHojaCalcState}
+          />
+        );
+
+      case "dibujo":
+        return (
+          <Lienzo
+            darkMode={darkMode}
+            initialData={lienzoState}
+            onSave={setLienzoState}
+          />
+        );
+
+      case "javascript":
+        return (
+          <EditorJavaScript
+            darkMode={darkMode}
+            initialCells={jsCells}
+            onSave={(data) => setJsCells(data.cells)}
+            zoomLevel={zoomLevel}
+          />
+        );
+
+      case "python":
+        return (
+          <EditorPython
+            darkMode={darkMode}
+            initialCells={pythonCells}
+            onSave={(data) => setPythonCells(data.cells)}
+            zoomLevel={zoomLevel}
+          />
+        );
+
+      case "java":
+        return (
+          <EditorJava
+            darkMode={darkMode}
+            initialCells={javaCells}
+            onSave={(data: any) => setJavaCells(data.cells)}
+            zoomLevel={zoomLevel}
+          />
+        );
+
+      default:
+        return null;
     }
   };
 
@@ -1642,62 +2089,87 @@ export default function SecureExamPlatform() {
   }
 
   if (examFinished) {
-    const isRedScreen = wasAbandoned || wasTimeExpired === 'descartar';
-    const isAmberScreen = wasForced || wasTimeExpired === 'enviar';
+    const isRedScreen = wasAbandoned || wasTimeExpired === "descartar";
+    const isAmberScreen = wasForced || wasTimeExpired === "enviar";
 
     return (
-      <div className={`min-h-screen flex flex-col items-center justify-center p-4 ${
-        isRedScreen
-          ? darkMode ? "bg-red-950 text-white" : "bg-red-50 text-gray-900"
-          : isAmberScreen
-          ? darkMode ? "bg-amber-950 text-white" : "bg-amber-50 text-gray-900"
-          : darkMode ? "bg-slate-900 text-white" : "bg-gray-50 text-gray-900"
-      }`}>
+      <div
+        className={`min-h-screen flex flex-col items-center justify-center p-4 ${
+          isRedScreen
+            ? darkMode
+              ? "bg-red-950 text-white"
+              : "bg-red-50 text-gray-900"
+            : isAmberScreen
+              ? darkMode
+                ? "bg-amber-950 text-white"
+                : "bg-amber-50 text-gray-900"
+              : darkMode
+                ? "bg-slate-900 text-white"
+                : "bg-gray-50 text-gray-900"
+        }`}
+      >
         <div className="text-center space-y-6 max-w-lg">
-            <div className={`mx-auto w-20 h-20 rounded-full flex items-center justify-center ${
+          <div
+            className={`mx-auto w-20 h-20 rounded-full flex items-center justify-center ${
               isRedScreen
-                ? darkMode ? "bg-red-900/50 text-red-400" : "bg-red-100 text-red-600"
+                ? darkMode
+                  ? "bg-red-900/50 text-red-400"
+                  : "bg-red-100 text-red-600"
                 : isAmberScreen
-                  ? darkMode ? "bg-amber-900/30 text-amber-400" : "bg-amber-100 text-amber-600"
-                  : darkMode ? "bg-emerald-900/30 text-emerald-400" : "bg-emerald-100 text-emerald-600"
-            }`}>
-                {isRedScreen
-                  ? <AlertTriangle className="w-10 h-10" />
-                  : wasTimeExpired
-                  ? <Clock className="w-10 h-10" />
-                  : <CheckCircle2 className="w-10 h-10" />
-                }
-            </div>
-            <h1 className={`text-3xl font-bold ${
-              isRedScreen ? (darkMode ? "text-red-400" : "text-red-700")
-              : isAmberScreen ? (darkMode ? "text-amber-400" : "text-amber-700")
-              : ""
-            }`}>
-              {wasAbandoned
-                ? "Examen Abandonado"
-                : wasTimeExpired
-                  ? "Tiempo Agotado"
-                  : wasForced
-                    ? "¡Examen Finalizado por el Profesor!"
-                    : "¡Examen Entregado!"
-              }
-            </h1>
-            <p className={`text-lg ${darkMode ? "text-slate-400" : "text-gray-600"}`}>
-                {wasAbandoned
-                  ? "Has abandonado el examen. Solo podrás reanudarlo si tu profesor lo autoriza."
-                  : wasTimeExpired === 'descartar'
-                    ? "Su examen ha finalizado por tiempo, sus respuestas han sido descartadas."
-                    : wasTimeExpired === 'enviar'
-                      ? "Se ha acabado el tiempo para responder el examen, sus respuestas se han enviado."
-                      : wasForced === "todos"
-                        ? "El profesor ha finalizado el examen para todos los estudiantes. Tus respuestas han sido guardadas correctamente."
-                        : wasForced === "individual"
-                          ? "El profesor ha finalizado tu examen. Tus respuestas han sido guardadas correctamente."
-                          : "Tus respuestas han sido guardadas correctamente."
-                }
-                <br />
-                Ya puedes cerrar esta ventana.
-            </p>
+                  ? darkMode
+                    ? "bg-amber-900/30 text-amber-400"
+                    : "bg-amber-100 text-amber-600"
+                  : darkMode
+                    ? "bg-emerald-900/30 text-emerald-400"
+                    : "bg-emerald-100 text-emerald-600"
+            }`}
+          >
+            {isRedScreen ? (
+              <AlertTriangle className="w-10 h-10" />
+            ) : wasTimeExpired ? (
+              <Clock className="w-10 h-10" />
+            ) : (
+              <CheckCircle2 className="w-10 h-10" />
+            )}
+          </div>
+          <h1
+            className={`text-3xl font-bold ${
+              isRedScreen
+                ? darkMode
+                  ? "text-red-400"
+                  : "text-red-700"
+                : isAmberScreen
+                  ? darkMode
+                    ? "text-amber-400"
+                    : "text-amber-700"
+                  : ""
+            }`}
+          >
+            {wasAbandoned
+              ? "Examen Abandonado"
+              : wasTimeExpired
+                ? "Tiempo Agotado"
+                : wasForced
+                  ? "¡Examen Finalizado por el Profesor!"
+                  : "¡Examen Entregado!"}
+          </h1>
+          <p
+            className={`text-lg ${darkMode ? "text-slate-400" : "text-gray-600"}`}
+          >
+            {wasAbandoned
+              ? "Has abandonado el examen. Solo podrás reanudarlo si tu profesor lo autoriza."
+              : wasTimeExpired === "descartar"
+                ? "Su examen ha finalizado por tiempo, sus respuestas han sido descartadas."
+                : wasTimeExpired === "enviar"
+                  ? "Se ha acabado el tiempo para responder el examen, sus respuestas se han enviado."
+                  : wasForced === "todos"
+                    ? "El profesor ha finalizado el examen para todos los estudiantes. Tus respuestas han sido guardadas correctamente."
+                    : wasForced === "individual"
+                      ? "El profesor ha finalizado tu examen. Tus respuestas han sido guardadas correctamente."
+                      : "Tus respuestas han sido guardadas correctamente."}
+            <br />
+            Ya puedes cerrar esta ventana.
+          </p>
         </div>
       </div>
     );
@@ -1705,78 +2177,99 @@ export default function SecureExamPlatform() {
 
   if (examBlocked) {
     return (
-        <div className="min-h-screen flex items-center justify-center bg-red-900 p-4">
-            <div className="bg-white rounded-xl shadow-2xl p-10 text-center max-w-lg">
-                <AlertTriangle className="w-16 h-16 text-red-600 mx-auto mb-4"/>
-                <h1 className="text-2xl font-bold text-gray-900">Examen Bloqueado</h1>
-                <p className="text-gray-600 mb-6">{blockReason}</p>
-                <button onClick={handleEscapeFromBlock} className="px-6 py-3 bg-red-600 text-white rounded-lg font-bold">Salir de Pantalla Completa</button>
-            </div>
+      <div className="min-h-screen flex items-center justify-center bg-red-900 p-4">
+        <div className="bg-white rounded-xl shadow-2xl p-10 text-center max-w-lg">
+          <AlertTriangle className="w-16 h-16 text-red-600 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900">Examen Bloqueado</h1>
+          <p className="text-gray-600 mb-6">{blockReason}</p>
+          <button
+            onClick={handleEscapeFromBlock}
+            className="px-6 py-3 bg-red-600 text-white rounded-lg font-bold"
+          >
+            Salir de Pantalla Completa
+          </button>
         </div>
+      </div>
     );
   }
 
   if (!examStarted) {
     return (
-      <div className={`min-h-screen ${darkMode ? "bg-slate-900" : "bg-gray-50"}`}>
-        <button onClick={toggleTheme} className={`fixed bottom-6 right-6 z-50 p-3 rounded-full shadow-lg border ${darkMode ? "bg-slate-800 border-slate-700 text-yellow-400" : "bg-white border-gray-200 text-gray-600"}`}>
-          {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+      <div
+        className={`min-h-screen ${darkMode ? "bg-slate-900" : "bg-gray-50"}`}
+      >
+        <button
+          onClick={toggleTheme}
+          className={`fixed bottom-6 right-6 z-50 p-3 rounded-full shadow-lg border ${darkMode ? "bg-slate-800 border-slate-700 text-yellow-400" : "bg-white border-gray-200 text-gray-600"}`}
+        >
+          {darkMode ? (
+            <Sun className="w-5 h-5" />
+          ) : (
+            <Moon className="w-5 h-5" />
+          )}
         </button>
-        <MonitoreoSupervisado darkMode={darkMode} onStartExam={startExam} isStarting={isStarting} />
+        <MonitoreoSupervisado
+          darkMode={darkMode}
+          onStartExam={startExam}
+          isStarting={isStarting}
+        />
       </div>
     );
   }
 
   if (showUnlockScreen) {
     return (
-        <div
-          ref={fullscreenRef}
-          className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-600 to-emerald-700 p-4"
-        >
-            <div className="bg-white rounded-xl shadow-2xl p-10 text-center max-w-lg animate-in zoom-in duration-500">
-                <CheckCircle2 className="w-20 h-20 text-green-600 mx-auto mb-6 animate-bounce"/>
-                <h1 className="text-3xl font-bold text-gray-900 mb-4">¡Examen Desbloqueado!</h1>
-                <p className="text-gray-600 mb-8 text-lg">
-                    El profesor ha desbloqueado tu examen. Puedes continuar respondiendo donde lo dejaste.
-                </p>
-                <button
-                    type="button"
-                    onClick={async () => {
-                      if (!examStarted) {
-                        // Caso recarga: el examen no estaba en curso en esta sesión,
-                        // startExam() maneja la pantalla completa y reanuda el intento
-                        setShowUnlockScreen(false);
-                        startExam();
-                      } else {
-                        // Caso normal: el examen estaba en curso, solo reactivar pantalla completa
-                        if (fullscreenRef.current) {
-                          try {
-                            await fullscreenRef.current.requestFullscreen();
-                            setTimeout(() => {
-                              setShowUnlockScreen(false);
-                            }, 500);
-                          } catch (err) {
-                            setShowUnlockScreen(false);
-                          }
-                        } else {
-                          setShowUnlockScreen(false);
-                        }
-                      }
-                    }}
-                    className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-lg shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all hover:scale-105 flex items-center gap-3 mx-auto"
-                >
-                    <Maximize2 className="w-6 h-6" />
-                    Continuar Examen
-                </button>
-            </div>
+      <div
+        ref={fullscreenRef}
+        className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-600 to-emerald-700 p-4"
+      >
+        <div className="bg-white rounded-xl shadow-2xl p-10 text-center max-w-lg animate-in zoom-in duration-500">
+          <CheckCircle2 className="w-20 h-20 text-green-600 mx-auto mb-6 animate-bounce" />
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">
+            ¡Examen Desbloqueado!
+          </h1>
+          <p className="text-gray-600 mb-8 text-lg">
+            El profesor ha desbloqueado tu examen. Puedes continuar respondiendo
+            donde lo dejaste.
+          </p>
+          <button
+            type="button"
+            onClick={async () => {
+              if (!examStarted) {
+                // Caso recarga: el examen no estaba en curso en esta sesión,
+                // startExam() maneja la pantalla completa y reanuda el intento
+                setShowUnlockScreen(false);
+                startExam();
+              } else {
+                // Caso normal: el examen estaba en curso, solo reactivar pantalla completa
+                if (fullscreenRef.current) {
+                  try {
+                    await fullscreenRef.current.requestFullscreen();
+                    setTimeout(() => {
+                      setShowUnlockScreen(false);
+                    }, 500);
+                  } catch (err) {
+                    setShowUnlockScreen(false);
+                  }
+                } else {
+                  setShowUnlockScreen(false);
+                }
+              }
+            }}
+            className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-lg shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all hover:scale-105 flex items-center gap-3 mx-auto"
+          >
+            <Maximize2 className="w-6 h-6" />
+            Continuar Examen
+          </button>
         </div>
+      </div>
     );
   }
 
   return (
-    <div 
-      ref={fullscreenRef} 
-      className={`h-screen relative font-sans anim-fadeIn ${darkMode ? 'bg-slate-900' : 'bg-white'}`}
+    <div
+      ref={fullscreenRef}
+      className={`h-screen relative font-sans anim-fadeIn ${darkMode ? "bg-slate-900" : "bg-white"}`}
     >
       {/* Estilos de Scrollbar personalizados (Sincronizados con CrearExamen) */}
       <style>{`
@@ -1817,81 +2310,145 @@ export default function SecureExamPlatform() {
           }
       `}</style>
 
-
       {/* --- MODALES DE CONFIRMACIÓN --- */}
       {showExitModal && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className={`w-full max-w-md p-6 rounded-2xl shadow-2xl transform transition-all scale-100 border-2 ${darkMode ? "bg-slate-800 border-red-800" : "bg-white border-red-200"}`}>
-                  <div className="flex flex-col items-center text-center gap-4">
-                      <div className={`p-3 rounded-full ${darkMode ? "bg-red-900/30 text-red-400" : "bg-red-50 text-red-600"}`}>
-                          <AlertTriangle className="w-8 h-8" />
-                      </div>
-                      <h3 className={`text-xl font-bold ${darkMode ? "text-red-400" : "text-red-700"}`}>¿Estás seguro de abandonar el examen?</h3>
-                      <p className={`text-sm ${darkMode ? "text-slate-400" : "text-gray-600"}`}>
-                          Solo podrás reanudarlo si tu profesor lo autoriza.
-                      </p>
-                      <div className="flex gap-3 w-full mt-2">
-                          <button onClick={() => setShowExitModal(false)} className={`flex-1 py-2.5 rounded-xl font-medium transition-colors ${darkMode ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm"}`}>Volver al examen</button>
-                          <button onClick={handleCloseApp} className="flex-1 py-2.5 rounded-xl font-medium bg-red-600 text-white hover:bg-red-700 transition-colors shadow-lg shadow-red-900/20">Sí, abandonar</button>
-                      </div>
-                  </div>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div
+            className={`w-full max-w-md p-6 rounded-2xl shadow-2xl transform transition-all scale-100 border-2 ${darkMode ? "bg-slate-800 border-red-800" : "bg-white border-red-200"}`}
+          >
+            <div className="flex flex-col items-center text-center gap-4">
+              <div
+                className={`p-3 rounded-full ${darkMode ? "bg-red-900/30 text-red-400" : "bg-red-50 text-red-600"}`}
+              >
+                <AlertTriangle className="w-8 h-8" />
               </div>
+              <h3
+                className={`text-xl font-bold ${darkMode ? "text-red-400" : "text-red-700"}`}
+              >
+                ¿Estás seguro de abandonar el examen?
+              </h3>
+              <p
+                className={`text-sm ${darkMode ? "text-slate-400" : "text-gray-600"}`}
+              >
+                Solo podrás reanudarlo si tu profesor lo autoriza.
+              </p>
+              <div className="flex gap-3 w-full mt-2">
+                <button
+                  onClick={() => setShowExitModal(false)}
+                  className={`flex-1 py-2.5 rounded-xl font-medium transition-colors ${darkMode ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm"}`}
+                >
+                  Volver al examen
+                </button>
+                <button
+                  onClick={handleCloseApp}
+                  className="flex-1 py-2.5 rounded-xl font-medium bg-red-600 text-white hover:bg-red-700 transition-colors shadow-lg shadow-red-900/20"
+                >
+                  Sí, abandonar
+                </button>
+              </div>
+            </div>
           </div>
+        </div>
       )}
 
       {showSubmitModal && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className={`w-full max-w-md p-6 rounded-2xl shadow-2xl transform transition-all scale-100 ${darkMode ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-100"}`}>
-                  <div className="flex flex-col items-center text-center gap-4">
-                      <div className={`p-3 rounded-full ${getUnansweredCount() > 0 ? (darkMode ? "bg-amber-900/30 text-amber-400" : "bg-amber-50 text-amber-600") : (darkMode ? "bg-emerald-900/30 text-emerald-400" : "bg-emerald-50 text-emerald-600")}`}>
-                          {getUnansweredCount() > 0 ? <AlertTriangle className="w-8 h-8" /> : <CheckCircle2 className="w-8 h-8" />}
-                      </div>
-                      <h3 className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-900"}`}>¿Entregar examen?</h3>
-                      
-                      <div className={`text-sm ${darkMode ? "text-slate-400" : "text-gray-600"}`}>
-                          {getUnansweredCount() > 0 ? (
-                              <p>
-                                  <span className="block text-amber-500 font-bold mb-1">¡Atención!</span>
-                                  Te faltan <strong>{getUnansweredCount()} preguntas</strong> por contestar.
-                                  <br/>¿Estás seguro de que deseas entregar así?
-                              </p>
-                          ) : (
-                              <p>Has contestado todas las preguntas.<br/>¿Estás listo para finalizar?</p>
-                          )}
-                      </div>
-
-                      <div className="flex gap-3 w-full mt-2">
-                          <button onClick={() => setShowSubmitModal(false)} className={`flex-1 py-2.5 rounded-xl font-medium transition-colors ${darkMode ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm"}`}>Revisar</button>
-                          <button onClick={() => { setShowSubmitModal(false); submitExam(); }} className={`flex-1 py-2.5 rounded-xl font-medium text-white transition-colors shadow-lg ${getUnansweredCount() > 0 ? "bg-amber-600 hover:bg-amber-700 shadow-amber-900/20" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-900/20"}`}>Sí, entregar</button>
-                      </div>
-                  </div>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div
+            className={`w-full max-w-md p-6 rounded-2xl shadow-2xl transform transition-all scale-100 ${darkMode ? "bg-slate-800 border border-slate-700" : "bg-white border border-gray-100"}`}
+          >
+            <div className="flex flex-col items-center text-center gap-4">
+              <div
+                className={`p-3 rounded-full ${getUnansweredCount() > 0 ? (darkMode ? "bg-amber-900/30 text-amber-400" : "bg-amber-50 text-amber-600") : darkMode ? "bg-emerald-900/30 text-emerald-400" : "bg-emerald-50 text-emerald-600"}`}
+              >
+                {getUnansweredCount() > 0 ? (
+                  <AlertTriangle className="w-8 h-8" />
+                ) : (
+                  <CheckCircle2 className="w-8 h-8" />
+                )}
               </div>
+              <h3
+                className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-900"}`}
+              >
+                ¿Entregar examen?
+              </h3>
+
+              <div
+                className={`text-sm ${darkMode ? "text-slate-400" : "text-gray-600"}`}
+              >
+                {getUnansweredCount() > 0 ? (
+                  <p>
+                    <span className="block text-amber-500 font-bold mb-1">
+                      ¡Atención!
+                    </span>
+                    Te faltan <strong>{getUnansweredCount()} preguntas</strong>{" "}
+                    por contestar.
+                    <br />
+                    ¿Estás seguro de que deseas entregar así?
+                  </p>
+                ) : (
+                  <p>
+                    Has contestado todas las preguntas.
+                    <br />
+                    ¿Estás listo para finalizar?
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-3 w-full mt-2">
+                <button
+                  onClick={() => setShowSubmitModal(false)}
+                  className={`flex-1 py-2.5 rounded-xl font-medium transition-colors ${darkMode ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm"}`}
+                >
+                  Revisar
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSubmitModal(false);
+                    submitExam();
+                  }}
+                  className={`flex-1 py-2.5 rounded-xl font-medium text-white transition-colors shadow-lg ${getUnansweredCount() > 0 ? "bg-amber-600 hover:bg-amber-700 shadow-amber-900/20" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-900/20"}`}
+                >
+                  Sí, entregar
+                </button>
+              </div>
+            </div>
           </div>
+        </div>
       )}
 
-      <div className={`absolute inset-0 backdrop-blur-sm transition-all duration-300 ${
-        darkMode
-          ? "bg-gradient-to-br from-gray-900/80 via-slate-900/70 to-gray-900/80"
-          : "bg-white"
-      }`}></div>
+      <div
+        className={`absolute inset-0 backdrop-blur-sm transition-all duration-300 ${
+          darkMode
+            ? "bg-gradient-to-br from-gray-900/80 via-slate-900/70 to-gray-900/80"
+            : "bg-white"
+        }`}
+      ></div>
 
       <div className="relative z-10 h-full w-full flex overflow-hidden">
         <SavingIndicator savingStates={savingStates} darkMode={darkMode} />
-        <TimerNotification alert={timerAlert} onClose={() => setTimerAlert(null)} darkMode={darkMode} />
+        <TimerNotification
+          alert={timerAlert}
+          onClose={() => setTimerAlert(null)}
+          darkMode={darkMode}
+        />
 
-      {/* Banner pérdida de conexión */}
-      {connectionLost && examStarted && !examBlocked && (
-        <div className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-3 px-6 py-3 text-white font-bold text-sm shadow-2xl animate-in slide-in-from-top duration-300 ${
-          connectionGraceSeconds !== null && connectionGraceSeconds <= 20 ? "bg-red-600" : "bg-amber-500"
-        }`}>
-          <AlertTriangle className="w-5 h-5 flex-shrink-0 animate-pulse" />
-          <span>
-            ⚠️ Conexión perdida — Reconectando... Las respuestas están en pausa.{" "}
-            <strong>No cierres esta ventana.</strong>
-          </span>
-          <SignalIndicator connected={false} darkMode={false} />
-        </div>
-      )}
+        {/* Banner pérdida de conexión */}
+        {connectionLost && examStarted && !examBlocked && (
+          <div
+            className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-3 px-6 py-3 text-white font-bold text-sm shadow-2xl animate-in slide-in-from-top duration-300 ${
+              connectionGraceSeconds !== null && connectionGraceSeconds <= 20
+                ? "bg-red-600"
+                : "bg-amber-500"
+            }`}
+          >
+            <AlertTriangle className="w-5 h-5 flex-shrink-0 animate-pulse" />
+            <span>
+              ⚠️ Conexión perdida — Reconectando... Las respuestas están en
+              pausa. <strong>No cierres esta ventana.</strong>
+            </span>
+            <SignalIndicator connected={false} darkMode={false} />
+          </div>
+        )}
 
         {/* Backdrop para sidebar en mobile */}
         {!sidebarCollapsed && (
@@ -1902,7 +2459,8 @@ export default function SecureExamPlatform() {
         )}
 
         {/* --- SIDEBAR REFACTORIZADO (Estilo Dashboard) --- */}
-        <div className={`fixed md:relative inset-y-0 left-0 z-40 flex-shrink-0 flex flex-col transition-transform md:transition-all duration-300 ease-in-out border-r ${
+        <div
+          className={`fixed md:relative inset-y-0 left-0 z-40 flex-shrink-0 flex flex-col transition-transform md:transition-all duration-300 ease-in-out border-r ${
             sidebarCollapsed
               ? "-translate-x-full md:translate-x-0 md:w-20"
               : "translate-x-0 w-64"
@@ -1910,8 +2468,8 @@ export default function SecureExamPlatform() {
             darkMode
               ? "bg-slate-900/80 backdrop-blur-md border-slate-800"
               : "bg-white border-gray-200"
-          }`}>
-
+          }`}
+        >
           {/* Botón de contraer/expandir flotante en el borde (Estilo Pestaña) — solo desktop */}
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -1922,216 +2480,396 @@ export default function SecureExamPlatform() {
             }`}
             title={sidebarCollapsed ? "Expandir menú" : "Contraer menú"}
           >
-            {sidebarCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
+            {sidebarCollapsed ? (
+              <ChevronRight className="w-3 h-3" />
+            ) : (
+              <ChevronLeft className="w-3 h-3" />
+            )}
           </button>
-          
+
           {/* Header Sidebar */}
           <div className="p-4">
-            <div className={`flex items-center ${sidebarCollapsed ? "justify-center" : "gap-3"}`}>
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shadow-lg flex-shrink-0 ${darkMode ? "bg-blue-900/50 text-blue-100" : "bg-slate-800"}`}>
-                 <User className="w-5 h-5 text-white" />
+            <div
+              className={`flex items-center ${sidebarCollapsed ? "justify-center" : "gap-3"}`}
+            >
+              <div
+                className={`w-10 h-10 rounded-lg flex items-center justify-center shadow-lg flex-shrink-0 ${darkMode ? "bg-blue-900/50 text-blue-100" : "bg-slate-800"}`}
+              >
+                <User className="w-5 h-5 text-white" />
               </div>
               {!sidebarCollapsed && (
-                  <div className="overflow-hidden transition-all duration-300">
-                      <p className={`text-xs font-bold uppercase tracking-wider ${darkMode ? "text-slate-400" : "text-slate-500"}`}>Candidato</p>
-                      <p className={`font-bold text-sm truncate ${darkMode ? "text-slate-200" : "text-slate-800"}`}>{studentData?.nombre || "Usuario"}</p>
-                  </div>
+                <div className="overflow-hidden transition-all duration-300">
+                  <p
+                    className={`text-xs font-bold uppercase tracking-wider ${darkMode ? "text-slate-400" : "text-slate-500"}`}
+                  >
+                    Candidato
+                  </p>
+                  <p
+                    className={`font-bold text-sm truncate ${darkMode ? "text-slate-200" : "text-slate-800"}`}
+                  >
+                    {studentData?.nombre || "Usuario"}
+                  </p>
+                </div>
               )}
             </div>
           </div>
 
           {/* Navegación */}
           <nav className="flex-1 p-3 space-y-1 overflow-y-auto custom-scrollbar">
-              {!sidebarCollapsed && <p className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider ${darkMode ? "text-slate-500" : "text-gray-400"}`}>Evaluación</p>}
-              
-              <SidebarNavItem 
-                  icon={FileText} 
-                  label="Examen" 
-                  active={openPanels.includes("exam")} 
-                  collapsed={sidebarCollapsed} 
-                  darkMode={darkMode} 
-                  onClick={() => openPanel("exam")} 
-              />
-              {examData?.archivoPDF && (
-                <SidebarNavItem
-                    icon={Pencil}
-                    label="Responder"
-                    active={openPanels.includes("answer")}
-                    collapsed={sidebarCollapsed}
-                    darkMode={darkMode}
-                    onClick={() => openPanel("answer")}
-                />
-              )}
+            {!sidebarCollapsed && (
+              <p
+                className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider ${darkMode ? "text-slate-500" : "text-gray-400"}`}
+              >
+                Evaluación
+              </p>
+            )}
 
-              {!sidebarCollapsed && <p className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider ${darkMode ? "text-slate-500" : "text-gray-400"}`}>Herramientas</p>}
-              
-              {examData?.incluirCalculadoraCientifica && (
-                  <SidebarNavItem icon={Calculator} label="Calculadora" active={openPanels.includes("calculadora")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("calculadora")} />
-              )}
-              {examData?.incluirHojaExcel && (
-                  <SidebarNavItem icon={FileSpreadsheet} label="Hoja de cálculo" active={openPanels.includes("excel")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("excel")} />
-              )}
-              {examData?.incluirHerramientaDibujo && (
-                  <SidebarNavItem icon={Pencil} label="Dibujo" active={openPanels.includes("dibujo")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("dibujo")} />
-              )}
-              {examData?.incluirJavascript && (
-                  <SidebarNavItem icon={Code} label="JavaScript/HTML" active={openPanels.includes("javascript")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("javascript")} />
-              )}
-              {examData?.incluirPython && (
-                  <SidebarNavItem icon={Code} label="Python" active={openPanels.includes("python")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("python")} />
-              )}
-              {examData?.incluirJava && (
-                  <SidebarNavItem icon={Coffee} label="Java" active={openPanels.includes("java")} collapsed={sidebarCollapsed} darkMode={darkMode} onClick={() => openPanel("java")} />
-              )}
+            <SidebarNavItem
+              icon={FileText}
+              label="Examen"
+              active={openPanels.includes("exam")}
+              collapsed={sidebarCollapsed}
+              darkMode={darkMode}
+              onClick={() => openPanel("exam")}
+            />
+            {examData?.archivoPDF && (
+              <SidebarNavItem
+                icon={Pencil}
+                label="Responder"
+                active={openPanels.includes("answer")}
+                collapsed={sidebarCollapsed}
+                darkMode={darkMode}
+                onClick={() => openPanel("answer")}
+              />
+            )}
+
+            {!sidebarCollapsed && (
+              <p
+                className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider ${darkMode ? "text-slate-500" : "text-gray-400"}`}
+              >
+                Herramientas
+              </p>
+            )}
+
+            {examData?.incluirCalculadoraCientifica && (
+              <SidebarNavItem
+                icon={Calculator}
+                label="Calculadora"
+                active={openPanels.includes("calculadora")}
+                collapsed={sidebarCollapsed}
+                darkMode={darkMode}
+                onClick={() => openPanel("calculadora")}
+              />
+            )}
+            {examData?.incluirHojaExcel && (
+              <SidebarNavItem
+                icon={FileSpreadsheet}
+                label="Hoja de cálculo"
+                active={openPanels.includes("excel")}
+                collapsed={sidebarCollapsed}
+                darkMode={darkMode}
+                onClick={() => openPanel("excel")}
+              />
+            )}
+            {examData?.incluirHerramientaDibujo && (
+              <SidebarNavItem
+                icon={Pencil}
+                label="Dibujo"
+                active={openPanels.includes("dibujo")}
+                collapsed={sidebarCollapsed}
+                darkMode={darkMode}
+                onClick={() => openPanel("dibujo")}
+              />
+            )}
+            {examData?.incluirJavascript && (
+              <SidebarNavItem
+                icon={Code}
+                label="JavaScript/HTML"
+                active={openPanels.includes("javascript")}
+                collapsed={sidebarCollapsed}
+                darkMode={darkMode}
+                onClick={() => openPanel("javascript")}
+              />
+            )}
+            {examData?.incluirPython && (
+              <SidebarNavItem
+                icon={Code}
+                label="Python"
+                active={openPanels.includes("python")}
+                collapsed={sidebarCollapsed}
+                darkMode={darkMode}
+                onClick={() => openPanel("python")}
+              />
+            )}
+            {examData?.incluirJava && (
+              <SidebarNavItem
+                icon={Coffee}
+                label="Java"
+                active={openPanels.includes("java")}
+                collapsed={sidebarCollapsed}
+                darkMode={darkMode}
+                onClick={() => openPanel("java")}
+              />
+            )}
           </nav>
 
           {/* Footer Sidebar (Botones de acción) */}
-          <div className={`p-3 space-y-2 ${darkMode ? "bg-slate-900/50" : "bg-gray-50/50"}`}>
-              
-              {/* Botón Entregar */}
-              <button
-                  onClick={() => setShowSubmitModal(true)}
-                  className={`w-full flex items-center rounded-lg transition-all shadow-md group ${
-                      sidebarCollapsed ? "justify-center p-3" : "px-4 py-3 gap-3"
-                  } bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white`}
-                  title="Entregar Examen"
-              >
-                  <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-                  {!sidebarCollapsed && <span className="font-bold text-lg">Entregar</span>}
-              </button>
+          <div
+            className={`p-3 space-y-2 ${darkMode ? "bg-slate-900/50" : "bg-gray-50/50"}`}
+          >
+            {/* Botón Entregar */}
+            <button
+              onClick={() => setShowSubmitModal(true)}
+              className={`w-full flex items-center rounded-lg transition-all shadow-md group ${
+                sidebarCollapsed ? "justify-center p-3" : "px-4 py-3 gap-3"
+              } bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white`}
+              title="Entregar Examen"
+            >
+              <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+              {!sidebarCollapsed && (
+                <span className="font-bold text-lg">Entregar</span>
+              )}
+            </button>
 
-              {/* Botón Salir */}
-              <div className={`${sidebarCollapsed ? "flex justify-center" : "px-1"}`}>
-                   <button onClick={() => setShowExitModal(true)} className={`flex items-center rounded-lg p-2 transition-colors w-full ${sidebarCollapsed ? "justify-center" : "gap-3"} ${darkMode ? "text-red-400 hover:bg-red-900/20" : "text-red-600 hover:bg-red-50"}`}>
-                      <LogOut className="w-5 h-5" />
-                      {!sidebarCollapsed && <span className="text-lg font-medium">Salir</span>}
-                   </button>
-              </div>
+            {/* Botón Salir */}
+            <div
+              className={`${sidebarCollapsed ? "flex justify-center" : "px-1"}`}
+            >
+              <button
+                onClick={() => setShowExitModal(true)}
+                className={`flex items-center rounded-lg p-2 transition-colors w-full ${sidebarCollapsed ? "justify-center" : "gap-3"} ${darkMode ? "text-red-400 hover:bg-red-900/20" : "text-red-600 hover:bg-red-50"}`}
+              >
+                <LogOut className="w-5 h-5" />
+                {!sidebarCollapsed && (
+                  <span className="text-lg font-medium">Salir</span>
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
         {/* --- ÁREA PRINCIPAL --- */}
         <div className="flex-1 flex flex-col overflow-hidden relative">
-          
           {/* Header Superior Flotante */}
           <div className="h-20 md:h-24 px-3 md:px-6 flex items-center justify-between absolute top-0 left-0 right-0 z-20">
-              {/* Left: Hamburger (mobile) + Control Layout */}
-              <div className="flex items-center gap-2">
-                  {/* Hamburger solo en mobile */}
-                  <button
-                    onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                    className={`md:hidden p-2 rounded-lg border shadow-md ${darkMode ? "bg-slate-900/80 border-slate-700 text-gray-300" : "bg-white/80 border-gray-200 text-gray-700"}`}
-                    title="Menú"
-                  >
-                    <LayoutGrid className="w-4 h-4" />
-                  </button>
-                  <div className={`hidden md:flex p-1 rounded-lg ${darkMode ? "bg-slate-900/50 backdrop-blur-sm border border-slate-700" : "bg-white/50 backdrop-blur-sm border-gray-200/50 shadow-md"}`}>
-                      <button onClick={() => setLayout("vertical")} className={`p-1.5 rounded ${layout === "vertical" ? (darkMode ? "bg-blue-900/50 text-blue-100 border border-blue-800/50" : "bg-slate-800 text-white shadow-sm") : (darkMode ? "text-slate-400" : "text-slate-400")}`}><Columns className="w-4 h-4"/></button>
-                      <button onClick={() => setLayout("horizontal")} className={`p-1.5 rounded ${layout === "horizontal" ? (darkMode ? "bg-blue-900/50 text-blue-100 border border-blue-800/50" : "bg-slate-800 text-white shadow-sm") : (darkMode ? "text-slate-400" : "text-slate-400")}`}><Rows className="w-4 h-4"/></button>
-                  </div>
+            {/* Left: Hamburger (mobile) + Control Layout */}
+            <div className="flex items-center gap-2">
+              {/* Hamburger solo en mobile */}
+              <button
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                className={`md:hidden p-2 rounded-lg border shadow-md ${darkMode ? "bg-slate-900/80 border-slate-700 text-gray-300" : "bg-white/80 border-gray-200 text-gray-700"}`}
+                title="Menú"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <div
+                className={`hidden md:flex p-1 rounded-lg ${darkMode ? "bg-slate-900/50 backdrop-blur-sm border border-slate-700" : "bg-white/50 backdrop-blur-sm border-gray-200/50 shadow-md"}`}
+              >
+                <button
+                  onClick={() => setLayout("vertical")}
+                  className={`p-1.5 rounded ${layout === "vertical" ? (darkMode ? "bg-blue-900/50 text-blue-100 border border-blue-800/50" : "bg-slate-800 text-white shadow-sm") : darkMode ? "text-slate-400" : "text-slate-400"}`}
+                >
+                  <Columns className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setLayout("horizontal")}
+                  className={`p-1.5 rounded ${layout === "horizontal" ? (darkMode ? "bg-blue-900/50 text-blue-100 border border-blue-800/50" : "bg-slate-800 text-white shadow-sm") : darkMode ? "text-slate-400" : "text-slate-400"}`}
+                >
+                  <Rows className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Right: Timer and logo */}
+            <div className="flex items-center gap-4">
+              {/* Info Hora y Batería */}
+              <div
+                className={`hidden md:flex items-center gap-5 px-5 py-2 rounded-xl border ${darkMode ? "bg-slate-900/50 backdrop-blur-sm border-slate-700" : "bg-white/50 backdrop-blur-sm border-gray-200/50 shadow-md"}`}
+              >
+                <span
+                  className={`tabular-nums text-lg font-bold tracking-widest ${darkMode ? "text-slate-300" : "text-slate-600"}`}
+                >
+                  {currentTime.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+                {/* Indicador de señal WiFi */}
+                <SignalIndicator
+                  connected={isSocketConnected}
+                  darkMode={darkMode}
+                />
+                <div
+                  className={`w-px h-6 ${darkMode ? "bg-slate-700" : "bg-gray-300"}`}
+                ></div>
+                <div
+                  className={`flex items-center gap-2 tabular-nums text-lg font-bold ${darkMode ? "text-slate-300" : "text-slate-600"}`}
+                >
+                  <span>{batteryLevel ?? "--"}%</span>
+                  {isCharging ? (
+                    <BatteryCharging className="w-6 h-6 text-emerald-500" />
+                  ) : (
+                    <Battery
+                      className={`w-6 h-6 ${batteryLevel !== null && batteryLevel <= 20 ? "text-red-500 animate-pulse" : ""}`}
+                    />
+                  )}
+                </div>
+                {!timeLimitRemoved && (
+                  <>
+                    <div
+                      className={`w-px h-6 ${darkMode ? "bg-slate-700" : "bg-gray-300"}`}
+                    ></div>
+                    <div
+                      className={`flex items-center gap-3 ${
+                        timerStatus === "critical"
+                          ? "text-red-500 animate-pulse"
+                          : timerStatus === "warning"
+                            ? "text-amber-500"
+                            : darkMode
+                              ? "text-blue-400"
+                              : "text-blue-700"
+                      }`}
+                    >
+                      <Clock className="w-5 h-5" />
+                      <span
+                        className={`tabular-nums text-lg font-bold ${
+                          timerStatus === "critical"
+                            ? "text-red-500"
+                            : timerStatus === "warning"
+                              ? "text-amber-500"
+                              : darkMode
+                                ? "text-white"
+                                : "text-slate-800"
+                        }`}
+                      >
+                        {remainingTime}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
 
-              {/* Right: Timer and logo */}
-              <div className="flex items-center gap-4">
-                  {/* Info Hora y Batería */}
-                  <div className={`hidden md:flex items-center gap-5 px-5 py-2 rounded-xl border ${darkMode ? "bg-slate-900/50 backdrop-blur-sm border-slate-700" : "bg-white/50 backdrop-blur-sm border-gray-200/50 shadow-md"}`}>
-                      <span className={`tabular-nums text-lg font-bold tracking-widest ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
-                          {currentTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                      </span>
-                      {/* Indicador de señal WiFi */}
-                      <SignalIndicator connected={isSocketConnected} darkMode={darkMode} />
-                      <div className={`w-px h-6 ${darkMode ? "bg-slate-700" : "bg-gray-300"}`}></div>
-                      <div className={`flex items-center gap-2 tabular-nums text-lg font-bold ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
-                          <span>{batteryLevel ?? "--"}%</span>
-                          {isCharging ? (
-                              <BatteryCharging className="w-6 h-6 text-emerald-500"/>
-                          ) : (
-                              <Battery className={`w-6 h-6 ${batteryLevel !== null && batteryLevel <= 20 ? "text-red-500 animate-pulse" : ""}`}/>
-                          )}
-                      </div>
-                      {!timeLimitRemoved && (
-                        <>
-                          <div className={`w-px h-6 ${darkMode ? "bg-slate-700" : "bg-gray-300"}`}></div>
-                          <div className={`flex items-center gap-3 ${
-                              timerStatus === 'critical' ? "text-red-500 animate-pulse" :
-                              timerStatus === 'warning' ? "text-amber-500" :
-                              (darkMode ? "text-blue-400" : "text-blue-700")
-                          }`}>
-                              <Clock className="w-5 h-5" />
-                              <span className={`tabular-nums text-lg font-bold ${
-                                  timerStatus === 'critical' ? "text-red-500" :
-                                  timerStatus === 'warning' ? "text-amber-500" :
-                                  (darkMode ? "text-white" : "text-slate-800")
-                              }`}>{remainingTime}</span>
-                          </div>
-                        </>
-                      )}
-                  </div>
-                  
-                  {/* Logo */}
-                  <img
-                    src={darkMode ? logoUniversidadNoche : logoUniversidad}
-                    alt="Logo Universidad"
-                    className="h-7 md:h-10 w-auto object-contain transition-opacity duration-300"
-                  />
-              </div>
+              {/* Logo */}
+              <img
+                src={darkMode ? logoUniversidadNoche : logoUniversidad}
+                alt="Logo Universidad"
+                className="h-7 md:h-10 w-auto object-contain transition-opacity duration-300"
+              />
+            </div>
           </div>
 
           {/* Contenedor de Paneles */}
-          <div className={`flex-1 flex ${layout === "vertical" ? "flex-row" : "flex-col"} p-2 md:p-4 pt-20 md:pt-24 gap-2 overflow-hidden`}>
-              {openPanels.length === 0 ? (
-                  <div className={`flex-1 flex flex-col items-center justify-center opacity-50 ${darkMode ? "text-slate-600" : "text-gray-300"}`}>
-                      <LayoutGrid className="w-24 h-24 mb-4" />
-                      <p className="text-xl font-medium">Selecciona una herramienta para comenzar</p>
+          <div
+            className={`flex-1 flex ${layout === "vertical" ? "flex-row" : "flex-col"} p-2 md:p-4 pt-20 md:pt-24 gap-2 overflow-hidden`}
+          >
+            {openPanels.length === 0 ? (
+              <div
+                className={`flex-1 flex flex-col items-center justify-center opacity-50 ${darkMode ? "text-slate-600" : "text-gray-300"}`}
+              >
+                <LayoutGrid className="w-24 h-24 mb-4" />
+                <p className="text-xl font-medium">
+                  Selecciona una herramienta para comenzar
+                </p>
+              </div>
+            ) : (
+              openPanels.map((panel, index) => (
+                <React.Fragment key={panel}>
+                  <div
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDrop={() => handleDrop(index)}
+                    style={{
+                      [layout === "vertical" ? "width" : "height"]:
+                        `${panelSizes[index]}%`,
+                    }}
+                    className={`flex flex-col rounded-xl border shadow-sm overflow-hidden ${darkMode ? "bg-slate-900/80 backdrop-blur-md border-slate-800" : "bg-white border-gray-200"}`}
+                  >
+                    {/* Panel Header */}
+                    <div
+                      draggable
+                      onDragStart={() => handleDragStart(index)}
+                      className={`h-10 flex items-center justify-between px-4 border-b cursor-move ${darkMode ? "bg-blue-900/20 border-blue-800/30" : "bg-slate-800 border-slate-800"}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <GripVertical
+                          className={`w-4 h-4 ${darkMode ? "text-gray-400" : "text-gray-500"}`}
+                        />
+                        <span
+                          className={`text-xs font-bold uppercase tracking-wider ${darkMode ? "text-gray-400" : "text-white"}`}
+                        >
+                          {panel}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {panel !== "calculadora" && (
+                          <>
+                            <button
+                              onClick={() => adjustPanelZoom(index, -10)}
+                              className={`p-1 rounded ${darkMode ? "hover:bg-gray-200/20" : "hover:bg-white/10"}`}
+                            >
+                              <Minimize2
+                                className={`w-3 h-3 ${darkMode ? "text-gray-400" : "text-gray-300"}`}
+                              />
+                            </button>
+                            <button
+                              onClick={() => adjustPanelZoom(index, 10)}
+                              className={`p-1 rounded ${darkMode ? "hover:bg-gray-200/20" : "hover:bg-white/10"}`}
+                            >
+                              <Maximize2
+                                className={`w-3 h-3 ${darkMode ? "text-gray-400" : "text-gray-300"}`}
+                              />
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={() => closePanel(index)}
+                          className={`p-1 rounded ml-2 ${darkMode ? "hover:bg-red-500/10 text-gray-400 hover:text-red-500" : "hover:bg-red-500/20 text-gray-300 hover:text-red-400"}`}
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex-1 overflow-hidden relative">
+                      <div
+                        className="h-full w-full"
+                        style={
+                          panel === "python" ||
+                          panel === "javascript" ||
+                          panel === "java"
+                            ? {} // Sin zoom para editores persistentes
+                            : {
+                                transform: `scale(${panelZooms[index] / 100})`,
+                                transformOrigin: "top left",
+                                width: `${10000 / panelZooms[index]}%`,
+                                height: `${10000 / panelZooms[index]}%`,
+                              }
+                        }
+                      >
+                        <Suspense
+                          fallback={
+                            <div className="flex items-center justify-center h-full">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+                            </div>
+                          }
+                        >
+                          {renderPanel(panel, panelZooms[index])}
+                        </Suspense>
+                      </div>
+                    </div>
                   </div>
-              ) : (
-                  openPanels.map((panel, index) => (
-                      <React.Fragment key={panel}>
-                          <div 
-                              onDragOver={(e) => handleDragOver(e, index)} 
-                              onDrop={() => handleDrop(index)}
-                              style={{ [layout === "vertical" ? "width" : "height"]: `${panelSizes[index]}%` }}
-                              className={`flex flex-col rounded-xl border shadow-sm overflow-hidden ${darkMode ? "bg-slate-900/80 backdrop-blur-md border-slate-800" : "bg-white border-gray-200"}`}
-                          >
-                              {/* Panel Header */}
-                              <div 
-                                draggable  
-                                onDragStart={() => handleDragStart(index)}
-                                className={`h-10 flex items-center justify-between px-4 border-b cursor-move ${darkMode ? "bg-blue-900/20 border-blue-800/30" : "bg-slate-800 border-slate-800"}`}
-                              >
-                                  <div className="flex items-center gap-2">
-                                      <GripVertical className={`w-4 h-4 ${darkMode ? "text-gray-400" : "text-gray-500"}`} />
-                                      <span className={`text-xs font-bold uppercase tracking-wider ${darkMode ? "text-gray-400" : "text-white"}`}>{panel}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                      {panel !== 'calculadora' && (
-                                          <>
-                                              <button onClick={() => adjustPanelZoom(index, -10)} className={`p-1 rounded ${darkMode ? "hover:bg-gray-200/20" : "hover:bg-white/10"}`}><Minimize2 className={`w-3 h-3 ${darkMode ? "text-gray-400" : "text-gray-300"}`}/></button>
-                                              <button onClick={() => adjustPanelZoom(index, 10)} className={`p-1 rounded ${darkMode ? "hover:bg-gray-200/20" : "hover:bg-white/10"}`}><Maximize2 className={`w-3 h-3 ${darkMode ? "text-gray-400" : "text-gray-300"}`}/></button>
-                                          </>
-                                      )}
-                                      <button onClick={() => closePanel(index)} className={`p-1 rounded ml-2 ${darkMode ? "hover:bg-red-500/10 text-gray-400 hover:text-red-500" : "hover:bg-red-500/20 text-gray-300 hover:text-red-400"}`}><X className="w-4 h-4"/></button>
-                                  </div>
-                              </div>
-                              <div className="flex-1 overflow-hidden relative">
-                                  <div 
-                                    className="h-full w-full" 
-                                    style={
-                                      panel === 'python' || panel === 'javascript' || panel === 'java'
-                                        ? {} // Sin zoom para editores persistentes
-                                        : { transform: `scale(${panelZooms[index] / 100})`, transformOrigin: "top left", width: `${10000/panelZooms[index]}%`, height: `${10000/panelZooms[index]}%` }
-                                    }
-                                  >
-                                      <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" /></div>}>{renderPanel(panel, panelZooms[index])}</Suspense>
-                                  </div>
-                              </div>
-                          </div>
-                          {index < openPanels.length - 1 && !((panel === 'exam' && openPanels[index + 1] === 'dibujo') || (panel === 'dibujo' && openPanels[index + 1] === 'exam')) && (
-                              <div onMouseDown={(e) => startResize(index, e)} className={`${layout === "vertical" ? "w-2 cursor-col-resize" : "h-2 cursor-row-resize"} transition-all z-20 flex-shrink-0 rounded-full ${darkMode ? "bg-slate-700 hover:bg-blue-500" : "bg-gray-200 hover:bg-blue-400"}`} />
-                          )}
-                      </React.Fragment>
-                  ))
-              )}
+                  {index < openPanels.length - 1 &&
+                    !(
+                      (panel === "exam" &&
+                        openPanels[index + 1] === "dibujo") ||
+                      (panel === "dibujo" && openPanels[index + 1] === "exam")
+                    ) && (
+                      <div
+                        onMouseDown={(e) => startResize(index, e)}
+                        className={`${layout === "vertical" ? "w-2 cursor-col-resize" : "h-2 cursor-row-resize"} transition-all z-20 flex-shrink-0 rounded-full ${darkMode ? "bg-slate-700 hover:bg-blue-500" : "bg-gray-200 hover:bg-blue-400"}`}
+                      />
+                    )}
+                </React.Fragment>
+              ))
+            )}
           </div>
         </div>
         {/* Botón de tema flotante */}
@@ -2144,7 +2882,11 @@ export default function SecureExamPlatform() {
           }`}
           title={darkMode ? "Cambiar a modo día" : "Cambiar a modo noche"}
         >
-          {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          {darkMode ? (
+            <Sun className="w-5 h-5" />
+          ) : (
+            <Moon className="w-5 h-5" />
+          )}
         </button>
 
         {/* Modal de error */}
@@ -2155,7 +2897,9 @@ export default function SecureExamPlatform() {
           mensaje={errorModal.mensaje}
           darkMode={darkMode}
           textoConfirmar="Aceptar"
-          onConfirmar={() => setErrorModal((prev) => ({ ...prev, visible: false }))}
+          onConfirmar={() =>
+            setErrorModal((prev) => ({ ...prev, visible: false }))
+          }
         />
       </div>
     </div>
@@ -2163,31 +2907,40 @@ export default function SecureExamPlatform() {
 }
 
 // --- SUB-COMPONENTE NAV ITEM (Estilo Dashboard) ---
-function SidebarNavItem({ icon: Icon, label, active, collapsed, darkMode, onClick }: any) {
-    return (
-        <button
-            onClick={onClick}
-            className={`w-full flex items-center rounded-lg text-lg transition-all duration-200 group ${
-                collapsed ? "justify-center p-2" : "px-3 py-2.5 gap-3"
-            } ${
-                active
-                    ? darkMode
-                        ? "bg-blue-900/30 text-blue-100 border border-blue-800/50"
-                        : "bg-slate-800 text-white shadow-md"
-                    : darkMode
-                        ? "text-gray-400 hover:bg-slate-800 hover:text-white"
-                        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-            }`}
-            title={collapsed ? label : ""}
-        >
-            <div className={`relative flex-shrink-0 transition-transform duration-200 ${active ? "scale-110" : "group-hover:scale-105"}`}>
-                <Icon className="w-5 h-5" />
-            </div>
-            {!collapsed && (
-                <span className="font-medium truncate transition-opacity duration-300">
-                    {label}
-                </span>
-            )}
-        </button>
-    );
+function SidebarNavItem({
+  icon: Icon,
+  label,
+  active,
+  collapsed,
+  darkMode,
+  onClick,
+}: any) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center rounded-lg text-lg transition-all duration-200 group ${
+        collapsed ? "justify-center p-2" : "px-3 py-2.5 gap-3"
+      } ${
+        active
+          ? darkMode
+            ? "bg-blue-900/30 text-blue-100 border border-blue-800/50"
+            : "bg-slate-800 text-white shadow-md"
+          : darkMode
+            ? "text-gray-400 hover:bg-slate-800 hover:text-white"
+            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+      }`}
+      title={collapsed ? label : ""}
+    >
+      <div
+        className={`relative flex-shrink-0 transition-transform duration-200 ${active ? "scale-110" : "group-hover:scale-105"}`}
+      >
+        <Icon className="w-5 h-5" />
+      </div>
+      {!collapsed && (
+        <span className="font-medium truncate transition-opacity duration-300">
+          {label}
+        </span>
+      )}
+    </button>
+  );
 }
