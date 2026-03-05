@@ -184,10 +184,11 @@ export class QuestionResponseBuilder {
                 const itemB = pregunta.pares
                   ?.flatMap((p: any) => [p.itemA, p.itemB])
                   .find((item: any) => item.id === parEst.itemB_id);
+                // Match exacto por ID, o fallback por texto si hay duplicados con diferente ID
                 const esCorrecto = pregunta.pares?.some(
                   (p: any) =>
-                    p.itemA.id === parEst.itemA_id &&
-                    p.itemB.id === parEst.itemB_id,
+                    (p.itemA.id === parEst.itemA_id && p.itemB.id === parEst.itemB_id) ||
+                    (itemA && itemB && p.itemA.text === itemA.text && p.itemB.text === itemB.text),
                 );
                 return {
                   itemA: itemA

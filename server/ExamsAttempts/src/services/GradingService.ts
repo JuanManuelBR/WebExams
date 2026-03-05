@@ -340,41 +340,34 @@ export class GradingService {
         return 0;
       }
 
-      // 3. Crear un Set de pares correctos para búsqueda rápida
-      const paresCorrectosSet = new Set<string>();
-      question.pares.forEach((par) => {
-        // Crear una clave única con itemA_id e itemB_id
-        paresCorrectosSet.add(`${par.itemA.id}-${par.itemB.id}`);
-      });
+      // 3. Array de pares correctos con flag consumido para evitar doble conteo
+      const paresDisponibles = question.pares.map((par) => ({ ...par, consumido: false }));
 
       // 4. Validar cada par del estudiante
       let paresCorrectos = 0;
 
-
-      paresEstudiante.forEach((parEstudiante, index) => {
-        const claveEstudiante = `${parEstudiante.itemA_id}-${parEstudiante.itemB_id}`;
-        const esCorrecto = paresCorrectosSet.has(claveEstudiante);
-
-        // Buscar info del par para mostrar en logs
-        const parCorrecto = question.pares.find(
-          (p) =>
-            p.itemA.id === parEstudiante.itemA_id &&
-            p.itemB.id === parEstudiante.itemB_id,
+      paresEstudiante.forEach((parEstudiante) => {
+        // Intento 1: match exacto por ID
+        const idxExacto = paresDisponibles.findIndex(
+          (p) => !p.consumido && p.itemA.id === parEstudiante.itemA_id && p.itemB.id === parEstudiante.itemB_id,
         );
-
-        if (esCorrecto && parCorrecto) {
+        if (idxExacto !== -1) {
+          paresDisponibles[idxExacto].consumido = true;
           paresCorrectos++;
+          return;
+        }
 
-        } else {
-          // Buscar información de los items para mostrar mejor el error
-          const itemA = question.pares.find(
-            (p) => p.itemA.id === parEstudiante.itemA_id,
+        // Intento 2: fallback por texto (cubre duplicados con diferente ID pero mismo contenido)
+        const textoA = paresDisponibles.find((p) => p.itemA.id === parEstudiante.itemA_id)?.itemA.text;
+        const textoB = paresDisponibles.find((p) => p.itemB.id === parEstudiante.itemB_id)?.itemB.text;
+        if (textoA !== undefined && textoB !== undefined) {
+          const idxTexto = paresDisponibles.findIndex(
+            (p) => !p.consumido && p.itemA.text === textoA && p.itemB.text === textoB,
           );
-          const itemB = question.pares.find(
-            (p) => p.itemB.id === parEstudiante.itemB_id,
-          );
-
-
+          if (idxTexto !== -1) {
+            paresDisponibles[idxTexto].consumido = true;
+            paresCorrectos++;
+          }
         }
       });
 

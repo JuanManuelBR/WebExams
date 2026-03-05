@@ -36,7 +36,7 @@ function mapearPreguntaBackendAFrontend(p: any): any {
     id: String(p.id),
     tipo: tipoMap[p.type] || "abierta",
     titulo: p.enunciado || "",
-    puntos: p.puntaje || 1,
+    puntos: p.puntaje ?? 1,
     calificacionParcial: p.calificacionParcial || false,
     imagen: (p.nombreImagen || null) as string | null,
   };
