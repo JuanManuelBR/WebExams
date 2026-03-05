@@ -1780,12 +1780,21 @@ export default function SecureExamPlatform() {
     // Detección inmediata de pérdida de red (antes de que socket.io detecte el disconnect)
     const handleOffline = () => {
       if (!examStarted || examFinishedRef.current) return;
-      // Actualizar estado sincrónicamente — más rápido que esperar el evento disconnect de socket.io
       isSocketConnectedRef.current = false;
       connectionLostRef.current = true;
       setIsSocketConnected(false);
       setConnectionLost(true);
       setConnectionGraceSeconds(GRACE_SECONDS);
+
+      // CRÍTICO: forzar desconexión explícita del socket.
+      // Sin esto, socket.io cree que sigue conectado y sock.connect() en
+      // handleOnline sería un no-op — las respuestas encoladas nunca se vaciarían
+      // hasta que el ping/pong del servidor detecte la caída (varios segundos).
+      const sock = socketRef.current;
+      if (sock?.connected) {
+        sock.disconnect();
+      }
+
       // Intentar notificar al profesor (puede funcionar si la caída es brevísima)
       if (studentData?.attemptId) {
         fetch(
