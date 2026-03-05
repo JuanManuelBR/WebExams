@@ -12,24 +12,13 @@ import { internalHttpClient } from "../utils/httpClient";
 
 export class ScoringService {
   static async calculateScore(attempt: ExamAttempt): Promise<number> {
-    console.log("\n" + "🎓".repeat(30));
-    console.log("🎓 INICIANDO CALIFICACIÓN DEL INTENTO");
-    console.log("🎓".repeat(30));
-    console.log(`📋 Intento ID: ${attempt.id}`);
-    console.log(`👤 Estudiante: ${attempt.nombre_estudiante || "Sin nombre"}`);
-    console.log(`📧 Correo: ${attempt.correo_estudiante || "Sin correo"}`);
-    console.log(`📚 Examen ID: ${attempt.examen_id}`);
-    console.log(
-      `📝 Total respuestas guardadas: ${attempt.respuestas?.length || 0}`,
-    );
+
 
     try {
       const exam = await ExamAttemptValidator.validateExamExistsById(
         attempt.examen_id,
       );
 
-      console.log(`\n📚 Examen: "${exam.nombre}"`);
-      console.log(`📊 Total de preguntas: ${exam.questions?.length || 0}`);
 
       if (!exam.questions || exam.questions.length === 0) {
         console.warn(`⚠️ El examen ${exam.id} no tiene preguntas`);
@@ -40,31 +29,15 @@ export class ScoringService {
       let puntajePosibleTotal = 0;
       const answerRepo = AppDataSource.getRepository(ExamAnswer);
 
-      console.log("\n" + "📝".repeat(30));
-      console.log("RECORRIENDO PREGUNTAS DEL EXAMEN");
-      console.log("📝".repeat(30));
 
       for (let i = 0; i < exam.questions.length; i++) {
         const question = exam.questions[i];
-
-        console.log(
-          `\n[${i + 1}/${exam.questions.length}] 📌 Pregunta ID: ${question.id}`,
-        );
-        console.log(`    Tipo: ${question.type.toUpperCase()}`);
-        console.log(`    Puntaje máximo: ${question.puntaje}`);
-        console.log(`    Enunciado: "${question.enunciado}"`);
 
         puntajePosibleTotal += question.puntaje;
 
         const studentAnswer = attempt.respuestas?.find(
           (ans) => ans.pregunta_id === question.id,
         );
-
-        if (!studentAnswer) {
-          console.log(`    ⚠️ Sin respuesta del estudiante`);
-        } else {
-          console.log(`    📥 Respuesta guardada: ${studentAnswer.respuesta}`);
-        }
 
         let puntajePregunta = 0;
 
@@ -105,15 +78,11 @@ export class ScoringService {
         if (studentAnswer) {
           studentAnswer.puntaje = puntajePregunta;
           await answerRepo.save(studentAnswer);
-          console.log(
-            `    💾 Puntaje guardado en respuesta: ${puntajePregunta.toFixed(5)}`,
-          );
+
         }
 
         puntajeTotal += puntajePregunta;
-        console.log(
-          `    💰 Puntaje acumulado hasta ahora: ${puntajeTotal.toFixed(5)}/${puntajePosibleTotal.toFixed(5)}`,
-        );
+
       }
 
       const { porcentaje, notaFinal } = GradingService.calculateFinalGrade(
@@ -121,16 +90,7 @@ export class ScoringService {
         puntajePosibleTotal,
       );
 
-      console.log("\n" + "🏆".repeat(30));
-      console.log("🏆 CALIFICACIÓN FINALIZADA");
-      console.log("🏆".repeat(30));
-      console.log(`📊 Puntaje obtenido: ${puntajeTotal.toFixed(5)}`);
-      console.log(
-        `📊 Puntaje máximo posible: ${puntajePosibleTotal.toFixed(5)}`,
-      );
-      console.log(`📊 Porcentaje: ${porcentaje.toFixed(2)}%`);
-      console.log(`📊 Nota final (1-5): ${notaFinal.toFixed(2)}`);
-      console.log("🏆".repeat(30) + "\n");
+
 
       const attemptRepo = AppDataSource.getRepository(ExamAttempt);
       attempt.porcentaje = porcentaje;
@@ -148,7 +108,6 @@ export class ScoringService {
     const attemptRepo = AppDataSource.getRepository(ExamAttempt);
     const progressRepo = AppDataSource.getRepository(ExamInProgress);
 
-    console.log(`\n🔴 FORZANDO ENVÍO DE TODOS LOS INTENTOS - Examen ID: ${examId}`);
 
     const activeAttempts = await attemptRepo.find({
       where: {
@@ -159,7 +118,6 @@ export class ScoringService {
     });
 
     if (activeAttempts.length === 0) {
-      console.log("⚠️ No hay intentos pendientes para finalizar");
       return {
         message: "No hay intentos pendientes para finalizar",
         finalizados: 0,
@@ -167,13 +125,11 @@ export class ScoringService {
       };
     }
 
-    console.log(`📋 Total de intentos pendientes encontrados: ${activeAttempts.length}`);
 
     const resultados = [];
 
     for (const attempt of activeAttempts) {
       try {
-        console.log(`\n📝 Procesando intento ${attempt.id} - Estudiante: ${attempt.nombre_estudiante || "Sin nombre"}`);
 
         const examInProgress = await progressRepo.findOne({
           where: { intento_id: attempt.id },
@@ -199,7 +155,6 @@ export class ScoringService {
         await attemptRepo.save(attempt);
         await progressRepo.delete({ intento_id: attempt.id });
 
-        console.log(`✅ Intento ${attempt.id} finalizado - Puntaje: ${attempt.puntaje ?? "Pendiente"}/${attempt.puntajeMaximo}`);
 
         io.to(`attempt_${attempt.id}`).emit("forced_finish", {
           message: "El profesor ha finalizado el examen para todos los estudiantes",
@@ -242,7 +197,6 @@ export class ScoringService {
       detalles: resultados,
     });
 
-    console.log(`\n✅ Proceso completado - ${resultados.length} intentos finalizados`);
 
     return {
       message: `${resultados.length} intentos activos han sido finalizados exitosamente`,
@@ -260,7 +214,6 @@ export class ScoringService {
     const attemptRepo = AppDataSource.getRepository(ExamAttempt);
     const progressRepo = AppDataSource.getRepository(ExamInProgress);
 
-    console.log(`\n🔒 CERRANDO EXAMEN ${examId} — finalizando intentos activos`);
 
     const activeAttempts = await attemptRepo.find({
       where: { examen_id: examId, estado: Not(AttemptState.FINISHED) },
@@ -268,11 +221,9 @@ export class ScoringService {
     });
 
     if (activeAttempts.length === 0) {
-      console.log("⚠️ No hay intentos pendientes para finalizar");
       return { message: "No hay intentos pendientes para finalizar", finalizados: 0 };
     }
 
-    console.log(`📋 Intentos a finalizar: ${activeAttempts.length}`);
     const resultados = [];
 
     for (const attempt of activeAttempts) {
@@ -308,7 +259,6 @@ export class ScoringService {
         await attemptRepo.save(attempt);
         await progressRepo.delete({ intento_id: attempt.id });
 
-        console.log(`✅ Intento ${attempt.id} finalizado — política: ${attempt.limiteTiempoCumplido ?? "enviar"}`);
 
         io.to(`attempt_${attempt.id}`).emit("time_expired", {
           message: "El examen ha sido cerrado",
@@ -338,7 +288,6 @@ export class ScoringService {
       detalles: resultados,
     });
 
-    console.log(`\n✅ Examen ${examId} cerrado — ${resultados.length} intentos finalizados`);
 
     return {
       message: `${resultados.length} intentos finalizados por cierre de examen`,
@@ -351,7 +300,6 @@ export class ScoringService {
     const attemptRepo = AppDataSource.getRepository(ExamAttempt);
     const progressRepo = AppDataSource.getRepository(ExamInProgress);
 
-    console.log(`\n🔴 FORZANDO ENVÍO DE INTENTO - ID: ${attemptId}`);
 
     const attempt = await attemptRepo.findOne({
       where: { id: attemptId },
@@ -366,7 +314,6 @@ export class ScoringService {
       throwHttpError("El intento ya está finalizado.", 400);
     }
 
-    console.log(`📝 Procesando intento ${attempt.id} - Estudiante: ${attempt.nombre_estudiante || "Sin nombre"}`);
 
     const examInProgress = await progressRepo.findOne({
       where: { intento_id: attempt.id },
@@ -394,7 +341,6 @@ export class ScoringService {
     await attemptRepo.save(attempt);
     await progressRepo.delete({ intento_id: attempt.id });
 
-    console.log(`✅ Intento ${attempt.id} finalizado - Puntaje: ${attempt.puntaje ?? "Pendiente"}/${attempt.puntajeMaximo}`);
 
     io.to(`attempt_${attempt.id}`).emit("forced_finish", {
       message: "El profesor ha finalizado tu examen",
@@ -476,9 +422,6 @@ export class ScoringService {
           console.error(`Error al limpiar tiempo límite en Exams MS para examen ${examId}:`, err.message),
         );
     }
-
-    console.log(`✅ Tiempo límite eliminado para examen ${examId} - ${activeProgress.length} intentos actualizados`);
-
     return {
       message: "Tiempo límite eliminado exitosamente",
       intentosActualizados: activeProgress.length,

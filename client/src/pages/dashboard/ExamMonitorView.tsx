@@ -70,6 +70,7 @@ interface ExamAttempt {
   calificacionPendiente?: boolean;
   esExamenPDF?: boolean;
   codigo_acceso?: string | null;
+  connectionLost?: boolean; // Perdida de conexión WebSocket
 }
 
 interface Alerta {
@@ -450,6 +451,34 @@ export default function VigilanciaExamenesLista({
             prev ? { ...prev, estado: "finished", calificacion, calificacionPendiente: detalle.calificacionPendiente, fecha_fin: prev.fecha_fin || fechaFin } : null
           );
         }
+      }
+    });
+
+    // NUEVO: Estudiante perdió conexión WebSocket
+    newSocket.on("student_connection_lost", (data: { attemptId: number; estudiante: { nombre: string }; graceSeconds: number }) => {
+      setExamAttempts((prev) => {
+        const intentos = prev[examId] || [];
+        const nuevos = intentos.map((att) =>
+          att.id === data.attemptId ? { ...att, connectionLost: true } : att
+        );
+        return { ...prev, [examId]: nuevos };
+      });
+      if (estudianteSeleccionadoRef.current?.id === data.attemptId) {
+        setEstudianteSeleccionado((prev) => prev ? { ...prev, connectionLost: true } : null);
+      }
+    });
+
+    // NUEVO: Estudiante reconectó
+    newSocket.on("student_reconnected", (data: { attemptId: number; estudiante: { nombre: string } }) => {
+      setExamAttempts((prev) => {
+        const intentos = prev[examId] || [];
+        const nuevos = intentos.map((att) =>
+          att.id === data.attemptId ? { ...att, connectionLost: false } : att
+        );
+        return { ...prev, [examId]: nuevos };
+      });
+      if (estudianteSeleccionadoRef.current?.id === data.attemptId) {
+        setEstudianteSeleccionado((prev) => prev ? { ...prev, connectionLost: false } : null);
       }
     });
 
@@ -1138,6 +1167,19 @@ export default function VigilanciaExamenesLista({
                                             </div>
                                          )}
                                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border flex-shrink-0 ${getEstadoBadgeColor(estado, darkMode)}`}>{estado}</span>
+                                         {/* Badge conexión perdida */}
+                                         {estudiante.connectionLost && (
+                                           <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border animate-pulse flex-shrink-0 ${
+                                             darkMode ? "bg-amber-500/10 text-amber-400 border-amber-500/20" : "bg-amber-50 text-amber-600 border-amber-200"
+                                           }`}>
+                                             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                               <path d="M1 6s4-4 11-4 11 4 11 4"/><path d="M5 10s2.5-2 7-2 7 2 7 2"/>
+                                               <path d="M9 14s1.5-1 3-1 3 1 3 1"/><line x1="12" y1="18" x2="12.01" y2="18"/>
+                                               <line x1="2" y1="2" x2="22" y2="22" strokeLinecap="round"/>
+                                             </svg>
+                                             Sin señal
+                                           </span>
+                                         )}
                                          {estudiante.calificacion !== undefined && estudiante.calificacion !== null && (
                                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border flex-shrink-0 ${getEstadoBadgeColor("Calificado", darkMode)}`}>
                                                {mostrarOpcionesPostCalificacion ? estudiante.calificacion : "Cal."}
@@ -1282,6 +1324,15 @@ export default function VigilanciaExamenesLista({
                                 <span className={`px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wide border ${getEstadoBadgeColor(traducirEstado(estudianteSeleccionado.estado), darkMode)}`}>
                                     {traducirEstado(estudianteSeleccionado.estado)}
                                 </span>
+                                {/* Badge conexión perdida en vista detalle */}
+                                {estudianteSeleccionado.connectionLost && (
+                                  <span className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-bold border animate-pulse ${
+                                    darkMode ? "bg-amber-500/10 text-amber-400 border-amber-500/20" : "bg-amber-50 text-amber-600 border-amber-200"
+                                  }`}>
+                                    <AlertTriangle className="w-3.5 h-3.5" />
+                                    Conexión perdida
+                                  </span>
+                                )}
                                 {estudianteSeleccionado.calificacion !== undefined && estudianteSeleccionado.calificacion !== null && (
                                     <span className={`px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wide border ${getEstadoBadgeColor("Calificado", darkMode)}`}>
                                       Calificado

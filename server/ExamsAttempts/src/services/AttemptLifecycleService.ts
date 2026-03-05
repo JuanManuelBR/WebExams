@@ -398,28 +398,22 @@ export class AttemptLifecycleService {
         where: { intento_id: attemptId },
       });
       await answerRepo.delete({ intento_id: attemptId });
-      console.log(`  ✓ Eliminadas ${answersCount} respuesta(s)`);
 
       // 3. Contar y eliminar eventos
       const eventsCount = await eventRepo.count({
         where: { intento_id: attemptId },
       });
       await eventRepo.delete({ intento_id: attemptId });
-      console.log(`  ✓ Eliminados ${eventsCount} evento(s)`);
 
       // 4. Eliminar ExamInProgress
       const progressDeleted = await progressRepo.delete({
         intento_id: attemptId,
       });
-      console.log(
-        `  ✓ Eliminado ExamInProgress (${progressDeleted.affected || 0} registro(s))`,
-      );
+  
 
       // 5. Eliminar el intento
       await attemptRepo.delete({ id: attemptId });
-      console.log(`  ✓ Eliminado intento ID: ${attemptId}`);
 
-      console.log(`✅ Intento eliminado completamente\n`);
 
       // 6. Notificar vía WebSocket si se proporcionó io
       if (io) {

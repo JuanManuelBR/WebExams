@@ -227,7 +227,6 @@ export class SecurityEventService {
     const eventRepo = AppDataSource.getRepository(ExamEvent);
     const attemptRepo = AppDataSource.getRepository(ExamAttempt);
 
-    console.log(`\n🗑️ ELIMINANDO EVENTOS - Intento ID: ${attemptId}`);
 
     const attempt = await attemptRepo.findOne({
       where: { id: attemptId },
@@ -241,11 +240,9 @@ export class SecurityEventService {
       where: { intento_id: attemptId },
     });
 
-    console.log(`📋 Eventos a eliminar: ${eventCount}`);
 
     await eventRepo.delete({ intento_id: attemptId });
 
-    console.log(`✅ ${eventCount} eventos eliminados exitosamente`);
 
     if (io) {
       io.to(`exam_${attempt.examen_id}`).emit("events_deleted", {
