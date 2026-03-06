@@ -1834,18 +1834,16 @@ export default function SecureExamPlatform() {
       setPanelSizes([100]);
       setPanelZooms([100]);
 
-      setTimeout(async () => {
-        // Si ya estamos en fullscreen (ej: handleLaunchResume lo pidió antes), no pedir de nuevo
-        if (fullscreenRef.current && !document.fullscreenElement) {
-          try {
-            await fullscreenRef.current.requestFullscreen();
-          } catch (err) {
-            if (!document.hidden)
-              addSecurityViolation("No se pudo activar pantalla completa");
-          }
+      // Si ya estamos en fullscreen (ej: handleLaunchResume lo pidió antes), no pedir de nuevo
+      if (fullscreenRef.current && !document.fullscreenElement) {
+        try {
+          await fullscreenRef.current.requestFullscreen();
+        } catch (err) {
+          if (!document.hidden)
+            addSecurityViolation("No se pudo activar pantalla completa");
         }
-        setTimeout(() => { startupGraceRef.current = false; }, 1500);
-      }, 100);
+      }
+      startupGraceRef.current = false;
     } catch (error: any) {
       console.error("❌ Error al iniciar examen:", error);
       mostrarError(
@@ -1877,7 +1875,7 @@ export default function SecureExamPlatform() {
         // Si aún no se había establecido (arranque), startupGraceRef silencia esto.
         if (startupGraceRef.current) return;
         blockExam("Salida de pantalla completa detectada", "CRITICAL");
-      });
+      }, 100);
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -2598,7 +2596,7 @@ export default function SecureExamPlatform() {
                 // Caso normal: examen ya en curso, solo reactivar pantalla completa
                 await document.documentElement.requestFullscreen().catch(() => {});
                 setShowUnlockScreen(false);
-                setTimeout(() => { startupGraceRef.current = false; }, 1500);
+                startupGraceRef.current = false;
               }
             }}
             className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-lg shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all hover:scale-105 flex items-center gap-3 mx-auto"
