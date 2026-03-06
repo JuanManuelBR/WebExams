@@ -1,8 +1,18 @@
+const CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+const CODE_LENGTH = 4;
+
+function randomCode(): string {
+  const bytes = new Uint8Array(CODE_LENGTH);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes)
+    .map((b) => CHARSET[b % CHARSET.length])
+    .join("");
+}
+
 export function generateAccessCode(): string {
-  // Tomar los primeros 10 caracteres de un UUID sin guiones
-  return crypto.randomUUID().replace(/-/g, '').substring(0, 10).toUpperCase();
+  return randomCode();
 }
 
 export function generateSessionId(): string {
-  return crypto.randomUUID().replace(/-/g, '').substring(0, 10).toUpperCase();
+  return crypto.randomUUID().replace(/-/g, "").substring(0, 10);
 }

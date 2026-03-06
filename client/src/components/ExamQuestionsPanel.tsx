@@ -45,6 +45,7 @@ interface ExamPanelProps {
   remainingTime?: string;
   timerStatus?: 'normal' | 'warning' | 'critical';
   timeLimitRemoved?: boolean;
+  initialQuestionIndex?: number;
 }
 
 const EXAMS_API_URL = import.meta.env.VITE_EXAMS_URL || "http://localhost:3001";
@@ -187,9 +188,18 @@ export default function ExamPanel({
   remainingTime,
   timerStatus = 'normal',
   timeLimitRemoved = false,
+  initialQuestionIndex,
 }: ExamPanelProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [allDone, setAllDone] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    const init = initialQuestionIndex ?? 0;
+    const qs = examData?.questions ?? [];
+    return Math.min(init, Math.max(0, qs.length - 1));
+  });
+  const [allDone, setAllDone] = useState(() => {
+    const init = initialQuestionIndex ?? 0;
+    const qs = examData?.questions ?? [];
+    return qs.length > 0 && init >= qs.length;
+  });
   const [showNoAnswerConfirm, setShowNoAnswerConfirm] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 

@@ -238,7 +238,7 @@ export default function VigilanciaExamenesLista({
     });
 
     // Nuevo estudiante empezó el examen - agregar directamente sin recargar
-    newSocket.on("student_started_exam", (data: { attemptId: number; estudiante: { nombre: string; correo: string; identificacion: string }; fecha_inicio: string }) => {
+    newSocket.on("student_started_exam", (data: { attemptId: number; codigo_acceso?: string; estudiante: { nombre: string; correo: string; identificacion: string }; fecha_inicio: string }) => {
       const nuevoEstudiante: ExamAttempt = {
         id: data.attemptId,
         nombre_estudiante: data.estudiante?.nombre || "Sin nombre",
@@ -251,6 +251,7 @@ export default function VigilanciaExamenesLista({
         progreso: 0,
         alertas: 0,
         alertasNoLeidas: 0,
+        codigo_acceso: data.codigo_acceso ?? null,
       };
 
       setExamAttempts((prev) => {
@@ -347,18 +348,20 @@ export default function VigilanciaExamenesLista({
     });
 
     // Intento bloqueado
-    newSocket.on("attempt_blocked_notification", (data: { attemptId: number; estudiante: any }) => {
+    newSocket.on("attempt_blocked_notification", (data: { attemptId: number; codigo_acceso?: string; estudiante: any }) => {
       const fechaBloqueo = new Date().toISOString();
       setExamAttempts((prev) => {
         const intentos = prev[examId] || [];
         const nuevos = intentos.map((att) =>
-          att.id === data.attemptId ? { ...att, estado: "blocked", fecha_fin: fechaBloqueo } : att
+          att.id === data.attemptId
+            ? { ...att, estado: "blocked", fecha_fin: fechaBloqueo, ...(data.codigo_acceso ? { codigo_acceso: data.codigo_acceso } : {}) }
+            : att
         );
         return { ...prev, [examId]: nuevos };
       });
 
       if (estudianteSeleccionadoRef.current?.id === data.attemptId) {
-        setEstudianteSeleccionado((prev) => prev ? { ...prev, estado: "blocked", fecha_fin: fechaBloqueo } : null);
+        setEstudianteSeleccionado((prev) => prev ? { ...prev, estado: "blocked", fecha_fin: fechaBloqueo, ...(data.codigo_acceso ? { codigo_acceso: data.codigo_acceso } : {}) } : null);
       }
     });
 
@@ -395,6 +398,21 @@ export default function VigilanciaExamenesLista({
 
     // Intento desbloqueado
     newSocket.on("attempt_unlocked_notification", (data: { attemptId: number; estudiante: any }) => {
+      setExamAttempts((prev) => {
+        const intentos = prev[examId] || [];
+        const nuevos = intentos.map((att) =>
+          att.id === data.attemptId ? { ...att, estado: "activo", fecha_fin: null } : att
+        );
+        return { ...prev, [examId]: nuevos };
+      });
+
+      if (estudianteSeleccionadoRef.current?.id === data.attemptId) {
+        setEstudianteSeleccionado((prev) => prev ? { ...prev, estado: "activo", fecha_fin: null } : null);
+      }
+    });
+
+    // Intento reanudado por el estudiante (vía código de acceso)
+    newSocket.on("student_resumed_exam", (data: { attemptId: number }) => {
       setExamAttempts((prev) => {
         const intentos = prev[examId] || [];
         const nuevos = intentos.map((att) =>

@@ -27,7 +27,7 @@ export class ExamAnswer {
   @Column()
   pregunta_id!: number;
 
-  @Column({ type: "text" })
+  @Column({ type: "mediumtext" })
   respuesta!: string;
 
   @Column({ type: "datetime" })

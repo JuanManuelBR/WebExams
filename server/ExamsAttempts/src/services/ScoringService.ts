@@ -336,7 +336,7 @@ export class ScoringService {
 
     attempt.fecha_fin = new Date();
     attempt.estado = AttemptState.FINISHED;
-    attempt.codigoRevision = examInProgress.codigo_acceso;
+    attempt.codigoRevision = generateAccessCode();
 
     await attemptRepo.save(attempt);
     await progressRepo.delete({ intento_id: attempt.id });

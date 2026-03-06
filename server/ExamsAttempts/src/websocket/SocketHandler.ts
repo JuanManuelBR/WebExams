@@ -334,6 +334,15 @@ export class SocketHandler {
         return;
       }
 
+      // Double-check: re-query fecha_expiracion to close the race window between
+      // the first check and now (removeTimeLimit may have cleared it in between)
+      const examInProgressFinal = await progressRepo.findOne({ where: { intento_id: attemptId } });
+      if (!examInProgressFinal || !examInProgressFinal.fecha_expiracion) {
+        this.stopTimer(attemptId);
+        return;
+      }
+
+
       console.log(
         `⏰ Tiempo expirado para intento ${attemptId}. Finalizando...`,
       );

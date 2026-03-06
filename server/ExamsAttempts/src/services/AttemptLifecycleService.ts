@@ -9,6 +9,7 @@ import {
   generateAccessCode,
   generateSessionId,
 } from "../utils/CodeGenerator";
+import { Raw } from "typeorm";
 import { throwHttpError } from "../utils/errors";
 import { StartExamAttemptDto } from "../dtos/Start-ExamAttempt.dto";
 import { ResumeExamAttemptDto } from "../dtos/Resume-ExamAttempt.dto";
@@ -92,6 +93,7 @@ export class AttemptLifecycleService {
 
     io.to(`exam_${exam.id}`).emit("student_started_exam", {
       attemptId: attempt.id,
+      codigo_acceso,
       estudiante: {
         nombre: attempt.nombre_estudiante,
         correo: attempt.correo_estudiante,
@@ -112,22 +114,16 @@ export class AttemptLifecycleService {
     const attemptRepo = AppDataSource.getRepository(ExamAttempt);
 
     const examInProgress = await progressRepo.findOne({
-      where: { codigo_acceso: data.codigo_acceso },
+      where: { codigo_acceso: Raw((col) => `BINARY ${col} = :codigo`, { codigo: data.codigo_acceso }) },
     });
 
     if (!examInProgress) {
       throwHttpError("Código de acceso inválido", 404);
     }
 
+    // Solo los intentos finalizados no son reanudables
     if (examInProgress.estado === AttemptState.FINISHED) {
       throwHttpError("Este intento ya ha finalizado", 403);
-    }
-
-    if (examInProgress.estado === AttemptState.BLOCKED) {
-      throwHttpError(
-        "Este intento está bloqueado. Contacta al profesor",
-        403,
-      );
     }
 
     const attempt = await attemptRepo.findOne({
@@ -139,31 +135,38 @@ export class AttemptLifecycleService {
       throwHttpError("Intento no encontrado", 404);
     }
 
-    if (examInProgress.estado === AttemptState.ABANDONADO) {
-      // --- REANUDAR INTENTO ABANDONADO ---
-
-      // Verificar que el tiempo no haya expirado
-      if (examInProgress.fecha_expiracion) {
-        const now = new Date();
-        if (now > examInProgress.fecha_expiracion) {
-          await this.handleTimeExpired(attempt, examInProgress, io);
-          throwHttpError("El tiempo del examen ha expirado", 403);
-        }
+    // Verificar expiración antes de reactivar
+    if (examInProgress.fecha_expiracion) {
+      const now = new Date();
+      if (now > examInProgress.fecha_expiracion) {
+        await this.handleTimeExpired(attempt, examInProgress, io);
+        throwHttpError("El tiempo del examen ha expirado", 403);
       }
+    }
 
-      // Generar nueva sesión (invalida cualquier sesión anterior)
-      const nuevoIdSesion = generateSessionId();
+    const estadoAnterior = examInProgress.estado;
 
+    // Siempre generar nueva sesión — invalida cualquier sesión anterior y evita duplicados
+    examInProgress.id_sesion = generateSessionId();
+
+    // Reactivar si no estaba activo (abandonado, bloqueado, pausado)
+    if (examInProgress.estado !== AttemptState.ACTIVE) {
       examInProgress.estado = AttemptState.ACTIVE;
-      examInProgress.id_sesion = nuevoIdSesion;
       examInProgress.fecha_fin = null;
-      await progressRepo.save(examInProgress);
-
       attempt.estado = AttemptState.ACTIVE;
       attempt.fecha_fin = null;
-      await attemptRepo.save(attempt);
+    }
 
-      // Notificar al profesor
+    await progressRepo.save(examInProgress);
+    await attemptRepo.save(attempt);
+
+    // Desplazar cualquier sesión anterior activa — previene conexiones duplicadas
+    io.to(`attempt_${attempt.id}`).emit("session_replaced", {
+      message: "Accediste al examen desde otro lugar. Esta sesión fue cerrada.",
+    });
+
+    // Notificar al profesor si se reanudó desde un estado inactivo
+    if (estadoAnterior !== AttemptState.ACTIVE) {
       io.to(`exam_${attempt.examen_id}`).emit("student_resumed_exam", {
         attemptId: attempt.id,
         estudiante: {
@@ -172,35 +175,7 @@ export class AttemptLifecycleService {
           identificacion: attempt.identificacion_estudiante,
         },
       });
-
-      console.log(
-        `🔄 Intento ${attempt.id} reanudado desde estado abandonado`,
-      );
-    } else if (examInProgress.estado === AttemptState.ACTIVE) {
-      // --- RECONEXIÓN NORMAL (misma sesión) ---
-
-      if (data.id_sesion && examInProgress.id_sesion !== data.id_sesion) {
-        throwHttpError(
-          "Ya existe una sesión activa para este intento. Solo puede haber un usuario conectado",
-          409,
-        );
-      }
-
-      if (!data.id_sesion) {
-        throwHttpError(
-          "El intento aún está activo. Si perdiste la conexión, espera unos segundos e intenta de nuevo",
-          409,
-        );
-      }
-
-      // Verificar expiración
-      if (examInProgress.fecha_expiracion) {
-        const now = new Date();
-        if (now > examInProgress.fecha_expiracion) {
-          await this.handleTimeExpired(attempt, examInProgress, io);
-          throwHttpError("El tiempo del examen ha expirado", 403);
-        }
-      }
+      console.log(`🔄 Intento ${attempt.id} reanudado desde estado: ${estadoAnterior}`);
     }
 
     // Obtener examen sanitizado (mismo formato que startAttempt)

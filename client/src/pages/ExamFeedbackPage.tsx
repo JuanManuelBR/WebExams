@@ -8,6 +8,7 @@ export default function ExamFeedbackPage() {
   const navigate = useNavigate();
 
   const revisionCode = localStorage.getItem("revisionCode");
+  const [showWarningModal, setShowWarningModal] = useState(true);
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     const saved = localStorage.getItem("darkMode");
     return saved ? JSON.parse(saved) : false;
@@ -52,21 +53,57 @@ export default function ExamFeedbackPage() {
           </p>
         </div>
 
+        {/* Modal de advertencia — uso único */}
+        {showWarningModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Fondo borroso */}
+            <div className="absolute inset-0 backdrop-blur-md bg-black/50" />
+            {/* Tarjeta del modal */}
+            <div className={`relative z-10 w-full max-w-md rounded-2xl shadow-2xl border p-8 flex flex-col items-center gap-6 ${darkMode ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200"}`}>
+              {/* Ícono */}
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl ${darkMode ? "bg-amber-500/20" : "bg-amber-50"}`}>
+                👁️
+              </div>
+              <div className="text-center space-y-2">
+                <h2 className={`text-xl font-bold ${darkMode ? "text-white" : "text-slate-800"}`}>
+                  Revisión de uso único
+                </h2>
+                <p className={`text-sm leading-relaxed ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+                  Solo puedes ver los resultados de tu examen <strong>una vez</strong>.
+                  Al cerrar este aviso el código de revisión quedará inválido y no podrás
+                  volver a acceder.
+                </p>
+                <p className={`text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                  Si necesitas volver a verlos, contacta a tu profesor.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowWarningModal(false)}
+                className="w-full py-3 rounded-xl font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-lg"
+              >
+                Entendido, ver mis resultados
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Tarjeta de Cristal (Glassmorphism) que contiene el examen */}
-        <div className={`w-full max-w-5xl sm:rounded-3xl shadow-2xl overflow-hidden border backdrop-blur-xl transition-all duration-500 anim-scaleIn ${darkMode ? "bg-slate-900/60 border-slate-700/50" : "bg-white/70 border-white/60"}`}>
-          <RevisarCalificacion
-            intentoId={0}
-            codigoRevision={revisionCode}
-            readOnly={true}
-            studentMode={true}
-            darkMode={darkMode}
-            onVolver={() => {
-              localStorage.removeItem("revisionCode");
-              navigate("/acceso-examen", { replace: true });
-            }}
-            onGradeUpdated={() => {}}
-          />
-        </div>
+        {!showWarningModal && (
+          <div className={`w-full max-w-5xl sm:rounded-3xl shadow-2xl overflow-hidden border backdrop-blur-xl transition-all duration-500 anim-scaleIn ${darkMode ? "bg-slate-900/60 border-slate-700/50" : "bg-white/70 border-white/60"}`}>
+            <RevisarCalificacion
+              intentoId={0}
+              codigoRevision={revisionCode}
+              readOnly={true}
+              studentMode={true}
+              darkMode={darkMode}
+              onVolver={() => {
+                localStorage.removeItem("revisionCode");
+                navigate("/acceso-examen", { replace: true });
+              }}
+              onGradeUpdated={() => {}}
+            />
+          </div>
+        )}
       </div>
 
       {/* Toggle día/noche — mismo patrón que el resto de páginas */}

@@ -63,7 +63,9 @@ export class ExamSchedulerService {
   private async cerrarExamen(examenId: number): Promise<void> {
     try {
       const examen = await this.examRepo.findOne({ where: { id: examenId } });
-      if (examen && examen.estado === ExamenState.OPEN) {
+      // Re-check that the scheduled close wasn't cancelled via removeTimeLimit
+      // (race condition: scheduler fires at same moment teacher cancels the timer)
+      if (examen && examen.estado === ExamenState.OPEN && examen.cambioEstadoAutomatico && examen.horaCierre) {
         examen.estado = ExamenState.CLOSED;
         await this.examRepo.save(examen);
         console.log(`Examen ${examenId} cerrado automáticamente`);

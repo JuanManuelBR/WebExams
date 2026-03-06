@@ -156,8 +156,12 @@ export default function RevisarCalificacion({
   const [pdfNota, setPdfNota] = useState<string>("");
   const [pdfRetroalimentacion, setPdfRetroalimentacion] = useState<string>("");
   const [pdfSaveStatus, setPdfSaveStatus] = useState<SaveStatus>("idle");
+  // Evita la doble llamada de React StrictMode en desarrollo
+  const hasFetchedRef = useRef(false);
 
   useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     loadDetails();
   }, [intentoId, codigoRevision]);
 
@@ -917,21 +921,18 @@ export default function RevisarCalificacion({
 
                       {/* Respuesta del estudiante */}
                       <div className="mt-4">
-                        {!resp ? (
-                          <div className={`p-6 rounded-xl border-2 border-dashed text-center ${
-                            darkMode ? "border-slate-600 bg-slate-800/30 text-slate-500" : "border-gray-300 bg-gray-50 text-gray-400"
+                        {!resp && (
+                          <div className={`mb-4 flex items-center gap-2.5 px-4 py-2.5 rounded-xl border ${
+                            darkMode ? "border-amber-700/40 bg-amber-900/20 text-amber-400" : "border-amber-200 bg-amber-50 text-amber-700"
                           }`}>
-                            <HelpCircle className="w-6 h-6 mx-auto mb-2 opacity-50" />
+                            <HelpCircle className="w-4 h-4 flex-shrink-0" />
                             <span className="text-sm font-medium">El estudiante no respondió esta pregunta</span>
                           </div>
-                        ) : (
-                          <>
-                            {pregunta.type === "test" && <RenderTest pregunta={pregunta} darkMode={darkMode} />}
-                            {pregunta.type === "open" && <RenderOpen pregunta={pregunta} darkMode={darkMode} />}
-                            {pregunta.type === "fill_blanks" && <RenderFillBlanks pregunta={pregunta} darkMode={darkMode} />}
-                            {pregunta.type === "match" && <RenderMatch pregunta={pregunta} darkMode={darkMode} />}
-                          </>
                         )}
+                        {pregunta.type === "test" && <RenderTest pregunta={pregunta} darkMode={darkMode} />}
+                        {pregunta.type === "open" && <RenderOpen pregunta={pregunta} darkMode={darkMode} />}
+                        {pregunta.type === "fill_blanks" && <RenderFillBlanks pregunta={pregunta} darkMode={darkMode} />}
+                        {pregunta.type === "match" && <RenderMatch pregunta={pregunta} darkMode={darkMode} />}
                       </div>
                     </div>
 

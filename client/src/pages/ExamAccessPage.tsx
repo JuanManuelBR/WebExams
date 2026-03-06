@@ -341,6 +341,7 @@ export default function ExamAccessPage() {
 
       localStorage.setItem("studentData", JSON.stringify(studentData));
       localStorage.setItem("currentExam", JSON.stringify(exam));
+      localStorage.removeItem("examBlockedState");
 
       // Guardar respuestas previas para que ExamSolver las restaure
       if (attempt.respuestas && attempt.respuestas.length > 0) {
@@ -574,7 +575,7 @@ export default function ExamAccessPage() {
                     <input
                       type="text"
                       value={resumeCode}
-                      onChange={(e) => setResumeCode(e.target.value.toUpperCase())}
+                      onChange={(e) => setResumeCode(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && !loading && handleResume()}
                       placeholder="CÓDIGO DE ACCESO"
                       maxLength={10}
@@ -620,7 +621,7 @@ export default function ExamAccessPage() {
                     <input
                       type="text"
                       value={revisionCode}
-                      onChange={(e) => setRevisionCode(e.target.value.toUpperCase())}
+                      onChange={(e) => setRevisionCode(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && !loading && handleRevision()}
                       placeholder="CÓDIGO DE REVISIÓN"
                       maxLength={10}

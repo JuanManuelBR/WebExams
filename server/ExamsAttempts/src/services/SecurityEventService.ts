@@ -121,6 +121,7 @@ export class SecurityEventService {
 
       io.to(`exam_${attempt.examen_id}`).emit("attempt_blocked_notification", {
         attemptId: attempt.id,
+        codigo_acceso: examInProgress.codigo_acceso,
         estudiante: {
           nombre: attempt.nombre_estudiante,
           correo: attempt.correo_estudiante,

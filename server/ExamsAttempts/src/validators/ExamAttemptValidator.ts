@@ -1,4 +1,5 @@
 import { AppDataSource } from "../data-source/AppDataSource";
+import { Raw } from "typeorm";
 import { ExamInProgress } from "../models/ExamInProgress";
 import { throwHttpError } from "../utils/errors";
 import { internalHttpClient } from "../utils/httpClient";
@@ -91,7 +92,7 @@ export class ExamAttemptValidator {
   ) {
     const repo = AppDataSource.getRepository(ExamInProgress);
     const examInProgress = await repo.findOne({
-      where: { codigo_acceso },
+      where: { codigo_acceso: Raw((col) => `BINARY ${col} = :codigo`, { codigo: codigo_acceso }) },
     });
 
     if (!examInProgress) {

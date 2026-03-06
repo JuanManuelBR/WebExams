@@ -339,6 +339,7 @@ export default function SecureExamPlatform() {
   const [isStarting, setIsStarting] = useState(false);
   const [blockReason, setBlockReason] = useState("");
   const [showUnlockScreen, setShowUnlockScreen] = useState(false);
+  const [sessionReplaced, setSessionReplaced] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     window.innerWidth < 768,
   );
@@ -402,6 +403,7 @@ export default function SecureExamPlatform() {
   const [openPanels, setOpenPanels] = useState<PanelType[]>([]);
   const [layout, setLayout] = useState<Layout>("vertical");
   const [panelSizes, setPanelSizes] = useState<number[]>([]);
+  const [initialQuestionIndex, setInitialQuestionIndex] = useState(0);
   const [panelZooms, setPanelZooms] = useState<number[]>([]);
   const [isResizing, setIsResizing] = useState(false);
   const [resizingIndex, setResizingIndex] = useState<number | null>(null);
@@ -433,6 +435,7 @@ export default function SecureExamPlatform() {
   const fullscreenRef = useRef<HTMLDivElement>(null);
   const integrityCheckRef = useRef<number>(0);
   const examFinishedRef = useRef(false);
+  const startupGraceRef = useRef(false); // Ignora eventos de seguridad durante el arranque del examen
 
   const [studentData, setStudentData] = useState<StudentData | null>(null);
   const [examData, setExamData] = useState<ExamData | null>(null);
@@ -741,6 +744,30 @@ export default function SecureExamPlatform() {
         attemptId: studentData.attemptId,
         sessionId: studentData.id_sesion,
       });
+      // Enviar evento de bloqueo pendiente que no pudo enviarse por falta de conexión
+      const savedBlock = localStorage.getItem("examBlockedState");
+      if (savedBlock) {
+        try {
+          const { pendingReport, tipoEvento: pendingTipo, attemptId: pendingId } = JSON.parse(savedBlock);
+          if (pendingReport && pendingTipo && pendingId) {
+            fetch(`${ATTEMPTS_API_URL}/api/exam/event`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                intento_id: pendingId,
+                tipo_evento: pendingTipo,
+                fecha_envio: new Date().toISOString(),
+              }),
+            }).then(() => {
+              // Limpiar flag pendiente (mantener el resto del estado)
+              const current = JSON.parse(localStorage.getItem("examBlockedState") || "{}");
+              delete current.pendingReport;
+              delete current.tipoEvento;
+              localStorage.setItem("examBlockedState", JSON.stringify(current));
+            }).catch(() => {});
+          }
+        } catch {}
+      }
     });
 
     blockedSocket.on("attempt_unlocked", () => {
@@ -962,7 +989,7 @@ export default function SecureExamPlatform() {
       clearTimeout(timeout);
       clearInterval(interval);
     };
-  }, [examStarted, studentData, examData, examBlocked]);
+  }, [examStarted, studentData, examData, examBlocked, timeLimitRemoved]);
 
   const signalLevel = useConnectionQuality(isSocketConnected);
 
@@ -1153,7 +1180,14 @@ export default function SecureExamPlatform() {
           }),
         });
       } catch (e) {
-        console.error("Error enviando evento:", e);
+        // Sin conexión: guardar el evento pendiente para enviarlo al reconectar
+        console.error("Error enviando evento (sin conexión):", e);
+        if (examData?.consecuencia !== "notificar") {
+          localStorage.setItem(
+            "examBlockedState",
+            JSON.stringify({ attemptId: studentData.attemptId, reason, tipoEvento, pendingReport: true }),
+          );
+        }
       }
     }
 
@@ -1163,7 +1197,7 @@ export default function SecureExamPlatform() {
     if (studentData?.attemptId) {
       localStorage.setItem(
         "examBlockedState",
-        JSON.stringify({ attemptId: studentData.attemptId, reason }),
+        JSON.stringify({ attemptId: studentData.attemptId, reason, tipoEvento }),
       );
     }
   };
@@ -1554,6 +1588,23 @@ export default function SecureExamPlatform() {
       // Restaurar respuestas guardadas al reanudar
       if (studentData.isResuming) {
         const savedAnswersRaw = localStorage.getItem("savedAnswers");
+
+        // Para exámenes secuenciales sin retroceso: restaurar posición de pregunta
+        if (savedAnswersRaw && !examDetails.permitirVolverPreguntas) {
+          try {
+            const savedAns: Array<{ pregunta_id: number }> = JSON.parse(savedAnswersRaw);
+            const answeredIds = new Set(savedAns.map((a: any) => a.pregunta_id));
+            const questionList: Array<{ id: number }> = examDetails.questions;
+            let idx = 0;
+            for (let i = 0; i < questionList.length; i++) {
+              if (answeredIds.has(questionList[i].id)) idx = i + 1;
+              else break;
+            }
+            setInitialQuestionIndex(idx); // >= length means allDone screen
+          } catch {
+            // Dejar en 0
+          }
+        }
         if (savedAnswersRaw) {
           try {
             const savedAnswers: Array<{
@@ -1611,7 +1662,23 @@ export default function SecureExamPlatform() {
 
       newSocket.on("session_conflict", (data) => {
         blockExam(data.message, "CRITICAL");
+      });
+
+      newSocket.on("session_replaced", () => {
+        // No usar blockExam — no escribir examBlockedState ni enviar evento de seguridad.
+        // Solo notificar al usuario que su sesión fue desplazada por un acceso nuevo.
+        setSessionReplaced(true);
         newSocket.disconnect();
+      });
+
+      // Si el tiempo límite fue eliminado mientras el estudiante estaba desconectado,
+      // el servidor devuelve fecha_expiracion: null en joined_attempt al reconectar.
+      newSocket.on("joined_attempt", (data: { fecha_expiracion: string | null }) => {
+        if (!data.fecha_expiracion && examInProgress.fecha_expiracion) {
+          setTimeLimitRemoved(true);
+          setTimerStatus("normal");
+          setTimerAlert(null);
+        }
       });
       newSocket.on(
         "time_expired",
@@ -1754,6 +1821,8 @@ export default function SecureExamPlatform() {
 
       socketRef.current = newSocket;
       setSocket(newSocket);
+      // Silenciar eventos de seguridad hasta que la pantalla completa esté activa
+      startupGraceRef.current = true;
       setExamStarted(true);
 
       // Resetear alertas de tiempo
@@ -1766,15 +1835,16 @@ export default function SecureExamPlatform() {
       setPanelZooms([100]);
 
       setTimeout(async () => {
-        if (fullscreenRef.current) {
+        // Si ya estamos en fullscreen (ej: handleLaunchResume lo pidió antes), no pedir de nuevo
+        if (fullscreenRef.current && !document.fullscreenElement) {
           try {
             await fullscreenRef.current.requestFullscreen();
           } catch (err) {
-            // Si la página estaba oculta, los handlers de focus/visibilitychange lo detectarán al volver
             if (!document.hidden)
               addSecurityViolation("No se pudo activar pantalla completa");
           }
         }
+        setTimeout(() => { startupGraceRef.current = false; }, 1500);
       }, 100);
     } catch (error: any) {
       console.error("❌ Error al iniciar examen:", error);
@@ -1797,14 +1867,16 @@ export default function SecureExamPlatform() {
       clearTimeout(fullscreenTimeout);
       fullscreenTimeout = setTimeout(() => {
         if (
-          examStarted &&
-          !document.fullscreenElement &&
-          !examBlocked &&
-          !isSubmitting &&
-          !examFinished
-        ) {
-          blockExam("Salida de pantalla completa detectada", "CRITICAL");
-        }
+          !examStarted ||
+          document.fullscreenElement ||
+          examBlocked ||
+          isSubmitting ||
+          examFinished
+        ) return;
+        // Si la pantalla completa se perdió después de estar activa → bloquear.
+        // Si aún no se había establecido (arranque), startupGraceRef silencia esto.
+        if (startupGraceRef.current) return;
+        blockExam("Salida de pantalla completa detectada", "CRITICAL");
       }, 100);
     };
 
@@ -1819,29 +1891,27 @@ export default function SecureExamPlatform() {
 
     const handleVisibilityChange = () => {
       if (!examStarted || examBlocked || isSubmitting || examFinished) return;
+      if (startupGraceRef.current) return;
       if (document.hidden) {
         blockExam("Cambio de pestaña detectado", "CRITICAL");
-      } else if (!document.fullscreenElement) {
-        // Volvió a la página sin pantalla completa activa (la activación falló durante el inicio)
-        blockExam("Examen iniciado sin pantalla completa", "CRITICAL");
       }
+      // "visible sin fullscreen" lo detecta handleFullscreenChange
     };
 
     const handleWindowFocus = () => {
-      if (
-        examStarted &&
-        !examBlocked &&
-        !isSubmitting &&
-        !examFinished &&
-        !document.fullscreenElement
-      ) {
-        blockExam("Examen iniciado sin pantalla completa", "CRITICAL");
-      }
+      // Ganar foco no es una violación; la pérdida de fullscreen la detecta handleFullscreenChange.
     };
 
     const handleBlur = () => {
-      if (examStarted && !examBlocked && !isSubmitting && !examFinished)
-        blockExam("Pérdida de foco detectada", "CRITICAL");
+      // Solo es violación perder el foco cuando YA estamos en pantalla completa.
+      // Durante el arranque (requestFullscreen aún no se ha establecido) el navegador
+      // dispara blur/focus de forma normal — ignorarlo evita falsos bloqueos al reanudar.
+      if (!document.fullscreenElement) return;
+      if (!examStarted || examBlocked || isSubmitting || examFinished) return;
+      // Durante el arranque, el navegador puede disparar blur al mostrar la barra de
+      // notificación de pantalla completa — silenciar igual que handleFullscreenChange.
+      if (startupGraceRef.current) return;
+      blockExam("Pérdida de foco detectada", "CRITICAL");
     };
 
     const handleBeforeUnload = () => {
@@ -1918,6 +1988,14 @@ export default function SecureExamPlatform() {
 
   const handleEscapeFromBlock = () => {
     if (document.fullscreenElement) document.exitFullscreen();
+  };
+
+  // Reanudación via código de acceso: fullscreen ANTES de iniciar para que el gesto del usuario sea directo
+  const handleLaunchResume = async () => {
+    startupGraceRef.current = true;
+    // requestFullscreen debe estar en el hilo del gesto del usuario — llamarlo aquí garantiza que funcione
+    await document.documentElement.requestFullscreen().catch(() => {});
+    await startExam();
   };
 
   const openPanel = (panelType: PanelType) => {
@@ -2139,6 +2217,7 @@ export default function SecureExamPlatform() {
               remainingTime={remainingTime}
               timerStatus={timerStatus}
               timeLimitRemoved={timeLimitRemoved}
+              initialQuestionIndex={initialQuestionIndex}
             />
             {/* Overlay de desconexión — bloquea inputs visualmente */}
             {connectionLost && (
@@ -2400,6 +2479,22 @@ export default function SecureExamPlatform() {
     );
   }
 
+  if (sessionReplaced) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-800 p-4">
+        <div className="bg-white rounded-xl shadow-2xl p-10 text-center max-w-lg">
+          <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="w-10 h-10 text-amber-500" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-3">Sesión reemplazada</h1>
+          <p className="text-gray-600">
+            Accediste al examen desde otro lugar. Esta pestaña ha sido cerrada.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (examBlocked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-red-900 p-4">
@@ -2419,6 +2514,36 @@ export default function SecureExamPlatform() {
   }
 
   if (!examStarted) {
+    // Pantalla de reanudación: el botón solicita fullscreen directamente (gesto del usuario)
+    if (studentData?.isResuming) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-700 to-blue-900 p-4">
+          <div className={`rounded-2xl shadow-2xl p-10 text-center max-w-lg w-full ${darkMode ? "bg-slate-900" : "bg-white"}`}>
+            <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-6">
+              <CheckCircle2 className="w-12 h-12 text-blue-600" />
+            </div>
+            <h1 className={`text-3xl font-bold mb-3 ${darkMode ? "text-white" : "text-slate-800"}`}>
+              Reconexión exitosa
+            </h1>
+            <p className={`mb-2 text-base ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
+              Tus respuestas han sido cargadas correctamente.
+            </p>
+            <p className={`mb-8 text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+              Cuando estés listo presiona el botón para reanudar el examen en pantalla completa.
+            </p>
+            <button
+              onClick={handleLaunchResume}
+              disabled={isStarting}
+              className="w-full py-4 rounded-xl font-bold text-lg text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-60 transition-colors shadow-lg"
+            >
+              {isStarting ? "Reanudando..." : "Reanudar examen"}
+            </button>
+
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div
         className={`min-h-screen ${darkMode ? "bg-slate-900" : "bg-gray-50"}`}
@@ -2460,25 +2585,20 @@ export default function SecureExamPlatform() {
           <button
             type="button"
             onClick={async () => {
+              // requestFullscreen debe llamarse en el hilo del gesto del usuario.
+              // Usar document.documentElement evita problemas cuando el elemento
+              // actual se desmonta al cambiar de pantalla.
+              startupGraceRef.current = true;
               if (!examStarted) {
-                // Caso recarga: el examen no estaba en curso en esta sesión,
-                // startExam() maneja la pantalla completa y reanuda el intento
+                // Caso recarga: reanuda el intento completo (startExam gestiona fullscreen)
+                await document.documentElement.requestFullscreen().catch(() => {});
                 setShowUnlockScreen(false);
-                startExam();
+                await startExam();
               } else {
-                // Caso normal: el examen estaba en curso, solo reactivar pantalla completa
-                if (fullscreenRef.current) {
-                  try {
-                    await fullscreenRef.current.requestFullscreen();
-                    setTimeout(() => {
-                      setShowUnlockScreen(false);
-                    }, 500);
-                  } catch (err) {
-                    setShowUnlockScreen(false);
-                  }
-                } else {
-                  setShowUnlockScreen(false);
-                }
+                // Caso normal: examen ya en curso, solo reactivar pantalla completa
+                await document.documentElement.requestFullscreen().catch(() => {});
+                setShowUnlockScreen(false);
+                setTimeout(() => { startupGraceRef.current = false; }, 1500);
               }
             }}
             className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-lg shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all hover:scale-105 flex items-center gap-3 mx-auto"

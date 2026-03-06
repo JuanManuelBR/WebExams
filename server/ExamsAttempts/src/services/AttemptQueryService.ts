@@ -4,7 +4,7 @@ import { ExamEvent } from "../models/ExamEvent";
 import { ExamInProgress } from "../models/ExamInProgress";
 import { TipoRespuesta } from "../models/ExamAnswer";
 import { ExamAttemptValidator } from "../validators/ExamAttemptValidator";
-import { In } from "typeorm";
+import { In, Raw } from "typeorm";
 import { throwHttpError } from "../utils/errors";
 import { QuestionResponseBuilder } from "./QuestionResponseBuilder";
 import { internalHttpClient } from "../utils/httpClient";
@@ -128,9 +128,9 @@ export class AttemptQueryService {
   static async getAttemptFeedback(codigo_acceso: string) {
     const attemptRepo = AppDataSource.getRepository(ExamAttempt);
 
-    // Buscar directamente el intento por codigoRevision
+    // Buscar directamente el intento por codigoRevision (case-sensitive)
     const attempt = await attemptRepo.findOne({
-      where: { codigoRevision: codigo_acceso },
+      where: { codigoRevision: Raw((col) => `BINARY ${col} = :codigo`, { codigo: codigo_acceso }) },
       relations: ["respuestas"],
     });
 
@@ -157,7 +157,7 @@ export class AttemptQueryService {
         attempt.respuestas || [],
       );
 
-      return {
+      const pdfResult = {
         intento: QuestionResponseBuilder.buildAttemptSummary(attempt, true),
         examen: {
           id: examBasic.id,
@@ -174,6 +174,10 @@ export class AttemptQueryService {
         },
         respuestasPDF,
       };
+      // Código de un solo uso: invalidar tras entregar los datos
+      attempt.codigoRevision = null;
+      await attemptRepo.save(attempt);
+      return pdfResult;
     }
 
     // 6. Examen con preguntas: obtener examen con respuestas correctas
@@ -197,7 +201,7 @@ export class AttemptQueryService {
         attempt.respuestas || [],
       );
 
-    return {
+    const result = {
       intento: QuestionResponseBuilder.buildAttemptSummary(attempt),
       examen: {
         id: exam.id,
@@ -218,6 +222,10 @@ export class AttemptQueryService {
         return herramientas.length > 0 ? { respuestasPDF: QuestionResponseBuilder.buildPDFResponses(herramientas) } : {};
       })()),
     };
+    // Código de un solo uso: invalidar tras entregar los datos
+    attempt.codigoRevision = null;
+    await attemptRepo.save(attempt);
+    return result;
   }
 
   static async getActiveAttemptsByExam(examId: number) {
