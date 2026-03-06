@@ -1834,10 +1834,12 @@ export default function SecureExamPlatform() {
       setPanelSizes([100]);
       setPanelZooms([100]);
 
-      // Si ya estamos en fullscreen (ej: handleLaunchResume lo pidió antes), no pedir de nuevo
-      if (fullscreenRef.current && !document.fullscreenElement) {
+      // Usar document.documentElement en lugar de fullscreenRef: el ref apunta al contenedor
+      // del examen que React aún no ha renderizado (setExamStarted acaba de llamarse arriba).
+      // La gracia se libera inmediatamente tras entrar en fullscreen — sin ventana ciega.
+      if (!document.fullscreenElement) {
         try {
-          await fullscreenRef.current.requestFullscreen();
+          await document.documentElement.requestFullscreen();
         } catch (err) {
           if (!document.hidden)
             addSecurityViolation("No se pudo activar pantalla completa");
