@@ -290,6 +290,13 @@ export default function ExamAccessPage() {
       // Validar contraseña con el backend
       await examsService.validatePassword(examCode, formData.contrasena);
 
+      // Validar duplicados antes de navegar
+      await examsAttemptsService.checkDuplicate({
+        codigo_examen: examCode,
+        correo_estudiante: formData.correoElectronico || undefined,
+        identificacion_estudiante: formData.codigoEstudiante || undefined,
+      });
+
       const studentData = {
         nombre: formData.nombre,
         correoElectronico: formData.correoElectronico,
@@ -308,7 +315,7 @@ export default function ExamAccessPage() {
       }, 100);
     } catch (error: any) {
       console.error("❌ Error:", error);
-      setError(error.message || "Error al validar. Intenta nuevamente.");
+      setError(error?.response?.data?.message || error.message || "Error al validar. Intenta nuevamente.");
     } finally {
       setLoading(false);
     }

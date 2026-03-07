@@ -57,6 +57,7 @@ const router = Router();
  *               $ref: '#/components/schemas/Error'
  */
 router.post("/attempt/start", ExamController.startAttempt);
+router.post("/attempt/check-duplicate", ExamController.checkDuplicate);
 
 /**
  * @openapi

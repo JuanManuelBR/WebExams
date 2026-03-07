@@ -82,6 +82,16 @@ export class ExamController {
     }
   }
 
+  static async checkDuplicate(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { codigo_examen, correo_estudiante, identificacion_estudiante } = req.body;
+      await ExamService.checkDuplicate(codigo_examen, correo_estudiante, identificacion_estudiante);
+      res.status(200).json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async unlockAttempt(req: Request, res: Response, next: NextFunction) {
     try {
       const intento_id = Number(req.params.intento_id);

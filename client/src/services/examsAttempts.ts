@@ -12,6 +12,11 @@ export const examsAttemptsService = {
     return response.data;
   },
 
+  async checkDuplicate(data: { codigo_examen: string; correo_estudiante?: string; identificacion_estudiante?: string }) {
+    const response = await examsAttemptsApi.post("/attempt/check-duplicate", data);
+    return response.data;
+  },
+
   async resumeAttempt(data: { codigo_acceso: string }) {
     const response = await examsAttemptsApi.post("/attempt/resume", data);
     return response.data;
