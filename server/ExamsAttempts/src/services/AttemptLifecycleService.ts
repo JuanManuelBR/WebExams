@@ -16,6 +16,24 @@ import { ResumeExamAttemptDto } from "../dtos/Resume-ExamAttempt.dto";
 import { ScoringService } from "./ScoringService";
 
 export class AttemptLifecycleService {
+  static async checkDuplicate(codigo_examen: string, correo?: string, identificacion?: string) {
+    const attemptRepo = AppDataSource.getRepository(ExamAttempt);
+    const exam = await ExamAttemptValidator.validateExamExists(codigo_examen);
+    const activeStates = [AttemptState.ACTIVE, AttemptState.BLOCKED, AttemptState.FINISHED];
+    if (correo) {
+      const existing = await attemptRepo.findOne({
+        where: { examen_id: exam.id, correo_estudiante: correo, estado: In(activeStates) },
+      });
+      if (existing) throwHttpError("Ya existe un intento registrado con ese correo electrónico para este examen.", 409);
+    }
+    if (identificacion) {
+      const existing = await attemptRepo.findOne({
+        where: { examen_id: exam.id, identificacion_estudiante: identificacion, estado: In(activeStates) },
+      });
+      if (existing) throwHttpError("Ya existe un intento registrado con esa identificación para este examen.", 409);
+    }
+  }
+
   static async startAttempt(data: StartExamAttemptDto, io: Server) {
     const attemptRepo = AppDataSource.getRepository(ExamAttempt);
     const progressRepo = AppDataSource.getRepository(ExamInProgress);

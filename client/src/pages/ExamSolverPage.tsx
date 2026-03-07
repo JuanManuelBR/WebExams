@@ -2563,6 +2563,15 @@ export default function SecureExamPlatform() {
           onStartExam={startExam}
           isStarting={isStarting}
         />
+        <ConfirmModal
+          visible={errorModal.visible}
+          tipo="error"
+          titulo={errorModal.titulo}
+          mensaje={errorModal.mensaje}
+          darkMode={darkMode}
+          textoConfirmar="Aceptar"
+          onConfirmar={() => setErrorModal((prev) => ({ ...prev, visible: false }))}
+        />
       </div>
     );
   }

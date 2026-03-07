@@ -21,6 +21,9 @@ export class ExamService {
   static startAttempt(data: StartExamAttemptDto, io: Server) {
     return AttemptLifecycleService.startAttempt(data, io);
   }
+  static checkDuplicate(codigo_examen: string, correo?: string, identificacion?: string) {
+    return AttemptLifecycleService.checkDuplicate(codigo_examen, correo, identificacion);
+  }
   static resumeAttempt(data: ResumeExamAttemptDto, io: Server) {
     return AttemptLifecycleService.resumeAttempt(data, io);
   }
