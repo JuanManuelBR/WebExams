@@ -94,7 +94,7 @@ function mapearPreguntasConImagenes(preguntas: Pregunta[]) {
   preguntas.forEach((pregunta, index) => {
     const base = {
       enunciado:
-        pregunta.titulo.replace(/<[^>]*>/g, "").trim() ||
+        pregunta.titulo.trim() ||
         `Pregunta ${index + 1}`,
       puntaje: pregunta.puntos,
       calificacionParcial: pregunta.calificacionParcial || false,

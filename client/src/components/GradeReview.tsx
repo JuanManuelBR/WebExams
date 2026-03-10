@@ -857,9 +857,9 @@ export default function RevisarCalificacion({
                         </div>
 
                         <div className="flex-1">
-                          <h3 className={`text-base sm:text-xl md:text-2xl font-medium font-serif leading-snug ${darkMode ? "text-gray-100" : "text-gray-900"}`}>
-                            {pregunta.enunciado}
-                          </h3>
+                          <h3 className={`text-base sm:text-xl md:text-2xl font-medium font-serif leading-snug ${darkMode ? "text-gray-100" : "text-gray-900"}`}
+                            dangerouslySetInnerHTML={{ __html: pregunta.enunciado }}
+                          />
                           <div className="flex items-center gap-3 mt-2">
                             <span className={`inline-block text-xs font-semibold px-3 py-1 rounded-full ${darkMode ? "bg-slate-700/60 text-slate-400" : "bg-gray-100 text-slate-500"}`}>
                               {pregunta.type === "test" ? "Selección Múltiple" : pregunta.type === "open" ? "Pregunta Abierta" : pregunta.type === "match" ? "Emparejamiento" : "Completar"}
