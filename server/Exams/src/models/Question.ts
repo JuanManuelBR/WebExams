@@ -14,7 +14,7 @@ export abstract class Question {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
+  @Column({ type: "longtext" })
   enunciado!: string;
 
   @Column({ type: "float", default: 1 })
