@@ -68,6 +68,15 @@ export class ExamService {
       io,
     );
   }
+  static gradeUnansweredQuestion(
+    intento_id: number,
+    pregunta_id: number,
+    puntaje: number,
+    retroalimentacion?: string,
+    io?: Server,
+  ) {
+    return AnswerService.gradeUnansweredQuestion(intento_id, pregunta_id, puntaje, retroalimentacion, io);
+  }
   static updatePDFAttemptGrade(
     intento_id: number,
     puntaje?: number,

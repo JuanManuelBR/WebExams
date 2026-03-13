@@ -206,18 +206,21 @@ export default function RevisarCalificacion({
   };
 
   const handleSave = async (pregunta: Pregunta) => {
-    if (!pregunta.respuestaEstudiante) {
-      // Si no hay respuesta, simulamos error visual ya que no hay ID para actualizar
-      setSaveStatus(prev => ({ ...prev, [pregunta.id]: "error" }));
-      return;
-    }
-    const respuestaId = pregunta.respuestaEstudiante.id;
     setSaveStatus(prev => ({ ...prev, [pregunta.id]: "saving" }));
     try {
-      await examsAttemptsService.updateManualGrade(respuestaId, {
-        puntaje: scores[pregunta.id],
-        retroalimentacion: feedback[pregunta.id],
-      });
+      if (!pregunta.respuestaEstudiante) {
+        // El estudiante no respondió — crear registro placeholder con la nota asignada
+        await examsAttemptsService.gradeUnansweredQuestion(intentoId, {
+          pregunta_id: pregunta.id,
+          puntaje: scores[pregunta.id] ?? 0,
+          retroalimentacion: feedback[pregunta.id] || undefined,
+        });
+      } else {
+        await examsAttemptsService.updateManualGrade(pregunta.respuestaEstudiante.id, {
+          puntaje: scores[pregunta.id],
+          retroalimentacion: feedback[pregunta.id],
+        });
+      }
       setSaveStatus(prev => ({ ...prev, [pregunta.id]: "saved" }));
       const updated = await examsAttemptsService.getAttemptDetails(intentoId);
       setDetails(updated);
@@ -266,8 +269,11 @@ export default function RevisarCalificacion({
     const currentScore = scores[pregunta.id];
     const savedScore = pregunta.respuestaEstudiante?.puntajeObtenido ?? 0;
     const savedFeedback = pregunta.respuestaEstudiante?.retroalimentacion || "";
-    return currentScore !== savedScore
-      || feedback[pregunta.id] !== savedFeedback;
+    // Sin respuesta: permitir guardar si el profesor asignó puntos o escribió feedback
+    if (!pregunta.respuestaEstudiante) {
+      return (currentScore !== undefined && currentScore > 0) || !!feedback[pregunta.id];
+    }
+    return currentScore !== savedScore || feedback[pregunta.id] !== savedFeedback;
   };
 
   const getNotaColor = (nota: number | null | undefined, max?: number) => {
@@ -716,6 +722,7 @@ export default function RevisarCalificacion({
                   <div className="space-y-6">
                     {[...(respuestasPDF || [])]
                       .filter(resp => {
+                        if (resp.tipo_respuesta === "sin_respuesta") return false;
                         if (!["python", "javascript", "java"].includes(resp.tipo_respuesta)) return true;
                         let content: any = resp.respuesta;
                         if (typeof content === "string") { try { content = JSON.parse(content); } catch { return true; } }
@@ -1114,13 +1121,8 @@ export default function RevisarCalificacion({
                             {status === "error" && <XCircle className="w-4 h-4" />}
                             {status === "idle" && <Send className="w-4 h-4" />}
                             
-                            {status === "saving" ? "Guardando..." : status === "saved" ? "Guardado" : status === "error" ? (!resp ? "Sin Respuesta" : "Error") : "Guardar Cambios"}
+                            {status === "saving" ? "Guardando..." : status === "saved" ? "Guardado" : status === "error" ? "Error" : "Guardar Cambios"}
                           </button>
-                          {!resp && (
-                            <p className="text-[10px] text-center mt-2 text-rose-500 opacity-80">
-                              * No se puede guardar nota sin respuesta del estudiante
-                            </p>
-                          )}
                         </div>
                       </div>
                     )}

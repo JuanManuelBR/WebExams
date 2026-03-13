@@ -110,6 +110,11 @@ export const examsAttemptsService = {
     return response.data;
   },
 
+  async gradeUnansweredQuestion(intentoId: number, data: { pregunta_id: number; puntaje: number; retroalimentacion?: string }) {
+    const response = await examsAttemptsApi.post(`/attempt/${intentoId}/grade-unanswered`, data);
+    return response.data;
+  },
+
   async updatePDFAttemptGrade(intentoId: number, data: { puntaje?: number; retroalimentacion?: string }) {
     const response = await examsAttemptsApi.patch(`/attempt/${intentoId}/pdf-grade`, data);
     return response.data;

@@ -16,6 +16,7 @@ export enum TipoRespuesta {
   JAVA = "java",
   DIAGRAMA = "diagrama",
   HOJA_CALCULO = "hoja_calculo",
+  SIN_RESPUESTA = "sin_respuesta",
 }
 
 @Entity("exam_answers")
@@ -27,8 +28,8 @@ export class ExamAnswer {
   @Column()
   pregunta_id!: number;
 
-  @Column({ type: "mediumtext" })
-  respuesta!: string;
+  @Column({ type: "mediumtext", nullable: true, default: null })
+  respuesta?: string | null;
 
   @Column({ type: "datetime" })
   fecha_respuesta!: Date;

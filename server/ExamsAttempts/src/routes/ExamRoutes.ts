@@ -558,6 +558,7 @@ router.get('/attempt/:intento_id/details', ExamController.getAttemptDetails);
  *               $ref: '#/components/schemas/Error'
  */
 router.patch('/answer/:respuesta_id/manual-grade', ExamController.updateManualGrade);
+router.post('/attempt/:intento_id/grade-unanswered', ExamController.gradeUnansweredQuestion);
 
 /**
  * @openapi

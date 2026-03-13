@@ -214,6 +214,80 @@ export class AnswerService {
     return answer;
   }
 
+  /**
+   * Crea una respuesta vacía y asigna nota manual cuando el estudiante no respondió la pregunta.
+   * Solo aplica cuando NO existe un registro previo para ese intento+pregunta.
+   * Los datos existentes nunca se tocan.
+   */
+  static async gradeUnansweredQuestion(
+    intento_id: number,
+    pregunta_id: number,
+    puntaje: number,
+    retroalimentacion?: string,
+    io?: Server,
+  ) {
+    const answerRepo = AppDataSource.getRepository(ExamAnswer);
+    const attemptRepo = AppDataSource.getRepository(ExamAttempt);
+
+    // Seguridad: si ya existe una respuesta, rechazar (usar updateManualGrade)
+    const existing = await answerRepo.findOne({ where: { intento_id, pregunta_id } });
+    if (existing) {
+      throwHttpError("Ya existe una respuesta para esta pregunta; usa el endpoint de calificación manual.", 409);
+    }
+
+    const attempt = await attemptRepo.findOne({ where: { id: intento_id } });
+    if (!attempt) throwHttpError("Intento no encontrado", 404);
+
+    const exam = await ExamAttemptValidator.validateExamExistsById(attempt.examen_id);
+    const question = exam.questions?.find((q: any) => q.id === pregunta_id);
+    if (!question) throwHttpError("Pregunta no encontrada en el examen", 404);
+
+    if (puntaje < 0) throwHttpError("El puntaje no puede ser negativo", 400);
+    if (puntaje > question.puntaje) {
+      throwHttpError(`El puntaje no puede exceder el máximo de la pregunta (${question.puntaje} puntos)`, 400);
+    }
+
+    // Crear registro placeholder — respuesta null, tipo sin_respuesta
+    const answer = answerRepo.create({
+      intento_id,
+      pregunta_id,
+      respuesta: null,
+      tipo_respuesta: TipoRespuesta.SIN_RESPUESTA,
+      fecha_respuesta: new Date(),
+      puntaje,
+      retroalimentacion: retroalimentacion ?? undefined,
+    });
+    await answerRepo.save(answer);
+
+    // Recalcular puntaje total del intento (igual que updateManualGrade)
+    const attemptWithAnswers = await attemptRepo.findOne({
+      where: { id: intento_id },
+      relations: ["respuestas"],
+    });
+
+    if (attemptWithAnswers) {
+      const puntajeTotal = attemptWithAnswers.respuestas?.reduce((sum, r) => sum + (r.puntaje || 0), 0) || 0;
+      attemptWithAnswers.puntaje = puntajeTotal;
+
+      const { porcentaje, notaFinal } = GradingService.calculateFinalGrade(puntajeTotal, attemptWithAnswers.puntajeMaximo);
+      attemptWithAnswers.porcentaje = porcentaje;
+      attemptWithAnswers.notaFinal = notaFinal;
+      await attemptRepo.save(attemptWithAnswers);
+
+      if (io) {
+        io.to(`exam_${attemptWithAnswers.examen_id}`).emit("grade_updated", {
+          attemptId: attemptWithAnswers.id,
+          respuestaId: answer.id,
+          puntaje,
+          retroalimentacion,
+          puntajeTotal: attemptWithAnswers.puntaje,
+        });
+      }
+    }
+
+    return answer;
+  }
+
   static async updatePDFAttemptGrade(
     intento_id: number,
     puntaje?: number,

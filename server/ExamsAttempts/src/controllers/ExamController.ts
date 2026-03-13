@@ -244,6 +244,33 @@ export class ExamController {
     }
   }
 
+  static async gradeUnansweredQuestion(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const intento_id = Number(req.params.intento_id);
+      if (isNaN(intento_id)) return res.status(400).json({ message: "ID de intento inválido" });
+
+      const { pregunta_id, puntaje, retroalimentacion } = req.body;
+      if (typeof pregunta_id !== "number" || typeof puntaje !== "number") {
+        return res.status(400).json({ message: "pregunta_id y puntaje son requeridos y deben ser números" });
+      }
+
+      const result = await ExamService.gradeUnansweredQuestion(
+        intento_id,
+        pregunta_id,
+        puntaje,
+        retroalimentacion,
+        req.app.get("io"),
+      );
+      res.status(201).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async updatePDFAttemptGrade(
     req: Request,
     res: Response,

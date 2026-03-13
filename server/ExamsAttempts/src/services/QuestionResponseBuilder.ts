@@ -12,7 +12,7 @@ export class QuestionResponseBuilder {
   }
 
   static buildPDFResponses(respuestas: ExamAnswer[]): any[] {
-    return (respuestas || []).map((r) => {
+    return (respuestas || []).filter((r) => r.tipo_respuesta !== TipoRespuesta.SIN_RESPUESTA).map((r) => {
       let metadataParsed = null;
       if (r.metadata_codigo) {
         try {
