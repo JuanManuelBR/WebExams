@@ -11,6 +11,10 @@ import {
 
 // Se marca como abstracta
 export abstract class BaseQuestionDto {
+  @IsNumber({}, { message: "El ID debe ser un número." })
+  @IsOptional()
+  id?: number;
+
   @IsString({ message: "El enunciado debe ser una cadena de texto." })
   enunciado!: string;
 

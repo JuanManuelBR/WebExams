@@ -87,12 +87,14 @@ function base64ToFile(base64String: string, fileName: string): File {
  * Mapea las preguntas del frontend al formato del backend
  * Retorna: { preguntasSinImagen, imagenesMap }
  */
-function mapearPreguntasConImagenes(preguntas: Pregunta[]) {
+function mapearPreguntasConImagenes(preguntas: Pregunta[], incluirIds = false) {
   const preguntasMapeadas: any[] = [];
   const imagenesMap: Map<string, File> = new Map();
 
   preguntas.forEach((pregunta, index) => {
-    const base = {
+    const idNum = pregunta.id ? parseInt(pregunta.id, 10) : undefined;
+    const base: any = {
+      ...(incluirIds && idNum && !isNaN(idNum) ? { id: idNum } : {}),
       enunciado:
         pregunta.titulo.trim() ||
         `Pregunta ${index + 1}`,
@@ -238,6 +240,7 @@ export const examsService = {
       ) {
         const resultado = mapearPreguntasConImagenes(
           datosExamen.preguntasAutomaticas,
+          false, // crear: no incluir IDs (son temporales del frontend)
         );
         preguntasMapeadas = resultado.preguntasMapeadas;
         imagenesMap = resultado.imagenesMap;
@@ -488,6 +491,7 @@ export const examsService = {
       ) {
         const resultado = mapearPreguntasConImagenes(
           datosExamen.preguntasAutomaticas,
+          true, // edición: incluir IDs para identificar preguntas existentes
         );
         preguntasMapeadas = resultado.preguntasMapeadas;
         imagenesMap = resultado.imagenesMap;
