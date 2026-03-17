@@ -1134,9 +1134,9 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                       const valor = puntosTemp[pregunta.id] || String(pregunta.puntos);
                       const numero = parseFloat(valor.replace(',', '.'));
                       
-                      if (valor === '' || isNaN(numero) || numero <= 0) {
-                        actualizarPregunta(pregunta.id, { puntos: 1 });
-                        setPuntosTemp({...puntosTemp, [pregunta.id]: '1'});
+                      if (valor === '' || isNaN(numero) || numero < 0) {
+                        actualizarPregunta(pregunta.id, { puntos: 0 });
+                        setPuntosTemp({...puntosTemp, [pregunta.id]: '0'});
                       } else {
                         actualizarPregunta(pregunta.id, { puntos: numero });
                         const temp = {...puntosTemp};
