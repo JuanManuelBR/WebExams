@@ -1629,7 +1629,7 @@ function RenderFillBlanks({ pregunta, darkMode }: { pregunta: Pregunta; darkMode
   const puntajeTotal = Math.abs((pregunta.respuestaEstudiante?.puntajeObtenido || 0) - pregunta.puntajeMaximo) < 0.01;
 
   return (
-    <div className={`p-6 rounded-xl border leading-loose text-lg ${darkMode ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
+    <div className={`p-6 rounded-xl border text-lg ${darkMode ? "bg-slate-800/50 border-slate-700" : "bg-white border-gray-200"}`}>
       <p className={`leading-relaxed ${darkMode ? "text-slate-300" : "text-slate-700"}`}>
         {partes.map((parte, i) => {
           const esCorrecta = i < espacios.length ? (espacios[i].esCorrecta || puntajeTotal) : false;
@@ -1637,7 +1637,7 @@ function RenderFillBlanks({ pregunta, darkMode }: { pregunta: Pregunta; darkMode
           <span key={i}>
             <span>{parte}</span>
             {i < espacios.length && (
-              <span className="relative inline-block mx-1">
+              <span className="inline-flex flex-col items-center mx-1 align-middle">
                 <span className={`inline-block w-32 px-2 py-1 text-center border-b-2 rounded-t font-medium ${
                   esCorrecta
                     ? (darkMode ? "bg-emerald-900/30 border-emerald-500 text-emerald-400" : "bg-emerald-50 border-emerald-500 text-emerald-700")
@@ -1646,8 +1646,8 @@ function RenderFillBlanks({ pregunta, darkMode }: { pregunta: Pregunta; darkMode
                   {espacios[i].respuestaEstudiante || "—"}
                 </span>
                 {!esCorrecta && (
-                  <span className={`absolute top-full left-0 w-full text-[10px] text-center mt-0.5 z-10 ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
-                    {espacios[i].respuestaCorrecta}
+                  <span className={`w-full text-[10px] text-center mt-0.5 ${darkMode ? "text-emerald-400" : "text-emerald-600"}`}>
+                    ✓ {espacios[i].respuestaCorrecta}
                   </span>
                 )}
               </span>

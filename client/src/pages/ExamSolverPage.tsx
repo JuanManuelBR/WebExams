@@ -6,8 +6,8 @@ import {
   Clock,
   User,
   X,
-  Maximize2,
-  Minimize2,
+  ZoomIn,
+  ZoomOut,
   Columns,
   Rows,
   Calculator,
@@ -394,6 +394,8 @@ export default function SecureExamPlatform() {
   const isSocketConnectedRef = useRef(false); // Ref para evitar stale closure en saveAnswer
   const connectionLostRef = useRef(false);    // Ref para evitar stale closure en beforeunload
   const saveAnswerRef = useRef<typeof saveAnswer | null>(null); // Ref para evitar stale closure en connect handler
+  // Ref con los datos de sesión activos — permite re-emitir join_attempt desde cualquier closure
+  const sessionDataRef = useRef<{ attemptId?: number; id_sesion?: string }>({});
   const [connectionLost, setConnectionLost] = useState(false);
   const [connectionGraceSeconds, setConnectionGraceSeconds] = useState<
     number | null
@@ -715,13 +717,29 @@ export default function SecureExamPlatform() {
 
     if (storedStudentData) {
       const parsedStudentData = JSON.parse(storedStudentData);
-      setStudentData(parsedStudentData);
+
       if (storedBlockState) {
         const blockState = JSON.parse(storedBlockState);
         if (blockState.attemptId === parsedStudentData.attemptId) {
+          // Bloqueo activo que corresponde a este intento
+          setStudentData(parsedStudentData);
           setExamBlocked(true);
           setBlockReason(blockState.reason);
+          if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        } else {
+          // examBlockedState es de una sesión anterior (stale) → ignorarlo y limpiar
+          localStorage.removeItem("examBlockedState");
+          setStudentData(parsedStudentData);
         }
+      } else if (parsedStudentData.attemptId && !parsedStudentData.isResuming) {
+        // Hay un intento activo sin isResuming → recarga durante examen en curso.
+        // Marcar como reanudación para mostrar "Reconexión exitosa" en vez de "Comenzar Examen".
+        const withResume = { ...parsedStudentData, isResuming: true };
+        localStorage.setItem("studentData", JSON.stringify(withResume));
+        setStudentData(withResume);
+      } else {
+        // Llegada fresca desde ExamAccessPage o ya tiene isResuming correcto.
+        setStudentData(parsedStudentData);
       }
     }
     if (storedExamData) setExamData(JSON.parse(storedExamData));
@@ -805,7 +823,7 @@ export default function SecureExamPlatform() {
             el.getAttribute("data-integrity") !==
             integrityCheckRef.current.toString()
           ) {
-            blockExam("Manipulación del código detectada", "CRITICAL");
+            blockExam("Se detectó una modificación no autorizada en el contenido del examen", "CRITICAL");
           }
         });
         const widthThreshold = window.outerWidth - window.innerWidth > 200;
@@ -831,19 +849,19 @@ export default function SecureExamPlatform() {
         const target = e.target as HTMLElement;
         if (target.tagName !== "TEXTAREA" && target.tagName !== "INPUT") {
           e.preventDefault();
-          blockExam("Intento de copiar contenido del examen", "CRITICAL");
+          blockExam("Se intentó copiar contenido del examen (Ctrl+C)", "CRITICAL");
         }
       };
       const preventCut = (e: ClipboardEvent) => {
         const target = e.target as HTMLElement;
         if (target.tagName !== "TEXTAREA" && target.tagName !== "INPUT") {
           e.preventDefault();
-          blockExam("Intento de cortar contenido del examen", "CRITICAL");
+          blockExam("Se intentó cortar contenido del examen (Ctrl+X)", "CRITICAL");
         }
       };
       const preventPrint = (e: Event) => {
         e.preventDefault();
-        blockExam("Intento de impresión detectado", "CRITICAL");
+        blockExam("Se intentó imprimir o exportar la pantalla del examen", "CRITICAL");
       };
       const preventContextMenu = (e: MouseEvent) => {
         e.preventDefault();
@@ -884,7 +902,7 @@ export default function SecureExamPlatform() {
             addSecurityViolation(`Batería baja: ${level}%`);
           }
           if (level === 0 && examStarted) {
-            blockExam("Batería agotada", "CRITICAL");
+            blockExam("El dispositivo se quedó sin batería durante el examen", "CRITICAL");
           }
         };
         battery.addEventListener("levelchange", handleLevelChange);
@@ -910,7 +928,7 @@ export default function SecureExamPlatform() {
       if (duration <= 0) {
         // El tiempo ya expiró antes de que el timer arrancara (raro, pero posible)
         setRemainingTime("00:00:00");
-        blockExam("Tiempo finalizado", "INFO");
+        blockExam("El tiempo del examen ha finalizado", "INFO");
         return;
       }
     } else {
@@ -926,7 +944,7 @@ export default function SecureExamPlatform() {
 
       if (remaining <= 0) {
         setRemainingTime("00:00:00");
-        blockExam("Tiempo finalizado", "INFO");
+        blockExam("El tiempo del examen ha finalizado", "INFO");
         return;
       }
 
@@ -1002,6 +1020,50 @@ export default function SecureExamPlatform() {
     connectionLostRef.current = connectionLost;
   }, [connectionLost]);
 
+  useEffect(() => {
+    sessionDataRef.current = {
+      attemptId: studentData?.attemptId,
+      id_sesion: studentData?.id_sesion,
+    };
+  }, [studentData]);
+
+  // Safety net: limpia el overlay si el socket está realmente conectado.
+  // Cubre dos casos:
+  //   1. isSocketConnectedRef=true (el evento connect disparó normalmente).
+  //   2. sock.connected=true pero el ref sigue en false (WiFi volvió dentro del ping-timeout
+  //      y socket.io nunca llegó a desconectarse — disconnect/connect no dispararon).
+  //      En ese caso re-emitimos join_attempt para que el servidor envíe connection_restored.
+  useEffect(() => {
+    if (!connectionLost) return;
+    const poll = setInterval(() => {
+      if (isSocketConnectedRef.current) {
+        setConnectionLost(false);
+        setConnectionGraceSeconds(null);
+        return;
+      }
+      const sock = socketRef.current;
+      if (sock && sock.connected) {
+        // Socket sigue vivo (WiFi volvió antes del ping-timeout).
+        // Sincronizar ref y limpiar overlay directamente.
+        isSocketConnectedRef.current = true;
+        setIsSocketConnected(true);
+        setConnectionLost(false);
+        setConnectionGraceSeconds(null);
+        // También re-emitir join_attempt para sincronizar con el servidor
+        const { attemptId, id_sesion } = sessionDataRef.current;
+        if (attemptId && id_sesion) {
+          sock.emit("join_attempt", { attemptId, sessionId: id_sesion });
+        }
+      } else if (sock && navigator.onLine && !sock.connected && !sock.active) {
+        // Internet disponible, socket completamente inactivo.
+        // Forzar reconexión (sin disconnect para no interrumpir handshakes en curso).
+        console.log("🔄 Polling: internet detectado, socket inactivo, forzando reconexión...");
+        sock.connect();
+      }
+    }, 1000);
+    return () => clearInterval(poll);
+  }, [connectionLost]);
+
   // Countdown regresivo durante pérdida de conexión
   useEffect(() => {
     if (!connectionLost || connectionGraceSeconds === null) {
@@ -1013,6 +1075,15 @@ export default function SecureExamPlatform() {
       setGraceCountdown((prev) => {
         if (prev === null || prev <= 1) {
           clearInterval(interval);
+          // Grace expiró client-side — finalizar el examen inmediatamente.
+          // El servidor también lo marca como abandonado via su propio timer,
+          // pero no podemos esperar ese evento ya que el socket está desconectado.
+          setWasAbandoned(true);
+          setExamFinished(true);
+          examFinishedRef.current = true;
+          limpiarDatosExamen();
+          if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+          socketRef.current?.disconnect();
           return 0;
         }
         return prev - 1;
@@ -1194,6 +1265,7 @@ export default function SecureExamPlatform() {
     if (examData?.consecuencia === "notificar") return;
     setExamBlocked(true);
     setBlockReason(reason);
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     if (studentData?.attemptId) {
       localStorage.setItem(
         "examBlockedState",
@@ -1648,7 +1720,10 @@ export default function SecureExamPlatform() {
 
       const newSocket = io(ATTEMPTS_API_URL, {
         transports: ["websocket", "polling"],
-        reconnection: false,
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
       });
 
       newSocket.on("connect", () => {
@@ -1698,6 +1773,7 @@ export default function SecureExamPlatform() {
       newSocket.on("attempt_blocked", (data) => {
         setExamBlocked(true);
         setBlockReason(data.message);
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
       });
       newSocket.on("attempt_unlocked", (data) => {
         console.log("✅ Examen desbloqueado por el profesor", data);
@@ -1748,13 +1824,21 @@ export default function SecureExamPlatform() {
 
       // --- EVENTOS DE CONEXIÓN / DESCONEXIÓN ---
       newSocket.on("connect", () => {
-        // Actualizar ref sincrónicamente para que flushPendingAnswers vea la conexión activa
+        // Actualizar refs de señal
         isSocketConnectedRef.current = true;
         setIsSocketConnected(true);
-        setConnectionLost(false);
-        setConnectionGraceSeconds(null);
 
-        // Reenviar respuestas que fallaron o se encolaron durante la desconexión
+        // Si el overlay de "sin conexión" estaba activo, limpiarlo directamente.
+        // No depender solo de connection_restored del servidor (puede fallar si la DB
+        // del servidor aún no está disponible al reconectar).
+        if (connectionLostRef.current) {
+          connectionLostRef.current = false;
+          setConnectionLost(false);
+          setConnectionGraceSeconds(null);
+          setGraceCountdown(null);
+        }
+
+        // Reenviar respuestas encoladas durante la desconexión
         const pending = [...pendingAnswersQueueRef.current];
         pendingAnswersQueueRef.current = [];
         for (const a of pending) {
@@ -1762,50 +1846,35 @@ export default function SecureExamPlatform() {
         }
       });
 
-      newSocket.on("disconnect", () => {
-        // Actualizar ref sincrónicamente para bloquear saveAnswer de inmediato
+      newSocket.on("disconnect", (reason) => {
         isSocketConnectedRef.current = false;
         setIsSocketConnected(false);
-        setConnectionLost(true);
-        setConnectionGraceSeconds(GRACE_SECONDS);
 
-        // Notificar al profesor inmediatamente vía HTTP (no esperar pingTimeout del server)
-        if (studentData?.attemptId) {
-          fetch(
-            `${ATTEMPTS_API_URL}/api/exam/attempt/${studentData.attemptId}/connection-lost`,
-            { method: "POST", keepalive: true },
-          ).catch(() => {});
+        const isTransient =
+          reason === "transport close" ||
+          reason === "transport error" ||
+          reason === "ping timeout";
+
+        if (isTransient) {
+          setConnectionLost(true);
+          setConnectionGraceSeconds(GRACE_SECONDS);
+          if (studentData?.attemptId) {
+            fetch(
+              `${ATTEMPTS_API_URL}/api/exam/attempt/${studentData.attemptId}/connection-lost`,
+              { method: "POST", keepalive: true },
+            ).catch(() => {});
+          }
         }
-
-        // Bucle de reconexión con backoff exponencial durante el periodo de gracia
-        let elapsed = 0;
-        let delay = 2000;
-        const maxDelay = 8000;
-
-        const scheduleReconnect = () => {
-          if (examFinishedRef.current) return;
-          if (elapsed >= GRACE_SECONDS * 1000) return;
-
-          setTimeout(() => {
-            if (examFinishedRef.current) return;
-            if (newSocket.connected) return;
-
-            elapsed += delay;
-            newSocket.connect();
-
-            delay = Math.min(delay + 2000, maxDelay);
-            scheduleReconnect();
-          }, delay);
-        };
-
-        scheduleReconnect();
       });
 
+      // connection_restored = servidor confirmó reconexión exitosa → limpiar overlay
       newSocket.on("connection_restored", () => {
         setConnectionLost(false);
         setConnectionGraceSeconds(null);
         setGraceCountdown(null);
       });
+
+      // connect_error: el polling del useEffect se encarga de reintentar automáticamente.
 
       // El timer de gracia expiró — intento marcado como abandonado mientras no había conexión
       newSocket.on("attempt_auto_abandoned", () => {
@@ -1871,12 +1940,13 @@ export default function SecureExamPlatform() {
           document.fullscreenElement ||
           examBlocked ||
           isSubmitting ||
-          examFinished
+          examFinished ||
+          connectionLostRef.current
         ) return;
         // Si la pantalla completa se perdió después de estar activa → bloquear.
         // Si aún no se había establecido (arranque), startupGraceRef silencia esto.
         if (startupGraceRef.current) return;
-        blockExam("Salida de pantalla completa detectada", "CRITICAL");
+        blockExam("El examen requiere pantalla completa. Se detectó que saliste de ella", "CRITICAL");
       }, 100);
     };
 
@@ -1885,15 +1955,15 @@ export default function SecureExamPlatform() {
       const blockedKeys = ["F11", "F12", "F1", "F5", "PrintScreen"];
       if (e.metaKey || blockedKeys.includes(e.key)) {
         e.preventDefault();
-        blockExam(`Tecla bloqueada: ${e.key}`, "CRITICAL");
+        blockExam(`Se presionó una tecla no permitida durante el examen (${e.key})`, "CRITICAL");
       }
     };
 
     const handleVisibilityChange = () => {
-      if (!examStarted || examBlocked || isSubmitting || examFinished) return;
+      if (!examStarted || examBlocked || isSubmitting || examFinished || connectionLostRef.current) return;
       if (startupGraceRef.current) return;
       if (document.hidden) {
-        blockExam("Cambio de pestaña detectado", "CRITICAL");
+        blockExam("Se detectó que cambiaste de pestaña o minimizaste el navegador", "CRITICAL");
       }
       // "visible sin fullscreen" lo detecta handleFullscreenChange
     };
@@ -1907,11 +1977,11 @@ export default function SecureExamPlatform() {
       // Durante el arranque (requestFullscreen aún no se ha establecido) el navegador
       // dispara blur/focus de forma normal — ignorarlo evita falsos bloqueos al reanudar.
       if (!document.fullscreenElement) return;
-      if (!examStarted || examBlocked || isSubmitting || examFinished) return;
+      if (!examStarted || examBlocked || isSubmitting || examFinished || connectionLostRef.current) return;
       // Durante el arranque, el navegador puede disparar blur al mostrar la barra de
       // notificación de pantalla completa — silenciar igual que handleFullscreenChange.
       if (startupGraceRef.current) return;
-      blockExam("Pérdida de foco detectada", "CRITICAL");
+      blockExam("Se detectó que la ventana del examen perdió el foco (posible cambio de aplicación)", "CRITICAL");
     };
 
     const handleBeforeUnload = () => {
@@ -1931,22 +2001,14 @@ export default function SecureExamPlatform() {
     // Detección inmediata de pérdida de red (antes de que socket.io detecte el disconnect)
     const handleOffline = () => {
       if (!examStarted || examFinishedRef.current) return;
+      // Marcar inmediatamente como desconectado para el overlay y el polling.
+      // isSocketConnectedRef=false evita que el polling lo limpie antes de reconectar.
       isSocketConnectedRef.current = false;
       connectionLostRef.current = true;
       setIsSocketConnected(false);
       setConnectionLost(true);
       setConnectionGraceSeconds(GRACE_SECONDS);
 
-      // CRÍTICO: forzar desconexión explícita del socket.
-      // Sin esto, socket.io cree que sigue conectado y sock.connect() en
-      // handleOnline sería un no-op — las respuestas encoladas nunca se vaciarían
-      // hasta que el ping/pong del servidor detecte la caída (varios segundos).
-      const sock = socketRef.current;
-      if (sock?.connected) {
-        sock.disconnect();
-      }
-
-      // Intentar notificar al profesor (puede funcionar si la caída es brevísima)
       if (studentData?.attemptId) {
         fetch(
           `${ATTEMPTS_API_URL}/api/exam/attempt/${studentData.attemptId}/connection-lost`,
@@ -1955,11 +2017,31 @@ export default function SecureExamPlatform() {
       }
     };
 
-    // Cuando vuelve la red, reconectar el socket inmediatamente sin esperar el backoff
+    // Con reconnection:true, socket.io reconecta automáticamente.
+    // handleOnline cubre dos casos adicionales:
+    //   A) WiFi volvió dentro del ping-timeout: sock.connected=true pero isSocketConnectedRef=false.
+    //      Re-emitir join_attempt para que el servidor envíe connection_restored.
+    //   B) sock.active=false (socket completamente desconectado): forzar reconexión inmediata.
     const handleOnline = () => {
       if (!examStarted || examFinishedRef.current) return;
       const sock = socketRef.current;
-      if (sock && !sock.connected) {
+      if (!sock) return;
+
+      if (sock.connected) {
+        // Caso A: socket nunca se desconectó realmente (caída rápida de WiFi).
+        isSocketConnectedRef.current = true;
+        connectionLostRef.current = false;
+        setIsSocketConnected(true);
+        setConnectionLost(false);
+        setConnectionGraceSeconds(null);
+        setGraceCountdown(null);
+        const { attemptId, id_sesion } = sessionDataRef.current;
+        if (attemptId && id_sesion) {
+          sock.emit("join_attempt", { attemptId, sessionId: id_sesion });
+        }
+      } else {
+        // Socket no está conectado — forzar reconexión inmediata.
+        console.log("🔄 handleOnline: forzando reconexión de socket...");
         sock.connect();
       }
     };
@@ -2220,92 +2302,6 @@ export default function SecureExamPlatform() {
               initialQuestionIndex={initialQuestionIndex}
               onQuestionIndexChange={setInitialQuestionIndex}
             />
-            {/* Overlay de desconexión — bloquea inputs visualmente */}
-            {connectionLost && (
-              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-xl backdrop-blur-md bg-black/60 pointer-events-auto select-none">
-                <div
-                  className={`flex flex-col items-center gap-4 px-8 py-6 rounded-2xl border shadow-2xl max-w-sm w-full mx-4 ${darkMode ? "bg-slate-900 border-amber-500/40" : "bg-white border-amber-300"}`}
-                >
-                  {/* Ícono sin señal */}
-                  <div
-                    className={`p-4 rounded-full ${graceCountdown !== null && graceCountdown <= 15 ? "bg-red-500/20" : "bg-amber-500/20"}`}
-                  >
-                    <svg
-                      className={`w-10 h-10 animate-pulse ${graceCountdown !== null && graceCountdown <= 15 ? "text-red-500" : "text-amber-500"}`}
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path d="M1 6s4-4 11-4 11 4 11 4" />
-                      <path d="M5 10s2.5-2 7-2 7 2 7 2" />
-                      <path d="M9 14s1.5-1 3-1 3 1 3 1" />
-                      <line x1="12" y1="18" x2="12.01" y2="18" />
-                      <line
-                        x1="2"
-                        y1="2"
-                        x2="22"
-                        y2="22"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </div>
-                  {/* Título */}
-                  <div className="text-center">
-                    <p
-                      className={`font-bold text-lg mb-1 ${darkMode ? "text-white" : "text-slate-800"}`}
-                    >
-                      Sin conexión a internet
-                    </p>
-                    <p
-                      className={`text-sm ${darkMode ? "text-slate-400" : "text-slate-500"}`}
-                    >
-                      No puedes responder mientras no hay conexión.
-                      <br />
-                      Tus respuestas anteriores están guardadas.
-                    </p>
-                  </div>
-                  {/* Countdown */}
-                  {graceCountdown !== null && graceCountdown > 0 && (
-                    <div className="flex flex-col items-center gap-1">
-                      <span
-                        className={`text-5xl font-black tabular-nums ${graceCountdown <= 15 ? "text-red-500 animate-pulse" : darkMode ? "text-amber-400" : "text-amber-600"}`}
-                      >
-                        {graceCountdown}s
-                      </span>
-                      <span
-                        className={`text-xs font-medium ${darkMode ? "text-slate-500" : "text-slate-400"}`}
-                      >
-                        tiempo para reconectar
-                      </span>
-                      {/* Barra de progreso */}
-                      <div
-                        className={`w-48 h-2 rounded-full overflow-hidden mt-1 ${darkMode ? "bg-slate-700" : "bg-slate-200"}`}
-                      >
-                        <div
-                          className={`h-full rounded-full transition-all duration-1000 ${graceCountdown <= 15 ? "bg-red-500" : "bg-amber-500"}`}
-                          style={{
-                            width: `${connectionGraceSeconds ? (graceCountdown / connectionGraceSeconds) * 100 : 100}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {graceCountdown === 0 && (
-                    <p className="text-sm font-bold text-red-500 animate-pulse text-center">
-                      ⚠️ Tiempo agotado — procesando abandono...
-                    </p>
-                  )}
-                  {/* Aviso */}
-                  <p
-                    className={`text-xs text-center px-2 ${darkMode ? "text-slate-500" : "text-slate-400"}`}
-                  >
-                    No cierres esta ventana. Si reconectas a tiempo, el examen
-                    continuará normalmente.
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
         );
 
@@ -2397,84 +2393,80 @@ export default function SecureExamPlatform() {
     const isRedScreen = wasAbandoned || wasTimeExpired === "descartar";
     const isAmberScreen = wasForced || wasTimeExpired === "enviar";
 
+    const accent = isRedScreen
+      ? {
+          bar: "bg-red-500",
+          ring: "ring-red-500/20",
+          iconBg: darkMode ? "bg-red-500/15" : "bg-red-50",
+          iconText: darkMode ? "text-red-400" : "text-red-500",
+          title: darkMode ? "text-red-400" : "text-red-600",
+        }
+      : isAmberScreen
+        ? {
+            bar: "bg-blue-500",
+            ring: "ring-blue-500/20",
+            iconBg: darkMode ? "bg-blue-500/15" : "bg-blue-50",
+            iconText: darkMode ? "text-blue-400" : "text-blue-500",
+            title: darkMode ? "text-blue-400" : "text-blue-600",
+          }
+        : {
+            bar: "bg-emerald-500",
+            ring: "ring-emerald-500/20",
+            iconBg: darkMode ? "bg-emerald-500/15" : "bg-emerald-50",
+            iconText: darkMode ? "text-emerald-400" : "text-emerald-600",
+            title: darkMode ? "text-emerald-400" : "text-emerald-700",
+          };
+
+    const titleText = wasAbandoned
+      ? "Examen Abandonado"
+      : wasTimeExpired
+        ? "Tiempo Agotado"
+        : wasForced
+          ? "Examen Finalizado por el Profesor"
+          : "¡Examen Entregado!";
+
+    const bodyText = wasAbandoned
+      ? "Has abandonado el examen. Solo podrás reanudarlo si tu profesor lo autoriza."
+      : wasTimeExpired === "descartar"
+        ? "El tiempo del examen ha finalizado. Tus respuestas han sido descartadas por superar el límite permitido."
+        : wasTimeExpired === "enviar"
+          ? "El tiempo del examen ha finalizado. Tus respuestas fueron guardadas y enviadas automáticamente."
+          : wasForced === "todos"
+            ? "El profesor ha cerrado el examen para todos los estudiantes. Tus respuestas han sido guardadas correctamente."
+            : wasForced === "individual"
+              ? "El profesor ha finalizado tu examen de forma individual. Tus respuestas han sido guardadas correctamente."
+              : "Tus respuestas han sido registradas con éxito. El profesor podrá ver tus resultados.";
+
     return (
-      <div
-        className={`min-h-screen flex flex-col items-center justify-center p-4 ${
-          isRedScreen
-            ? darkMode
-              ? "bg-red-950 text-white"
-              : "bg-red-50 text-gray-900"
-            : isAmberScreen
-              ? darkMode
-                ? "bg-amber-950 text-white"
-                : "bg-amber-50 text-gray-900"
-              : darkMode
-                ? "bg-slate-900 text-white"
-                : "bg-gray-50 text-gray-900"
-        }`}
-      >
-        <div className="text-center space-y-6 max-w-lg">
-          <div
-            className={`mx-auto w-20 h-20 rounded-full flex items-center justify-center ${
-              isRedScreen
-                ? darkMode
-                  ? "bg-red-900/50 text-red-400"
-                  : "bg-red-100 text-red-600"
-                : isAmberScreen
-                  ? darkMode
-                    ? "bg-amber-900/30 text-amber-400"
-                    : "bg-amber-100 text-amber-600"
-                  : darkMode
-                    ? "bg-emerald-900/30 text-emerald-400"
-                    : "bg-emerald-100 text-emerald-600"
-            }`}
-          >
-            {isRedScreen ? (
-              <AlertTriangle className="w-10 h-10" />
-            ) : wasTimeExpired ? (
-              <Clock className="w-10 h-10" />
-            ) : (
-              <CheckCircle2 className="w-10 h-10" />
-            )}
+      <div className={`min-h-screen flex items-center justify-center p-4 ${darkMode ? "bg-slate-900" : "bg-gray-50"}`}>
+        <div className={`w-full max-w-sm rounded-2xl shadow-xl overflow-hidden ring-1 ${accent.ring} ${darkMode ? "bg-slate-800" : "bg-white"}`}>
+          <div className={`h-1 w-full ${accent.bar}`} />
+
+          <div className="px-8 py-9 text-center space-y-4">
+            <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center ${accent.iconBg}`}>
+              {isRedScreen ? (
+                <AlertTriangle className={`w-8 h-8 ${accent.iconText}`} />
+              ) : wasTimeExpired ? (
+                <Clock className={`w-8 h-8 ${accent.iconText}`} />
+              ) : (
+                <CheckCircle2 className={`w-8 h-8 ${accent.iconText}`} />
+              )}
+            </div>
+
+            <h1 className={`text-xl font-bold ${accent.title}`}>
+              {titleText}
+            </h1>
+
+            <p className={`text-sm leading-relaxed ${darkMode ? "text-slate-400" : "text-gray-500"}`}>
+              {bodyText}
+            </p>
+
+            <div className={`border-t pt-3 ${darkMode ? "border-slate-700" : "border-gray-100"}`}>
+              <p className={`text-xs ${darkMode ? "text-slate-500" : "text-gray-400"}`}>
+                Ya puedes cerrar esta ventana.
+              </p>
+            </div>
           </div>
-          <h1
-            className={`text-3xl font-bold ${
-              isRedScreen
-                ? darkMode
-                  ? "text-red-400"
-                  : "text-red-700"
-                : isAmberScreen
-                  ? darkMode
-                    ? "text-amber-400"
-                    : "text-amber-700"
-                  : ""
-            }`}
-          >
-            {wasAbandoned
-              ? "Examen Abandonado"
-              : wasTimeExpired
-                ? "Tiempo Agotado"
-                : wasForced
-                  ? "¡Examen Finalizado por el Profesor!"
-                  : "¡Examen Entregado!"}
-          </h1>
-          <p
-            className={`text-lg ${darkMode ? "text-slate-400" : "text-gray-600"}`}
-          >
-            {wasAbandoned
-              ? "Has abandonado el examen. Solo podrás reanudarlo si tu profesor lo autoriza."
-              : wasTimeExpired === "descartar"
-                ? "Su examen ha finalizado por tiempo, sus respuestas han sido descartadas."
-                : wasTimeExpired === "enviar"
-                  ? "Se ha acabado el tiempo para responder el examen, sus respuestas se han enviado."
-                  : wasForced === "todos"
-                    ? "El profesor ha finalizado el examen para todos los estudiantes. Tus respuestas han sido guardadas correctamente."
-                    : wasForced === "individual"
-                      ? "El profesor ha finalizado tu examen. Tus respuestas han sido guardadas correctamente."
-                      : "Tus respuestas han sido guardadas correctamente."}
-            <br />
-            Ya puedes cerrar esta ventana.
-          </p>
         </div>
       </div>
     );
@@ -2502,13 +2494,7 @@ export default function SecureExamPlatform() {
         <div className="bg-white rounded-xl shadow-2xl p-10 text-center max-w-lg">
           <AlertTriangle className="w-16 h-16 text-red-600 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900">Examen Bloqueado</h1>
-          <p className="text-gray-600 mb-6">{blockReason}</p>
-          <button
-            onClick={handleEscapeFromBlock}
-            className="px-6 py-3 bg-red-600 text-white rounded-lg font-bold"
-          >
-            Salir de Pantalla Completa
-          </button>
+          <p className="text-gray-600">{blockReason}</p>
         </div>
       </div>
     );
@@ -2613,7 +2599,7 @@ export default function SecureExamPlatform() {
             }}
             className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-lg shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all hover:scale-105 flex items-center gap-3 mx-auto"
           >
-            <Maximize2 className="w-6 h-6" />
+            <ZoomIn className="w-6 h-6" />
             Continuar Examen
           </button>
         </div>
@@ -2789,19 +2775,74 @@ export default function SecureExamPlatform() {
 
         {/* Banner pérdida de conexión */}
         {connectionLost && examStarted && !examBlocked && (
-          <div
-            className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-3 px-6 py-3 text-white font-bold text-sm shadow-2xl animate-in slide-in-from-top duration-300 ${
-              connectionGraceSeconds !== null && connectionGraceSeconds <= 20
-                ? "bg-red-600"
-                : "bg-amber-500"
-            }`}
-          >
-            <AlertTriangle className="w-5 h-5 flex-shrink-0 animate-pulse" />
-            <span>
-              ⚠️ Conexión perdida — Reconectando... Las respuestas están en
-              pausa. <strong>No cierres esta ventana.</strong>
-            </span>
-            <SignalIndicator level={0} darkMode={false} />
+          <div className="fixed inset-0 z-[200] flex items-center justify-center backdrop-blur-sm bg-black/60 pointer-events-auto select-none">
+            <div className={`relative flex flex-col items-center gap-5 px-8 py-8 rounded-2xl shadow-2xl w-full max-w-sm mx-4 ring-1 overflow-hidden ${
+              graceCountdown !== null && graceCountdown <= 15
+                ? darkMode ? "bg-slate-800 ring-red-500/30" : "bg-white ring-red-300"
+                : darkMode ? "bg-slate-800 ring-amber-500/30" : "bg-white ring-amber-300"
+            }`}>
+              {/* Barra de acento superior */}
+              <div className={`absolute top-0 left-0 right-0 h-1 ${graceCountdown !== null && graceCountdown <= 15 ? "bg-red-500" : "bg-amber-500"}`} />
+
+              {/* Ícono WiFi cortado */}
+              <div className={`p-4 rounded-full ${graceCountdown !== null && graceCountdown <= 15 ? "bg-red-500/10" : darkMode ? "bg-amber-500/10" : "bg-amber-50"}`}>
+                <svg
+                  className={`w-9 h-9 animate-pulse ${graceCountdown !== null && graceCountdown <= 15 ? "text-red-500" : "text-amber-500"}`}
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
+                >
+                  <path d="M1 6s4-4 11-4 11 4 11 4" />
+                  <path d="M5 10s2.5-2 7-2 7 2 7 2" />
+                  <path d="M9 14s1.5-1 3-1 3 1 3 1" />
+                  <line x1="12" y1="18" x2="12.01" y2="18" />
+                  <line x1="2" y1="2" x2="22" y2="22" strokeLinecap="round" />
+                </svg>
+              </div>
+
+              {/* Texto */}
+              <div className="text-center space-y-1.5">
+                <p className={`font-bold text-base ${darkMode ? "text-white" : "text-slate-800"}`}>
+                  Sin conexión a internet
+                </p>
+                <p className={`text-sm leading-relaxed ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
+                  No puedes usar el examen mientras no hay conexión.<br />
+                  Tus respuestas anteriores están guardadas.
+                </p>
+              </div>
+
+              {/* Countdown */}
+              {graceCountdown !== null && graceCountdown > 0 && (
+                <div className="flex flex-col items-center gap-2 w-full">
+                  <div className="flex items-baseline gap-1">
+                    <span className={`text-5xl font-black tabular-nums ${graceCountdown <= 15 ? "text-red-500 animate-pulse" : darkMode ? "text-amber-400" : "text-amber-600"}`}>
+                      {graceCountdown}
+                    </span>
+                    <span className={`text-base font-semibold ${graceCountdown <= 15 ? "text-red-400" : "text-amber-500"}`}>s</span>
+                  </div>
+                  <span className={`text-xs ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                    tiempo para reconectar
+                  </span>
+                  <div className={`w-full h-1.5 rounded-full overflow-hidden ${darkMode ? "bg-slate-700" : "bg-slate-100"}`}>
+                    <div
+                      className={`h-full rounded-full transition-all duration-1000 ${graceCountdown <= 15 ? "bg-red-500" : "bg-amber-500"}`}
+                      style={{ width: `${connectionGraceSeconds ? (graceCountdown / connectionGraceSeconds) * 100 : 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {graceCountdown === 0 && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 w-full">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+                  <p className="text-xs font-semibold text-red-500 text-center w-full">
+                    Tiempo agotado — procesando abandono
+                  </p>
+                </div>
+              )}
+
+              <p className={`text-xs text-center ${darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                No cierres esta ventana. Si reconectas a tiempo, el examen continuará normalmente.
+              </p>
+            </div>
           </div>
         )}
 
@@ -3021,14 +3062,18 @@ export default function SecureExamPlatform() {
                 className={`hidden md:flex p-1 rounded-lg ${darkMode ? "bg-slate-900/50 backdrop-blur-sm border border-slate-700" : "bg-white/50 backdrop-blur-sm border-gray-200/50 shadow-md"}`}
               >
                 <button
-                  onClick={() => setLayout("vertical")}
-                  className={`p-1.5 rounded ${layout === "vertical" ? (darkMode ? "bg-blue-900/50 text-blue-100 border border-blue-800/50" : "bg-slate-800 text-white shadow-sm") : darkMode ? "text-slate-400" : "text-slate-400"}`}
+                  onClick={() => openPanels.length >= 2 && setLayout("vertical")}
+                  disabled={openPanels.length < 2}
+                  className={`p-1.5 rounded transition-colors ${openPanels.length < 2 ? "opacity-30 cursor-not-allowed" : ""} ${layout === "vertical" && openPanels.length >= 2 ? (darkMode ? "bg-blue-900/50 text-blue-100 border border-blue-800/50" : "bg-slate-800 text-white shadow-sm") : darkMode ? "text-slate-400" : "text-slate-400"}`}
+                  title={openPanels.length < 2 ? "Abre al menos 2 herramientas para dividir la vista" : "Vista vertical"}
                 >
                   <Columns className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => setLayout("horizontal")}
-                  className={`p-1.5 rounded ${layout === "horizontal" ? (darkMode ? "bg-blue-900/50 text-blue-100 border border-blue-800/50" : "bg-slate-800 text-white shadow-sm") : darkMode ? "text-slate-400" : "text-slate-400"}`}
+                  onClick={() => openPanels.length >= 2 && setLayout("horizontal")}
+                  disabled={openPanels.length < 2}
+                  className={`p-1.5 rounded transition-colors ${openPanels.length < 2 ? "opacity-30 cursor-not-allowed" : ""} ${layout === "horizontal" && openPanels.length >= 2 ? (darkMode ? "bg-blue-900/50 text-blue-100 border border-blue-800/50" : "bg-slate-800 text-white shadow-sm") : darkMode ? "text-slate-400" : "text-slate-400"}`}
+                  title={openPanels.length < 2 ? "Abre al menos 2 herramientas para dividir la vista" : "Vista horizontal"}
                 >
                   <Rows className="w-4 h-4" />
                 </button>
@@ -3161,16 +3206,16 @@ export default function SecureExamPlatform() {
                               onClick={() => adjustPanelZoom(index, -10)}
                               className={`p-1 rounded ${darkMode ? "hover:bg-gray-200/20" : "hover:bg-white/10"}`}
                             >
-                              <Minimize2
-                                className={`w-3 h-3 ${darkMode ? "text-gray-400" : "text-gray-300"}`}
+                              <ZoomOut
+                                className={`w-4 h-4 ${darkMode ? "text-gray-400" : "text-gray-300"}`}
                               />
                             </button>
                             <button
                               onClick={() => adjustPanelZoom(index, 10)}
                               className={`p-1 rounded ${darkMode ? "hover:bg-gray-200/20" : "hover:bg-white/10"}`}
                             >
-                              <Maximize2
-                                className={`w-3 h-3 ${darkMode ? "text-gray-400" : "text-gray-300"}`}
+                              <ZoomIn
+                                className={`w-4 h-4 ${darkMode ? "text-gray-400" : "text-gray-300"}`}
                               />
                             </button>
                           </>

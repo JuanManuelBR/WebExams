@@ -1,10 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  Play, 
-  Trash2, 
-  Plus, 
-  Code, 
-  Type,
+  Play,
+  Trash2,
+  Plus,
   GripVertical,
   ChevronDown,
   ChevronUp,
@@ -218,6 +216,31 @@ builtins.input = _custom_input
 
   // --- 2. EJECUCIÓN DE CÓDIGO ---
 
+  const cleanPythonError = (errorMsg: string): string[] => {
+    const lines = errorMsg.split('\n').map(l => l.trim()).filter(Boolean);
+
+    // Última línea: el error real (ej: "IndentationError: expected an indented block")
+    const errorLine = lines[lines.length - 1] || errorMsg;
+
+    // Buscar referencia a la línea del código del estudiante (<exec>)
+    const execMatch = errorMsg.match(/File "<exec>", line (\d+)/);
+    const lineRef = execMatch ? `📍 Línea ${execMatch[1]} de tu código` : null;
+
+    // Buscar la línea de código donde ocurrió el error
+    let execIndex = -1;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (lines[i].startsWith('File "<exec>"')) { execIndex = i; break; }
+    }
+    const codeLine = execIndex !== -1 && lines[execIndex + 1] && !lines[execIndex + 1].startsWith('^') && !lines[execIndex + 1].startsWith('File')
+      ? `   ${lines[execIndex + 1]}`
+      : null;
+
+    const result = [`❌ ${errorLine}`];
+    if (lineRef) result.push(lineRef);
+    if (codeLine) result.push(codeLine);
+    return result;
+  };
+
   const runCell = (cellId: string) => {
     if (!pyodideReady || !pyodideRef.current) {
       alert('Python aún se está iniciando. Por favor espera.');
@@ -243,9 +266,13 @@ builtins.input = _custom_input
 
     // Actualizar UI
     activeCellId.current = cellId;
-    const updatedCells = [...cells];
-    updatedCells[cellIndex] = { ...cell, status: 'running', output: [] };
-    setCells(updatedCells);
+    setCells(prev => prev.map(c => c.id === cellId ? { ...c, status: 'running', output: [] } : c));
+
+    // Buffer local para capturar prints durante la ejecución
+    const printBuffer: string[] = [];
+    (window as any).handlePythonPrint = (text: string) => {
+      if (text && text !== '\n') printBuffer.push(text);
+    };
 
     const runId = Date.now();
     executionRefs.current.set(cellId, runId);
@@ -311,26 +338,18 @@ plt.show = show_custom
         outputAdditions.push(`▶ ${result}`);
       }
       
-      if (outputAdditions.length === 0 && (!updatedCells[cellIndex].output || updatedCells[cellIndex].output?.length === 0)) {
-         outputAdditions.push('✓ Ejecutado');
-      }
-
       const executionTime = Date.now() - startTime;
+
+      // Combinar: prints del buffer + matplotlib/result
+      const finalOutput = [...printBuffer, ...outputAdditions];
+      if (finalOutput.length === 0) finalOutput.push('✓ Ejecutado');
 
       if (isMounted.current && executionRefs.current.get(cellId) === runId) {
         setCells(prev => {
            const idx = prev.findIndex(c => c.id === cellId);
            if (idx === -1) return prev;
-           const current = prev[idx];
-           const finalOutput = [...(current.output || []), ...outputAdditions];
-           
            const nextState = [...prev];
-           nextState[idx] = { 
-               ...current, 
-               status: 'success', 
-               output: finalOutput, 
-               executionTime 
-           };
+           nextState[idx] = { ...prev[idx], status: 'success', output: finalOutput, executionTime };
            return nextState;
         });
       }
@@ -341,12 +360,11 @@ plt.show = show_custom
       // Pausa interactiva: Python necesita el siguiente valor de input()
       if (String(error.message || error).includes('__PYODIDE_NEEDS_INPUT__')) {
         if (isMounted.current && executionRefs.current.get(cellId) === runId) {
-          // Mantener el output parcial visible y mostrar cursor de entrada
           setCells(prev => {
             const idx = prev.findIndex(c => c.id === cellId);
             if (idx === -1) return prev;
             const nextState = [...prev];
-            nextState[idx] = { ...prev[idx], status: 'idle' };
+            nextState[idx] = { ...prev[idx], status: 'idle', output: printBuffer };
             return nextState;
           });
           setPendingInputRun({ cellId, collectedValues: inputValues, currentInput: '' });
@@ -359,14 +377,11 @@ plt.show = show_custom
           setCells(prev => {
             const idx = prev.findIndex(c => c.id === cellId);
             if (idx === -1) return prev;
-            const current = prev[idx];
-            const finalOutput = [...(current.output || []), `❌ Error: ${error.message || String(error)}`];
-
             const nextState = [...prev];
             nextState[idx] = {
-                ...current,
+                ...prev[idx],
                 status: 'error',
-                output: finalOutput,
+                output: [...printBuffer, ...cleanPythonError(error.message || String(error))],
                 executionTime
             };
             return nextState;
@@ -395,20 +410,12 @@ plt.show = show_custom
     alert("Nota: Si Python está en un bucle infinito, es posible que debas recargar la página.");
   };
 
-  const runAllCells = async () => {
-    for (const cell of cells) {
-      if (cell.type === 'code') {
-        await runCellWithInputs(cell.id, []);
-        await new Promise(r => setTimeout(r, 100));
-      }
-    }
-  };
 
   const addCell = (type: CellType, afterId?: string) => {
     const newCell: Cell = {
       id: Date.now().toString(),
       type,
-      content: type === 'code' ? '# Escribe tu código aquí\n' : '# Texto Markdown\n',
+      content: type === 'code' ? '# Escribe tu código aquí\n' : '⚠️ Esta celda es solo para texto o notas, NO para código Python.\n\nEscribe aquí tu explicación...\n',
       status: 'idle',
       height: 400
     };
@@ -471,15 +478,12 @@ plt.show = show_custom
         </div>
 
         <div className="flex-1 flex flex-wrap gap-1.5 justify-end">
-           {!viewMode && <button onClick={() => addCell('code')} title="Agregar celda de código" className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${darkMode ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'}`}>
-             <Plus className="w-3.5 h-3.5"/> <Code className="w-3.5 h-3.5"/>
+           {!viewMode && <button onClick={() => addCell('code')} title="Agregar celda de código Python" className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${darkMode ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'}`}>
+             <Plus className="w-3.5 h-3.5"/> <span>Código</span>
            </button>}
-           {!viewMode && <button onClick={() => addCell('markdown')} title="Agregar celda de texto" className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${darkMode ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-purple-500 hover:bg-purple-600 text-white'}`}>
-             <Plus className="w-3.5 h-3.5"/> <Type className="w-3.5 h-3.5"/>
+           {!viewMode && <button onClick={() => addCell('markdown')} title="Agregar celda de texto (NO es para código)" className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${darkMode ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-purple-500 hover:bg-purple-600 text-white'}`}>
+             <Plus className="w-3.5 h-3.5"/> <span>Texto</span>
            </button>}
-           <button onClick={runAllCells} disabled={!pyodideReady} className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${darkMode ? 'bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50' : 'bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50'}`}>
-             <Play className="w-3.5 h-3.5"/> <span className="hidden sm:inline">Ejecutar</span>
-           </button>
            <button onClick={restartPython} className={`p-1.5 rounded-lg transition-colors ${darkMode ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`} title="Reiniciar Python">
              <RefreshCw className="w-3.5 h-3.5"/>
            </button>
@@ -505,7 +509,7 @@ plt.show = show_custom
               <div className="flex items-center gap-2">
                 <GripVertical className={`w-4 h-4 ${darkMode ? 'text-slate-600' : 'text-gray-400'}`} />
                 <span className={`text-xs font-bold px-2 py-0.5 rounded ${cell.type === 'code' ? (darkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700') : (darkMode ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-100 text-purple-700')}`}>
-                  {cell.type === 'code' ? 'Código' : 'Texto'}
+                  {cell.type === 'code' ? 'Código Python' : 'Solo Texto'}
                 </span>
                 {cell.executionTime !== undefined && <span className="text-xs opacity-50">{cell.executionTime}ms</span>}
                 {cell.status === 'running' && <Loader2 className="w-4 h-4 animate-spin text-blue-500"/>}
@@ -567,7 +571,13 @@ plt.show = show_custom
                        <div className="px-4 pt-3 pb-1 overflow-x-auto">
                          <div className="space-y-0.5" style={{ fontSize: '13px' }}>
                            {cell.output.map((line, i) => (
-                             <div key={i} className={line.startsWith('❌') ? 'text-red-500' : line.startsWith('✓') ? 'text-emerald-500' : darkMode ? 'text-slate-300' : 'text-gray-700'}>
+                             <div key={i} className={
+                               line.startsWith('❌') ? 'text-red-400 font-semibold' :
+                               line.startsWith('📍') ? 'text-orange-400 text-xs mt-0.5' :
+                               line.startsWith('   ') && cell.status === 'error' ? 'text-red-300/70 text-xs italic' :
+                               line.startsWith('✓') ? 'text-emerald-500' :
+                               darkMode ? 'text-slate-300' : 'text-gray-700'
+                             }>
                                {line.startsWith('data:image')
                                  ? <img src={line} alt="Gráfico" className="bg-white p-2 rounded max-w-full"/>
                                  : line}

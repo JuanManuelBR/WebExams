@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
-  MousePointer2, Share2, Trash2,
+  MousePointer2, ArrowRightLeft, Trash2,
   Undo, Redo, Type, X, Plus, Image as ImageIcon,
   Layout, Diamond, Grid3x3,
   PenTool, Eraser, Square, Circle, User, Braces, Hexagon, Cloud,
@@ -41,6 +41,7 @@ interface DiagramNode {
   bold?: boolean;
   textInParentheses?: boolean;
   underline?: boolean;
+  stereotype?: string;
 }
 
 interface Connection {
@@ -214,8 +215,8 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
   const gridCanvasRef = useRef<HTMLCanvasElement>(null);
   const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [showGrid, setShowGrid] = useState(false);
-  const [mobileLeftOpen, setMobileLeftOpen] = useState(false);
-  const [mobilePropsOpen, setMobilePropsOpen] = useState(false);
+  const [leftPanelOpen, setLeftPanelOpen] = useState(true);
+  const [propsPanelOpen, setPropsPanelOpen] = useState(false);
   // Gestión de Hojas
   const [sheets, setSheets] = useState<Sheet[]>(initialData?.sheets || [
       { 
@@ -248,6 +249,8 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
   
   // Interacción
   const [tool, setTool] = useState<Tool>(readOnly ? 'hand' : 'select');
+  const toolRef = useRef(tool);
+  toolRef.current = tool;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [relationType, setRelationType] = useState<RelationType>('Flow');
   
@@ -270,6 +273,9 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
   const [connectingId, setConnectingId] = useState<string | null>(null);
   const [drawStartPos, setDrawStartPos] = useState<{x:number, y:number} | null>(null);
   const [mouseCanvasPos, setMouseCanvasPos] = useState({ x: 0, y: 0 });
+
+  // Clipboard para copiar/pegar
+  const clipboardRef = useRef<{ nodes: DiagramNode[]; connections: Connection[]; paintActions: PaintAction[] } | null>(null);
 
   // Historial
   const [history, setHistory] = useState<string[]>(init?.history || []);
@@ -311,14 +317,10 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
 
   const isPaintTool = ['pencil', 'marker', 'eraser', 'rect_shape', 'circle_shape', 'triangle_shape', 'star_shape', 'hexagon_shape', 'cloud_shape'].includes(tool);
 
-  // Auto-abrir panel de propiedades en mobile al seleccionar un elemento
-  useEffect(() => {
-    if (selectedIds.size > 0) setMobilePropsOpen(true);
-  }, [selectedIds.size]);
 
   // --- HELPERS ---
   
-  const getAutoDimensions = (type: string, name: string, fontSize: number, fields: any[] = [], methods: any[] = []) => {
+  const getAutoDimensions = (type: string, name: string, fontSize: number, fields: any[] = [], methods: any[] = [], stereotype?: string) => {
     const ctx = canvasRef.current?.getContext('2d');
     if (!ctx) return null;
     
@@ -357,8 +359,9 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
             });
         }
         
-        const w = Math.max(titleW, maxRowW, s(140));
-        const headerH = fontSize + s(16);
+        const w = Math.max(titleW, maxRowW, s(140), stereotype ? ctx.measureText(`\u00AB${stereotype}\u00BB`).width + s(40) : 0);
+        const stereotypeH = (type === 'uml_class' && stereotype) ? fontSize + s(4) : 0;
+        const headerH = fontSize + s(16) + stereotypeH;
         const rowH = fontSize + s(10);
         let h = headerH + (fields.length * rowH) + s(10);
         
@@ -674,7 +677,8 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
     // -- TABLE / CLASS --
     if (node.type === 'table' || node.type === 'table_keys' || node.type === 'uml_class') {
         const s = node.fontSize / 14; // Factor de escala para layout interno
-        const headerH = node.fontSize + (16 * s);
+        const stereotypeH = (node.type === 'uml_class' && node.stereotype) ? node.fontSize + (4 * s) : 0;
+        const headerH = node.fontSize + (16 * s) + stereotypeH;
         const rowH = node.fontSize + (10 * s);
         const totalH = headerH + (node.fields.length * rowH) + (10 * s);
 
@@ -686,11 +690,20 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
         ctx.fillRect(node.x, node.y, node.w, headerH);
         ctx.beginPath(); ctx.moveTo(node.x, node.y + headerH); ctx.lineTo(node.x + node.w, node.y + headerH); ctx.stroke();
         
-        // Titulo
+        // Titulo (y estereotipo para UML class)
         ctx.fillStyle = text;
-        ctx.font = `bold ${node.fontSize}px sans-serif`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(node.name, node.x + node.w/2, node.y + headerH/2);
+        if (node.type === 'uml_class' && node.stereotype) {
+            // Estereotipo: «interface», «abstract», etc.
+            ctx.font = `italic ${node.fontSize - 2}px sans-serif`;
+            ctx.fillText(`\u00AB${node.stereotype}\u00BB`, node.x + node.w/2, node.y + headerH/2 - node.fontSize/2 - (2 * s));
+            // Nombre debajo del estereotipo
+            ctx.font = `bold ${node.fontSize}px sans-serif`;
+            ctx.fillText(node.name, node.x + node.w/2, node.y + headerH/2 + node.fontSize/2);
+        } else {
+            ctx.font = `bold ${node.fontSize}px sans-serif`;
+            ctx.fillText(node.name, node.x + node.w/2, node.y + headerH/2);
+        }
         
         // Campos
         ctx.textAlign = 'left'; ctx.font = `${node.fontSize - 1}px monospace`;
@@ -1151,6 +1164,9 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
     
+    // Guard: Skip render if canvas is not yet visible/sized (prevents InvalidStateError on drawImage with 0-sized canvas)
+    if (rect.width === 0 || rect.height === 0) return;
+    
     // Ajustar ambos lienzos
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
@@ -1263,7 +1279,7 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
     ctx.drawImage(offscreenCanvas, 0, 0, rect.width, rect.height);
 
     // 5. UI Overlays (Cursor Borrador) - Dibujar en Main Canvas
-    if (tool === 'eraser') {
+    if (toolRef.current === 'eraser') {
         ctx.save();
         ctx.translate(pan.x, pan.y);
         ctx.scale(scale, scale);
@@ -1291,7 +1307,7 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
         ctx.restore();
     }
 
-  }, [nodes, connections, paintActions, pan, scale, darkMode, selectedIds, connectingId, mouseCanvasPos, isDrawing, tool, paintWidth, paintColor, showGrid, isSelecting, selectionBox]);
+  }, [nodes, connections, paintActions, pan, scale, darkMode, selectedIds, connectingId, mouseCanvasPos, isDrawing, paintWidth, paintColor, showGrid, isSelecting, selectionBox]);
 
   // --- HANDLERS ---
   const handleWheel = (e: React.WheelEvent) => {
@@ -1314,6 +1330,15 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    // Middle click: cycle between select, hand, text, relation
+    if (e.button === 1) {
+        e.preventDefault();
+        const cycle: Tool[] = ['select', 'hand', 'text', 'relation'];
+        const idx = cycle.indexOf(tool);
+        setTool(cycle[(idx + 1) % cycle.length]);
+        return;
+    }
+
     const pos = screenToCanvas(e.clientX, e.clientY);
     setLastMousePos({ x: e.clientX, y: e.clientY });
     setMouseCanvasPos(pos);
@@ -1390,7 +1415,7 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
             ...extraProps
         };
         setNodes([...nodes, newNode]);
-        setTool('select');
+        if (tool !== 'text') setTool('select');
         saveToHistory();
         return;
     }
@@ -1417,7 +1442,7 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
             if (newSelected.has(clickedPaint.id)) newSelected.delete(clickedPaint.id);
             else newSelected.add(clickedPaint.id);
             setSelectedIds(newSelected);
-            // No iniciamos arrastre para dibujos simples por ahora, solo selección
+            if (e.detail === 2) setPropsPanelOpen(true);
             return;
         }
     }
@@ -1443,6 +1468,7 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
         setSelectedIds(newSelected);
         setDraggingId(clickedNode.id);
         setDragOffset({ x: pos.x - clickedNode.x, y: pos.y - clickedNode.y });
+        if (e.detail === 2) setPropsPanelOpen(true);
     } else {
         // 3. Chequeo de click en conexiones
         const clickedConn = connections.find(c => {
@@ -1459,10 +1485,14 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
              if (newSelected.has(clickedConn.id)) newSelected.delete(clickedConn.id);
              else newSelected.add(clickedConn.id);
              setSelectedIds(newSelected);
+             if (e.detail === 2) setPropsPanelOpen(true);
              return;
         }
         
-        if (!e.ctrlKey && !e.shiftKey) setSelectedIds(new Set());
+        if (!e.ctrlKey && !e.shiftKey) {
+            setSelectedIds(new Set());
+            setPropsPanelOpen(false);
+        }
         
         if (tool === 'hand') {
             setIsPanning(true);
@@ -1792,29 +1822,46 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
       setActiveSheetIndex(newIndex);
   };
 
+  // Refs para acceso confiable desde closures
+  const historyRef = useRef(history);
+  historyRef.current = history;
+  const historyIndexRef = useRef(historyIndex);
+  historyIndexRef.current = historyIndex;
+
   const saveToHistory = useCallback(() => {
       const state = JSON.stringify({ nodes, connections, paintActions });
-      const newHist = history.slice(0, historyIndex + 1);
-      newHist.push(state);
-      setHistory(newHist);
-      setHistoryIndex(newHist.length - 1);
-  }, [nodes, connections, paintActions, history, historyIndex]);
+      const idx = historyIndexRef.current;
+      setHistory(prev => {
+          const newHist = prev.slice(0, idx + 1);
+          newHist.push(state);
+          return newHist;
+      });
+      setHistoryIndex(idx + 1);
+  }, [nodes, connections, paintActions]);
 
-  const undo = () => {
-      if(historyIndex > 0) {
-          const state = JSON.parse(history[historyIndex - 1]);
-          setNodes(state.nodes); setConnections(state.connections); setPaintActions(state.paintActions);
-          setHistoryIndex(historyIndex - 1);
+  const undo = useCallback(() => {
+      const idx = historyIndexRef.current;
+      const h = historyRef.current;
+      if (idx > 0 && h[idx - 1]) {
+          const state = JSON.parse(h[idx - 1]);
+          setNodes(state.nodes);
+          setConnections(state.connections);
+          setPaintActions(state.paintActions);
+          setHistoryIndex(idx - 1);
       }
-  };
+  }, []);
 
-  const redo = () => {
-      if (historyIndex < history.length - 1) {
-          const state = JSON.parse(history[historyIndex + 1]);
-          setNodes(state.nodes); setConnections(state.connections); setPaintActions(state.paintActions);
-          setHistoryIndex(historyIndex + 1);
+  const redo = useCallback(() => {
+      const idx = historyIndexRef.current;
+      const h = historyRef.current;
+      if (idx < h.length - 1 && h[idx + 1]) {
+          const state = JSON.parse(h[idx + 1]);
+          setNodes(state.nodes);
+          setConnections(state.connections);
+          setPaintActions(state.paintActions);
+          setHistoryIndex(idx + 1);
       }
-  };
+  }, []);
 
   const deleteSelected = () => {
       setNodes(nodes.filter(n => !selectedIds.has(n.id)));
@@ -1822,6 +1869,71 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
       setPaintActions(paintActions.filter(p => !selectedIds.has(p.id)));
       setSelectedIds(new Set());
   };
+
+  // Keyboard shortcuts (Ctrl+C, Ctrl+V, Ctrl+Z, Ctrl+Y, Delete)
+  useEffect(() => {
+    if (readOnly) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // No capturar si el foco está en un input/select/textarea
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        e.preventDefault();
+        if (selectedIds.size === 0) return;
+        const copiedNodes = nodes.filter(n => selectedIds.has(n.id));
+        const copiedNodeIds = new Set(copiedNodes.map(n => n.id));
+        const copiedConnections = connections.filter(c => copiedNodeIds.has(c.from) && copiedNodeIds.has(c.to));
+        const copiedPaint = paintActions.filter(p => selectedIds.has(p.id));
+        clipboardRef.current = { nodes: copiedNodes, connections: copiedConnections, paintActions: copiedPaint };
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        e.preventDefault();
+        if (!clipboardRef.current) return;
+        const { nodes: cNodes, connections: cConns, paintActions: cPaint } = clipboardRef.current;
+        if (cNodes.length === 0 && cPaint.length === 0) return;
+        // Crear mapeo de IDs viejos a nuevos
+        const idMap: Record<string, string> = {};
+        const offset = 40;
+        const newNodes = cNodes.map(n => {
+          const newId = generateId();
+          idMap[n.id] = newId;
+          return { ...n, id: newId, x: n.x + offset, y: n.y + offset };
+        });
+        const newConns = cConns.map(c => ({
+          ...c,
+          id: generateId(),
+          from: idMap[c.from] || c.from,
+          to: idMap[c.to] || c.to,
+        }));
+        const newPaint = cPaint.map(p => ({
+          ...p,
+          id: generateId(),
+          points: p.points.map(pt => ({ x: pt.x + offset, y: pt.y + offset })),
+          start: p.start ? { x: p.start.x + offset, y: p.start.y + offset } : undefined,
+          end: p.end ? { x: p.end.x + offset, y: p.end.y + offset } : undefined,
+        }));
+        setNodes(prev => [...prev, ...newNodes]);
+        setConnections(prev => [...prev, ...newConns]);
+        setPaintActions(prev => [...prev, ...newPaint]);
+        // Seleccionar los nuevos elementos
+        const newIds = new Set([...newNodes.map(n => n.id), ...newConns.map(c => c.id), ...newPaint.map(p => p.id)]);
+        setSelectedIds(newIds);
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        undo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        redo();
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedIds.size > 0) {
+          e.preventDefault();
+          deleteSelected();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [readOnly, selectedIds, nodes, connections, paintActions, undo, redo, deleteSelected]);
 
   const selectedNode = selectedIds.size === 1 ? nodes.find(n => selectedIds.has(n.id)) : null;
   const selectedConnection = selectedIds.size === 1 && !selectedNode ? connections.find(c => selectedIds.has(c.id)) : null;
@@ -1834,8 +1946,8 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
             <div className="flex items-center gap-2 md:gap-4">
                 {/* Hamburger — mobile only */}
                 <button
-                  onClick={() => setMobileLeftOpen(v => !v)}
-                  className="md:hidden p-2 rounded-lg text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  onClick={() => setLeftPanelOpen(v => !v)}
+                  className="p-2 rounded-lg text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   title="Herramientas"
                 >
                   <Layout className="w-5 h-5" />
@@ -1851,8 +1963,8 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
                     <button onClick={deleteSelected} className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 text-red-500 rounded-lg transition-colors" title="Eliminar Selección"><Trash2 size={18}/></button>
                 )}
                 <button
-                  onClick={() => setMobilePropsOpen(v => !v)}
-                  className={`md:hidden p-2 rounded-lg transition-colors ${mobilePropsOpen ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                  onClick={() => setPropsPanelOpen(v => !v)}
+                  className={`p-2 rounded-lg transition-colors ${propsPanelOpen ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
                   title="Propiedades"
                 >
                   <SlidersHorizontal className="w-5 h-5" />
@@ -1866,21 +1978,21 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
         <div className="flex flex-1 overflow-hidden relative">
 
             {/* Backdrop para mobile */}
-            {!readOnly && mobileLeftOpen && (
+            {!readOnly && leftPanelOpen && (
               <div
                 className="fixed inset-0 bg-black/50 z-40 md:hidden"
-                onClick={() => setMobileLeftOpen(false)}
+                onClick={() => setLeftPanelOpen(false)}
               />
             )}
 
             {/* LEFT SIDEBAR */}
-            {!readOnly && <div className={`absolute md:relative inset-y-0 left-0 z-50 w-52 border-r bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 overflow-y-auto custom-scrollbar flex flex-col min-h-0 transition-transform duration-300 ${mobileLeftOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+            {!readOnly && <div className={`absolute inset-y-0 left-0 z-50 w-48 border-r bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 overflow-y-auto custom-scrollbar flex flex-col min-h-0 transition-transform duration-300 ${leftPanelOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 
                 <div className="p-2 grid grid-cols-4 gap-1 border-b border-gray-200 dark:border-slate-700">
-                    <ToolBtn icon={MousePointer2} label="Select" isSelected={tool === 'select'} onClick={() => { setTool('select'); setMobileLeftOpen(false); }} />
-                    <ToolBtn icon={ImageIcon} label="Mover" isSelected={tool === 'hand'} onClick={() => { setTool('hand'); setMobileLeftOpen(false); }} />
-                    <ToolBtn icon={Type} label="Texto" isSelected={tool === 'text'} onClick={() => { setTool('text'); setMobileLeftOpen(false); }} />
-                    <ToolBtn icon={Share2} label="Unir" isSelected={tool === 'relation'} onClick={() => { setTool('relation'); setMobileLeftOpen(false); }} />
+                    <ToolBtn icon={MousePointer2} label="Select" isSelected={tool === 'select'} onClick={() => setTool('select')} />
+                    <ToolBtn icon={ImageIcon} label="Mover" isSelected={tool === 'hand'} onClick={() => setTool('hand')} />
+                    <ToolBtn icon={Type} label="Texto" isSelected={tool === 'text'} onClick={() => setTool('text')} />
+                    <ToolBtn icon={ArrowRightLeft} label="Unir" isSelected={tool === 'relation'} onClick={() => setTool('relation')} />
                 </div>
 
                 <Accordion title="Dibujo y Formas" defaultOpen>
@@ -1950,7 +2062,7 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
                 </div>
                 
                 {/* BARRA DE HOJAS */}
-                <div className="h-10 border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center px-2 gap-1 z-20 overflow-x-auto">
+                <div className={`h-10 border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center gap-1 z-20 overflow-x-auto transition-all duration-300 ${!readOnly && leftPanelOpen ? 'pl-48' : 'pl-2'} pr-2`}>
                     {sheets.map((sheet, idx) => (
                         <button
                             key={sheet.id}
@@ -1977,18 +2089,18 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
             </div>
 
             {/* Backdrop para mobile props */}
-            {!readOnly && mobilePropsOpen && (
+            {!readOnly && propsPanelOpen && (
               <div
                 className="fixed inset-0 bg-black/40 z-40 md:hidden"
-                onClick={() => setMobilePropsOpen(false)}
+                onClick={() => setPropsPanelOpen(false)}
               />
             )}
 
-            {/* RIGHT SIDEBAR (INSPECTOR) — bottom sheet en mobile */}
-            {!readOnly && <div className={`${mobilePropsOpen ? 'flex' : 'hidden md:flex'} fixed md:relative bottom-0 left-0 right-0 md:bottom-auto md:left-auto md:right-auto z-50 md:z-20 w-full md:w-72 max-h-[70vh] md:max-h-none border-t md:border-t-0 md:border-l bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 flex-col shadow-xl overflow-y-auto min-h-0 rounded-t-2xl md:rounded-none`}>
+            {/* RIGHT SIDEBAR (INSPECTOR) — slide-in from right */}
+            {!readOnly && <div className={`absolute inset-y-0 right-0 z-50 w-60 max-h-full border-l bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 flex flex-col shadow-xl overflow-y-auto min-h-0 transition-transform duration-300 ${propsPanelOpen ? 'translate-x-0' : 'translate-x-full'}`}>
                 <div className="p-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 font-bold text-sm uppercase tracking-wider flex justify-between items-center text-gray-700 dark:text-gray-300">
                     <span>Propiedades</span>
-                    <button onClick={() => setMobilePropsOpen(false)} className="md:hidden p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-500"><X size={16}/></button>
+                    <button onClick={() => setPropsPanelOpen(false)} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-500"><X size={16}/></button>
                 </div>
 
                 <div className="p-4 space-y-6">
@@ -2052,8 +2164,7 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
                                         setNodes(nodes.map(n => {
                                             if (n.id !== selectedNode.id) return n;
                                             let updates: any = { name: newName };
-                                            // Auto-resize para todas las figuras de diagrama
-                                            const autoDim = getAutoDimensions(n.type, newName, n.fontSize, n.fields, n.methods);
+                                            const autoDim = getAutoDimensions(n.type, newName, n.fontSize, n.fields, n.methods, n.stereotype);
                                             if (autoDim) {
                                                 updates = { ...updates, ...autoDim };
                                             }
@@ -2063,6 +2174,31 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
                                     className="w-full p-2 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-slate-100"
                                 />
                             </div>
+
+                            {/* Estereotipo para UML Class */}
+                            {selectedNode.type === 'uml_class' && (
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Estereotipo</label>
+                                    <input
+                                        type="text"
+                                        value={selectedNode.stereotype || ''}
+                                        placeholder="ej: interface, abstract, enum"
+                                        onChange={(e) => {
+                                            if (!selectedNode) return;
+                                            const newStereotype = e.target.value || undefined;
+                                            setNodes(nodes.map(n => {
+                                                if (n.id !== selectedNode.id) return n;
+                                                let updates: any = { stereotype: newStereotype };
+                                                const autoDim = getAutoDimensions(n.type, n.name, n.fontSize, n.fields, n.methods, newStereotype);
+                                                if (autoDim) updates = { ...updates, ...autoDim };
+                                                return { ...n, ...updates };
+                                            }));
+                                        }}
+                                        className="w-full p-2 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-slate-100"
+                                    />
+                                    <p className="text-[10px] text-gray-400 dark:text-gray-500">Se muestra como «texto» sobre el nombre</p>
+                                </div>
+                            )}
 
                             <div className="space-y-3">
                                 <label className="text-xs font-bold text-gray-500 dark:text-gray-400">Tamaño: {selectedNode.fontSize}px</label>

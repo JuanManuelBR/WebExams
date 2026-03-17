@@ -1,10 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  Play, 
-  Trash2, 
-  Plus, 
-  Code, 
-  Type,
+  Play,
+  Trash2,
+  Plus,
   GripVertical,
   ChevronDown,
   ChevronUp,
@@ -13,7 +11,6 @@ import {
   CheckCircle2,
   XCircle,
   GripHorizontal,
-  LayoutTemplate,
   RefreshCw,
   Eye,
   EyeOff,
@@ -138,7 +135,7 @@ export default function EditorJavaScript({ darkMode, onSave, initialCells, zoomL
             };
             
             window.onerror = function(msg, url, line) {
-              sendToParent({ type: 'error', cellId: currentCellId, args: [msg] });
+              sendToParent({ type: 'exec_error', cellId: currentCellId, error: String(msg), line: line });
             };
 
             // --- GESTIÓN DE TIMERS ---
@@ -364,7 +361,10 @@ export default function EditorJavaScript({ darkMode, onSave, initialCells, zoomL
                   });
                 }
               } catch (err) {
-                sendToParent({ type: 'exec_error', cellId, error: err.toString() });
+                const stack = err.stack || '';
+                const lineMatch = stack.match(/<anonymous>:(\d+)/);
+                const line = lineMatch ? parseInt(lineMatch[1]) : null;
+                sendToParent({ type: 'exec_error', cellId, error: err.toString(), line });
               }
             });
           </script>
@@ -431,7 +431,11 @@ export default function EditorJavaScript({ darkMode, onSave, initialCells, zoomL
             }
             
             if (type === 'log') newOutput.push(...args);
-            if (type === 'error' || type === 'exec_error') newOutput.push(`❌ ${error || args.join(' ')}`);
+            if (type === 'exec_error') {
+                const errMsg = error || (args && args.join(' ')) || 'Error desconocido';
+                newOutput.push(`❌ ${errMsg}`);
+                if (data.line) newOutput.push(`📍 Línea ${data.line} de tu código`);
+            }
             if (type === 'warn') newOutput.push(`⚠️ ${args.join(' ')}`);
             if (type === 'success' && result) newOutput.push(`▶ ${result}`);
             if (type === 'success' && !result && newOutput.length === 0) newOutput.push('✓ Ejecutado');
@@ -592,7 +596,7 @@ export default function EditorJavaScript({ darkMode, onSave, initialCells, zoomL
     const newCell: Cell = {
       id: Date.now().toString(),
       type,
-      content: type === 'code' ? '// Código JS\n' : type === 'html' ? '\n<div></div>' : '# Texto\n',
+      content: type === 'code' ? '// Código JS\n' : type === 'html' ? '\n<div></div>' : '⚠️ Esta celda es solo para texto o notas, NO para código.\n\nEscribe aquí tu explicación...\n',
       status: 'idle',
       height: 400
     };
@@ -677,18 +681,15 @@ export default function EditorJavaScript({ darkMode, onSave, initialCells, zoomL
         </div>
 
         <div className="flex-1 flex flex-wrap gap-1.5 justify-end">
-          {!viewMode && <button onClick={() => addCell('code')} className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${darkMode ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'}`} title="Agregar código">
-            <Plus className="w-3.5 h-3.5" /><Code className="w-3.5 h-3.5" /><span className="hidden sm:inline">JS</span>
+          {!viewMode && <button onClick={() => addCell('code')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${darkMode ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'}`} title="Agregar celda de código JavaScript">
+            <Plus className="w-3.5 h-3.5" /><span>Código JS</span>
           </button>}
-          {!viewMode && <button onClick={() => addCell('html')} className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${darkMode ? 'bg-orange-600 hover:bg-orange-500 text-white' : 'bg-orange-500 hover:bg-orange-600 text-white'}`} title="Agregar HTML">
-            <Plus className="w-3.5 h-3.5" /><LayoutTemplate className="w-3.5 h-3.5" /><span className="hidden sm:inline">HTML</span>
+          {!viewMode && <button onClick={() => addCell('html')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${darkMode ? 'bg-orange-600 hover:bg-orange-500 text-white' : 'bg-orange-500 hover:bg-orange-600 text-white'}`} title="Agregar celda HTML">
+            <Plus className="w-3.5 h-3.5" /><span>HTML</span>
           </button>}
-          {!viewMode && <button onClick={() => addCell('markdown')} className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${darkMode ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-purple-500 hover:bg-purple-600 text-white'}`} title="Agregar texto">
-            <Plus className="w-3.5 h-3.5" /><Type className="w-3.5 h-3.5" /><span className="hidden sm:inline">Texto</span>
+          {!viewMode && <button onClick={() => addCell('markdown')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${darkMode ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-purple-500 hover:bg-purple-600 text-white'}`} title="Agregar celda de texto (NO es para código)">
+            <Plus className="w-3.5 h-3.5" /><span>Texto</span>
           </button>}
-          <button onClick={runAllCells} className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${darkMode ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-emerald-500 hover:bg-emerald-600 text-white'}`} title="Ejecutar todo">
-            <Play className="w-3.5 h-3.5" /><span className="hidden sm:inline">Ejecutar</span>
-          </button>
           <button onClick={() => setShowPreview(!showPreview)} className={`p-1.5 rounded-lg transition-colors ${darkMode ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`} title={showPreview ? "Ocultar Vista Previa" : "Mostrar Vista Previa"}>
             {showPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
           </button>
@@ -726,7 +727,7 @@ export default function EditorJavaScript({ darkMode, onSave, initialCells, zoomL
                   cell.type === 'html' ? (darkMode ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700') :
                   (darkMode ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-100 text-purple-700')
                 }`}>
-                  {cell.type === 'code' ? 'JS' : cell.type === 'html' ? 'HTML' : 'Texto'}
+                  {cell.type === 'code' ? 'Código JavaScript' : cell.type === 'html' ? 'HTML' : 'Solo Texto'}
                 </div>
                 {cell.executionTime !== undefined && <span className={`text-xs ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>{cell.executionTime}ms</span>}
                 {cell.status === 'running' && <Loader2 className="w-4 h-4 animate-spin text-blue-500" />}
@@ -796,7 +797,13 @@ export default function EditorJavaScript({ darkMode, onSave, initialCells, zoomL
                   <div className={`border-t px-4 py-3 overflow-x-auto ${darkMode ? 'border-slate-700 bg-slate-950' : 'border-gray-200 bg-gray-50'}`}>
                     <div className="font-mono space-y-1" style={{ fontSize: `${Math.max(12, 14 * (zoomLevel / 100))}px`, lineHeight: `${Math.max(12, 14 * (zoomLevel / 100)) * 1.5}px` }}>
                       {cell.output.map((line, i) => (
-                        <div key={i} className={`${line.startsWith('❌') ? 'text-red-500' : line.startsWith('⚠️') ? 'text-yellow-500' : line.startsWith('✓') ? 'text-emerald-500' : darkMode ? 'text-slate-300' : 'text-gray-700'}`}>
+                        <div key={i} className={
+                          line.startsWith('❌') ? 'text-red-400 font-semibold' :
+                          line.startsWith('📍') ? 'text-orange-400 text-xs mt-0.5' :
+                          line.startsWith('⚠️') ? 'text-yellow-500' :
+                          line.startsWith('✓') ? 'text-emerald-500' :
+                          darkMode ? 'text-slate-300' : 'text-gray-700'
+                        }>
                           {line}
                         </div>
                       ))}

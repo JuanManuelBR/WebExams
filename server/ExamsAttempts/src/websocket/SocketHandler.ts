@@ -188,78 +188,92 @@ export class SocketHandler {
   ) {
     const { attemptId, sessionId } = data;
 
-    const repo = AppDataSource.getRepository(ExamInProgress);
-    const examInProgress = await repo.findOne({
-      where: { intento_id: attemptId },
-    });
-
-    if (!examInProgress) {
-      socket.emit("error", { message: "Intento no encontrado" });
-      return;
-    }
-
-    if (examInProgress.id_sesion !== sessionId) {
-      socket.emit("session_conflict", {
-        message: "Ya existe otra sesión activa",
+    try {
+      const repo = AppDataSource.getRepository(ExamInProgress);
+      const examInProgress = await repo.findOne({
+        where: { intento_id: attemptId },
       });
-      return;
-    }
 
-    // Si el timer de gracia ya expiró → intento ABANDONADO, notificar y salir
-    const attemptCheckRepo = AppDataSource.getRepository(ExamAttempt);
-    const attemptCheck = await attemptCheckRepo.findOne({
-      where: { id: attemptId },
-    });
-    if (attemptCheck && attemptCheck.estado === AttemptState.ABANDONADO) {
-      console.log(
-        `⚠️ Estudiante reconectó en attempt_${attemptId} pero ya estaba ABANDONADO`,
-      );
-      socket.emit("attempt_auto_abandoned", {
-        message:
-          "Tu conexión estuvo inactiva demasiado tiempo. El examen fue marcado como abandonado.",
+      if (!examInProgress) {
+        socket.emit("error", { message: "Intento no encontrado" });
+        return;
+      }
+
+      if (examInProgress.id_sesion !== sessionId) {
+        socket.emit("session_conflict", {
+          message: "Ya existe otra sesión activa",
+        });
+        return;
+      }
+
+      // Si el timer de gracia ya expiró → intento ABANDONADO, notificar y salir
+      const attemptCheckRepo = AppDataSource.getRepository(ExamAttempt);
+      const attemptCheck = await attemptCheckRepo.findOne({
+        where: { id: attemptId },
       });
-      return;
-    }
+      if (attemptCheck && attemptCheck.estado === AttemptState.ABANDONADO) {
+        console.log(
+          `⚠️ Estudiante reconectó en attempt_${attemptId} pero ya estaba ABANDONADO`,
+        );
+        socket.emit("attempt_auto_abandoned", {
+          message:
+            "Tu conexión estuvo inactiva demasiado tiempo. El examen fue marcado como abandonado.",
+        });
+        return;
+      }
 
-    // Cancelar timer de gracia si el estudiante se está reconectando
-    const graceTimer = this.disconnectGraceTimers.get(attemptId);
-    if (graceTimer) {
-      clearTimeout(graceTimer);
-      this.disconnectGraceTimers.delete(attemptId);
-      console.log(
-        `✅ Reconexión detectada para attempt_${attemptId}, timer de gracia cancelado`,
-      );
-      // Notificar al estudiante que su conexión fue restaurada
+      // Cancelar timer de gracia si el estudiante se está reconectando
+      const graceTimer = this.disconnectGraceTimers.get(attemptId);
+      if (graceTimer) {
+        clearTimeout(graceTimer);
+        this.disconnectGraceTimers.delete(attemptId);
+        console.log(
+          `✅ Reconexión detectada para attempt_${attemptId}, timer de gracia cancelado`,
+        );
+      }
+
+      socket.join(`attempt_${attemptId}`);
+
+      // Siempre emitir connection_restored al unirse (reconexión o primera conexión).
+      // El cliente lo usa para limpiar el overlay de "sin conexión" sin importar
+      // si había o no un grace timer activo (cubre la reconexión rápida también).
       socket.emit("connection_restored", {
         message: "¡Conexión restaurada! Puedes continuar.",
       });
+      this.connections.set(socket.id, { type: "student", id: attemptId });
+
+      // Siempre notificar al profesor que el estudiante está conectado.
+      // Esto limpia el badge "Sin señal" sin importar cómo se produjo la reconexión
+      // (grace timer, reconexión rápida antes del disconnect, o primera conexión).
+      if (attemptCheck) {
+        this.io
+          .to(`exam_${attemptCheck.examen_id}`)
+          .emit("student_reconnected", {
+            attemptId,
+            estudiante: { nombre: attemptCheck.nombre_estudiante },
+          });
+      }
+      console.log(`👨‍🎓 Estudiante ${socket.id} unido a attempt_${attemptId}`);
+
+      if (examInProgress.fecha_expiracion) {
+        this.startTimer(attemptId, examInProgress.fecha_expiracion);
+      }
+
+      socket.emit("joined_attempt", {
+        attemptId,
+        estado: examInProgress.estado,
+        fecha_expiracion: examInProgress.fecha_expiracion,
+      });
+    } catch (error) {
+      console.error(`❌ Error en handleJoinAttempt para attempt_${attemptId}:`, error);
+      // Aún así emitir connection_restored para que el overlay del cliente se limpie.
+      // El join_attempt se reintentará en la próxima reconexión.
+      socket.join(`attempt_${attemptId}`);
+      this.connections.set(socket.id, { type: "student", id: attemptId });
+      socket.emit("connection_restored", {
+        message: "Conexión restaurada (sincronización pendiente).",
+      });
     }
-
-    socket.join(`attempt_${attemptId}`);
-    this.connections.set(socket.id, { type: "student", id: attemptId });
-
-    // Siempre notificar al profesor que el estudiante está conectado.
-    // Esto limpia el badge "Sin señal" sin importar cómo se produjo la reconexión
-    // (grace timer, reconexión rápida antes del disconnect, o primera conexión).
-    if (attemptCheck) {
-      this.io
-        .to(`exam_${attemptCheck.examen_id}`)
-        .emit("student_reconnected", {
-          attemptId,
-          estudiante: { nombre: attemptCheck.nombre_estudiante },
-        });
-    }
-    console.log(`👨‍🎓 Estudiante ${socket.id} unido a attempt_${attemptId}`);
-
-    if (examInProgress.fecha_expiracion) {
-      this.startTimer(attemptId, examInProgress.fecha_expiracion);
-    }
-
-    socket.emit("joined_attempt", {
-      attemptId,
-      estado: examInProgress.estado,
-      fecha_expiracion: examInProgress.fecha_expiracion,
-    });
   }
 
   private startTimer(attemptId: number, fecha_expiracion: Date) {

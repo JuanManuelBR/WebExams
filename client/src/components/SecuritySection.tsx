@@ -222,12 +222,12 @@ export default function SeccionSeguridad({
             <div className="flex items-center gap-3">
               <ChevronLeft className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
               <label className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Permitir ver preguntas ya respondidas
+                Permitir regresar a preguntas anteriores
               </label>
               <div className="relative group">
                 <HelpCircle className={`w-5 h-5 ${darkMode ? 'text-gray-500' : 'text-gray-400'} cursor-help`} />
                 <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg" style={{ minWidth: '240px', maxWidth: '320px' }}>
-                  Permite al estudiante devolverse para revisar y cambiar preguntas que ya haya contestado.
+                  Cuando está activo, el estudiante puede navegar hacia preguntas anteriores durante el examen. Si está desactivado, solo podrá avanzar.
                   <div className="absolute left-3 -bottom-1 w-2 h-2 bg-gray-900 transform rotate-45"></div>
                 </div>
               </div>

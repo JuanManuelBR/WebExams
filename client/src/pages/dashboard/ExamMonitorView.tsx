@@ -1146,7 +1146,7 @@ export default function VigilanciaExamenesLista({
                 </div>
 
                 {/* Desktop: tabs */}
-                <div className={`hidden md:flex gap-1 px-3 lg:px-6 flex-shrink-0 mb-4 border-b ${darkMode ? "border-slate-800" : "border-slate-100"}`}>
+                <div className={`hidden md:flex gap-0 px-3 lg:px-6 flex-shrink-0 mb-4 border-b overflow-x-auto scrollbar-hide ${darkMode ? "border-slate-800" : "border-slate-100"}`}>
                    {[
                       { key: "todos" as FiltroEstado, label: "Todos", count: contadores.todos },
                       { key: "activos" as FiltroEstado, label: "En Curso", count: contadores.activos },
@@ -1158,7 +1158,7 @@ export default function VigilanciaExamenesLista({
                       <button
                         key={filtro.key}
                         onClick={() => cambiarFiltroExamen(filtro.key)}
-                        className={`py-3 px-4 text-sm font-medium border-b-2 transition-all whitespace-nowrap flex-shrink-0 ${
+                        className={`py-2.5 px-2 lg:px-3 text-xs lg:text-sm font-medium border-b-2 transition-all whitespace-nowrap flex-shrink-0 ${
                           filtroActual === filtro.key
                           ? `border-teal-500 ${darkMode ? "text-teal-400" : "text-teal-600"}`
                           : `border-transparent ${darkMode ? "text-slate-400 hover:text-slate-300" : "text-slate-500 hover:text-slate-700"}`
@@ -1321,9 +1321,9 @@ export default function VigilanciaExamenesLista({
                  </div>
 
                  <div className="md:flex-1 flex flex-col md:min-h-0">
-                     <div className={`p-3 md:p-4 lg:p-6 pb-0 flex-shrink-0 ${darkMode ? "bg-transparent" : "bg-white"}`}>
+                     <div className={`p-3 md:p-3 lg:p-4 pb-0 flex-shrink-0 ${darkMode ? "bg-transparent" : "bg-white"}`}>
 
-                     <div className="flex items-center gap-4 mb-4 relative overflow-hidden">
+                     <div className="flex items-center gap-3 mb-3 relative overflow-hidden">
                         {/* Stamp de nota - sello grande rotado semi-transparente */}
                         {estudianteSeleccionado.calificacion !== undefined && estudianteSeleccionado.calificacion !== null && (
                           <div className="absolute right-4 top-1/2 -translate-y-1/2 -rotate-12 pointer-events-none select-none z-0">
@@ -1411,45 +1411,45 @@ export default function VigilanciaExamenesLista({
                         </div>
                      </div>
 
-                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        
+                     <div className="grid grid-cols-3 gap-2 mb-3">
+
                         {/* Progreso */}
-                        <div className={`p-3 rounded-xl border flex flex-col justify-between shadow-sm ${darkMode ? "bg-slate-800 border-slate-700" : "bg-gradient-to-br from-teal-50 to-white border-slate-200"}`}>
+                        <div className={`p-2.5 rounded-xl border flex flex-col justify-between shadow-sm ${darkMode ? "bg-slate-800 border-slate-700" : "bg-gradient-to-br from-teal-50 to-white border-slate-200"}`}>
                             <div className="flex justify-between items-start mb-2">
-                                <span className={`text-[10px] font-bold uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>Progreso</span>
-                                <span className={`text-lg font-bold ${darkMode ? "text-teal-400" : "text-teal-600"}`}>{estudianteSeleccionado.progreso}%</span>
+                                <span className={`text-[9px] font-bold uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>Progreso</span>
+                                <span className={`text-sm font-bold ${darkMode ? "text-teal-400" : "text-teal-600"}`}>{estudianteSeleccionado.progreso}%</span>
                             </div>
-                            <div className={`h-2 w-full rounded-full overflow-hidden ${darkMode ? "bg-slate-900 shadow-inner" : "bg-slate-100 shadow-inner"}`}>
+                            <div className={`h-1.5 w-full rounded-full overflow-hidden ${darkMode ? "bg-slate-900 shadow-inner" : "bg-slate-100 shadow-inner"}`}>
                                 <div className="h-full bg-gradient-to-r from-teal-500 to-emerald-400 rounded-full shadow-lg shadow-teal-500/20" style={{ width: `${estudianteSeleccionado.progreso}%` }}></div>
                             </div>
                         </div>
 
                         {/* Tiempo */}
-                        <div className={`p-3 rounded-xl border flex flex-col justify-between shadow-sm ${darkMode ? "bg-slate-800 border-slate-700" : "bg-gradient-to-br from-blue-50 to-white border-slate-200"}`}>
-                            <span className={`text-[10px] font-bold uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>Tiempo Transcurrido</span>
-                            <div className="flex items-center gap-2 mt-1">
-                                <Clock className={`w-5 h-5 ${darkMode ? "text-blue-500" : "text-blue-600"}`} />
-                                <span className={`text-xl font-mono font-bold tracking-tight ${darkMode ? "text-white" : "text-slate-800"}`}>
+                        <div className={`p-2.5 rounded-xl border flex flex-col justify-between shadow-sm ${darkMode ? "bg-slate-800 border-slate-700" : "bg-gradient-to-br from-blue-50 to-white border-slate-200"}`}>
+                            <span className={`text-[9px] font-bold uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>Tiempo Transcurrido</span>
+                            <div className="flex items-center gap-1.5 mt-1">
+                                <Clock className={`w-4 h-4 flex-shrink-0 ${darkMode ? "text-blue-500" : "text-blue-600"}`} />
+                                <span className={`text-sm font-mono font-bold tracking-tight ${darkMode ? "text-white" : "text-slate-800"}`}>
                                     {calcularTiempoDisplay(estudianteSeleccionado)}
                                 </span>
                             </div>
                         </div>
 
                         {/* Estado Alertas */}
-                        <div className={`p-3 rounded-xl border flex items-center justify-between ${
-                            estudianteSeleccionado.alertas > 0 
-                                ? (darkMode ? "bg-rose-500/10 border-rose-500/30" : "bg-rose-50 border-rose-200") 
+                        <div className={`p-2.5 rounded-xl border flex items-center justify-between ${
+                            estudianteSeleccionado.alertas > 0
+                                ? (darkMode ? "bg-rose-500/10 border-rose-500/30" : "bg-rose-50 border-rose-200")
                                 : (darkMode ? "bg-emerald-500/10 border-emerald-500/30" : "bg-emerald-50 border-emerald-200")
                         }`}>
-                            <div>
-                                <span className={`text-[10px] font-bold uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>Estado de Seguridad</span>
-                                <div className={`text-base font-bold mt-0.5 ${estudianteSeleccionado.alertas > 0 ? "text-rose-500" : "text-emerald-500"}`}>
-                                    {estudianteSeleccionado.alertas > 0 ? "Actividad Sospechosa" : "Seguro"}
+                            <div className="min-w-0 flex-1">
+                                <span className={`text-[9px] font-bold uppercase tracking-widest ${darkMode ? "text-slate-400" : "text-slate-500"}`}>Seguridad</span>
+                                <div className={`text-xs font-bold mt-0.5 leading-tight ${estudianteSeleccionado.alertas > 0 ? "text-rose-500" : "text-emerald-500"}`}>
+                                    {estudianteSeleccionado.alertas > 0 ? "Sospechoso" : "Seguro"}
                                 </div>
-                                <div className={`text-xs font-medium mt-0.5 ${darkMode ? "text-white/80" : "text-slate-800"}`}>{estudianteSeleccionado.alertas} incidentes registrados</div>
+                                <div className={`text-[10px] font-medium mt-0.5 ${darkMode ? "text-white/80" : "text-slate-800"}`}>{estudianteSeleccionado.alertas} incidentes</div>
                             </div>
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${estudianteSeleccionado.alertas > 0 ? "bg-rose-500 text-white" : "bg-emerald-500 text-white"}`}>
-                                {estudianteSeleccionado.alertas > 0 ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+                            <div className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center ml-1 ${estudianteSeleccionado.alertas > 0 ? "bg-rose-500 text-white" : "bg-emerald-500 text-white"}`}>
+                                {estudianteSeleccionado.alertas > 0 ? <AlertTriangle className="w-3.5 h-3.5" /> : <CheckCircle className="w-3.5 h-3.5" />}
                             </div>
                         </div>
                      </div>
@@ -1467,12 +1467,12 @@ export default function VigilanciaExamenesLista({
                                 <span className={`text-sm font-medium ${darkMode ? "text-slate-500" : "text-slate-600"}`}>Sin incidentes registrados hasta el momento.</span>
                              </div>
                         ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 lg:gap-3">
                                 {[...alertasEstudiante].reverse().map((alerta) => {
                                     const config = getAlertConfig(alerta.tipo_evento);
                                     return (
-                                        <div key={alerta.id} className={`p-4 rounded-xl border shadow-sm flex gap-3 transition-transform hover:-translate-y-1 ${config.bg} ${config.border}`}>
-                                            <div className={`w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center ${darkMode ? "bg-black/20" : "bg-white"} ${config.color}`}>
+                                        <div key={alerta.id} className={`p-3 rounded-xl border shadow-sm flex gap-2 transition-transform hover:-translate-y-1 ${config.bg} ${config.border}`}>
+                                            <div className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center ${darkMode ? "bg-black/20" : "bg-white"} ${config.color}`}>
                                                 {config.icon}
                                             </div>
                                             <div className="flex-1 min-w-0">
