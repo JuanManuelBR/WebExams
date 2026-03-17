@@ -481,6 +481,8 @@ export class ScoringService {
         console.error(`Error enviando correo a ${attempt.correo_estudiante}:`, e);
         errores++;
       }
+      // Resend permite máx 5 req/seg — esperar 250ms entre envíos para no superar el límite
+      await new Promise((resolve) => setTimeout(resolve, 250));
     }
 
     return { enviados, errores, sinCorreo };
