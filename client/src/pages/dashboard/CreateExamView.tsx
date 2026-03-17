@@ -655,6 +655,7 @@ export default function CrearExamen({
       }
 
       if (resultado.success) {
+        sessionStorage.setItem('lastCreatedExamCode', resultado.codigoExamen);
         setExamenCreado({
           codigo: resultado.codigoExamen,
           url: `${window.location.origin}/exam-access?code=${encodeURIComponent(resultado.codigoExamen)}`,

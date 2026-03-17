@@ -1915,6 +1915,8 @@ export default function Lienzo({ darkMode, initialData, onSave, readOnly }: Lien
         setNodes(prev => [...prev, ...newNodes]);
         setConnections(prev => [...prev, ...newConns]);
         setPaintActions(prev => [...prev, ...newPaint]);
+        // Actualizar clipboard para que el siguiente paste offset desde la posición actual
+        clipboardRef.current = { nodes: newNodes, connections: newConns, paintActions: newPaint };
         // Seleccionar los nuevos elementos
         const newIds = new Set([...newNodes.map(n => n.id), ...newConns.map(c => c.id), ...newPaint.map(p => p.id)]);
         setSelectedIds(newIds);

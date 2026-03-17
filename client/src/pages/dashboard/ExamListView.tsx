@@ -56,6 +56,9 @@ export default function ListaExamenes({
   const [examenes, setExamenes] = useState<ExamenConEstado[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastCreatedCode] = useState<string | null>(() =>
+    sessionStorage.getItem('lastCreatedExamCode')
+  );
 
   const [codigoCopiado, setCodigoCopiado] = useState<string | null>(null);
   const [urlCopiada, setUrlCopiada] = useState<string | null>(null);
@@ -82,6 +85,10 @@ export default function ListaExamenes({
 
   useEffect(() => {
     cargarExamenes();
+  }, []);
+
+  useEffect(() => {
+    return () => { sessionStorage.removeItem('lastCreatedExamCode'); };
   }, []);
 
   const cargarExamenes = async () => {
@@ -112,14 +119,11 @@ export default function ListaExamenes({
     }
   };
 
-  // CAMBIO: Eliminamos el reordenamiento automático por estado
-  // Solo ordenamos por archivado/no archivado
   const ordenarExamenes = (exams: ExamenConEstado[]) => {
     return [...exams].sort((a, b) => {
-      // Solo ordenar por archivado
       if (a.archivado !== b.archivado) return a.archivado ? 1 : -1;
-      // Mantener el orden original (por ID o fecha de creación)
-      return 0;
+      // Más reciente primero
+      return new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime();
     });
   };
 
@@ -691,18 +695,23 @@ export default function ListaExamenes({
             const isInactive = !examen.activoManual || examen.archivado;
             const isMenuOpen = menuAbierto === examen.codigoExamen;
             const tipoExamen = obtenerTipoExamen(examen);
+            const isNew = lastCreatedCode === examen.codigoExamen;
 
             return (
               <ScrollReveal key={examen.id} delay={index * 55}>
               <div
-                className={`group rounded-2xl p-5 border transition-all duration-300 ${
-                  isInactive
+                className={`group rounded-2xl p-5 border transition-all duration-500 ${
+                  isNew
                     ? darkMode
-                      ? "bg-slate-800/50 border-slate-700/50"
-                      : "bg-gray-100/70 border-gray-200/70"
-                    : darkMode
-                      ? "bg-slate-900/80 border-slate-700/50 hover:bg-slate-900"
-                      : "bg-white border-gray-200 shadow-sm hover:shadow-md"
+                      ? "bg-violet-900/20 border-violet-500/60 shadow-lg shadow-violet-500/10"
+                      : "bg-violet-50 border-violet-400 shadow-lg shadow-violet-200"
+                    : isInactive
+                      ? darkMode
+                        ? "bg-slate-800/50 border-slate-700/50"
+                        : "bg-gray-100/70 border-gray-200/70"
+                      : darkMode
+                        ? "bg-slate-900/80 border-slate-700/50 hover:bg-slate-900"
+                        : "bg-white border-gray-200 shadow-sm hover:shadow-md"
                 }`}
               >
                 <div className="flex items-center gap-2 md:gap-5">
@@ -740,6 +749,11 @@ export default function ListaExamenes({
                         >
                           {examen.nombre}
                         </h3>
+                        {isNew && (
+                          <span className="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-violet-500 text-white animate-pulse">
+                            Nuevo
+                          </span>
+                        )}
                         <span
                           className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide transition-all duration-300 ${
                             estado === "Activo"
