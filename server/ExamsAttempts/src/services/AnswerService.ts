@@ -103,7 +103,7 @@ export class AnswerService {
       return answer;
     }
 
-    const progreso = Math.round((totalAnswers / totalQuestions) * 100);
+    const progreso = Math.min(100, Math.round((totalAnswers / totalQuestions) * 100));
 
    
 
