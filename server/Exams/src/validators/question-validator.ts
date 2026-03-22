@@ -26,6 +26,7 @@ export class QuestionValidator {
         type: questionDto.type,
         puntaje: questionDto.puntaje,
         calificacionParcial: questionDto.calificacionParcial,
+        orden: index,
         exam,
       };
 
@@ -34,6 +35,7 @@ export class QuestionValidator {
         type: questionDto.type,
         puntaje: questionDto.puntaje,
         calificacionParcial: questionDto.calificacionParcial,
+        orden: index,
         exam,
       };
 

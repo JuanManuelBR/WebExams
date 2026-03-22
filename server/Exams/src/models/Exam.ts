@@ -1,4 +1,3 @@
-// src/models/Exam.ts
 import {
   Entity,
   PrimaryGeneratedColumn,

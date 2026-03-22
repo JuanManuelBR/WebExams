@@ -26,6 +26,9 @@ export abstract class Question {
   @Column({ type: "boolean" })
   calificacionParcial!: boolean;
 
+  @Column({ type: "int", default: 0 })
+  orden!: number;
+
   @Index()
   @ManyToOne("Exam", "questions", { onDelete: "CASCADE" })
   exam!: Exam;

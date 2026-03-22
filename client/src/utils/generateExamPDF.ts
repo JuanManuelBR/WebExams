@@ -28,6 +28,33 @@ function checkBreak(doc: jsPDF, y: number, needed: number): number {
   return y;
 }
 
+/** Convert HTML rich-text into plain text suitable for jsPDF */
+function stripHtml(html: string): string {
+  if (!html) return "";
+  let text = html;
+  // Convert block-level tags to line breaks
+  text = text.replace(/<br\s*\/?>/gi, "\n");
+  text = text.replace(/<\/p>/gi, "\n");
+  text = text.replace(/<\/li>/gi, "\n");
+  text = text.replace(/<\/h[1-6]>/gi, "\n");
+  text = text.replace(/<\/div>/gi, "\n");
+  // Add bullet for list items
+  text = text.replace(/<li[^>]*>/gi, "• ");
+  // Strip remaining HTML tags
+  text = text.replace(/<[^>]+>/g, "");
+  // Decode common HTML entities
+  text = text.replace(/&amp;/g, "&");
+  text = text.replace(/&lt;/g, "<");
+  text = text.replace(/&gt;/g, ">");
+  text = text.replace(/&quot;/g, '"');
+  text = text.replace(/&#39;/g, "'");
+  text = text.replace(/&nbsp;/g, " ");
+  // Clean up whitespace
+  text = text.replace(/[ \t]+/g, " ");
+  text = text.replace(/\n{3,}/g, "\n\n");
+  return text.trim();
+}
+
 function writeWrapped(
   doc: jsPDF,
   text: string,
@@ -423,9 +450,19 @@ export async function generateExamPDF(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10.5);
     doc.setTextColor(...NAVY);
-    const enuncLines = doc.splitTextToSize(q.enunciado ?? "", enuncW);
-    doc.text(enuncLines, MARGIN + 10, y);
-    y += enuncLines.length * 5.8 + 4;
+    const cleanEnunciado = stripHtml(q.enunciado ?? "");
+    // Handle multi-line text (from paragraphs, list items, etc.)
+    const paragraphs = cleanEnunciado.split("\n");
+    for (const para of paragraphs) {
+      if (!para.trim()) { y += 2; continue; }
+      const paraLines = doc.splitTextToSize(para.trim(), enuncW);
+      for (const line of paraLines) {
+        y = checkBreak(doc, y, 5.8);
+        doc.text(line, MARGIN + 10, y);
+        y += 5.8;
+      }
+    }
+    y += 2;
 
     // Manual grading note
     if (q.type === "open" && (!q.keywords || q.keywords.length === 0) && !q.textoRespuesta) {

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { X, Download, FileText, CheckSquare, Square, Loader2, FileDown } from "lucide-react";
 import { examsService, obtenerUsuarioActual, type ExamenCreado } from "../services/examsService";
 import { generateExamPDF } from "../utils/generateExamPDF";
@@ -57,9 +58,9 @@ export default function ExportarPDFModal({ examen, darkMode, onClose }: Exportar
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 anim-fadeIn"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4 anim-fadeIn"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       {/* Backdrop */}
@@ -202,6 +203,7 @@ export default function ExportarPDFModal({ examen, darkMode, onClose }: Exportar
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

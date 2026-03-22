@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Plus, Trash2, Copy, Image as ImageIcon, X, Check, ChevronDown, AlertCircle, HelpCircle, ChevronUp, Pencil } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Trash2, Copy, Image as ImageIcon, X, Check, ChevronDown, AlertCircle, HelpCircle, ChevronUp, Pencil, GripVertical } from 'lucide-react';
 import EditorTexto from './TextEditor';
 
 interface CrearPreguntasProps {
@@ -73,6 +73,8 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
   const [preguntasCerrando, setPreguntasCerrando] = useState<Set<string>>(new Set());
   const [preguntasTransicionando, setPreguntasTransicionando] = useState<Set<string>>(new Set());
   const [imageError, setImageError] = useState<string | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   // Notificar al padre cuando cambien las preguntas
   useEffect(() => {
@@ -111,8 +113,7 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
     }
   }, [preguntas, onValidationChange]);
 
-  const toggleEditarPregunta = (id: string) => {
-    // Reproducir animación de salida primero, luego cambiar el contenido
+  const toggleEditarPregunta = useCallback((id: string) => {
     setPreguntasTransicionando(prev => new Set(prev).add(id));
     setTimeout(() => {
       setPreguntasEditando(prev => {
@@ -122,18 +123,18 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
         return nuevo;
       });
       setPreguntasTransicionando(prev => { const s = new Set(prev); s.delete(id); return s; });
-      marcarComoNueva(id); // animación de entrada para el nuevo contenido
-    }, 180); // coincide con la duración de anim-fadeOut
-  };
+      marcarComoNueva(id);
+    }, 180);
+  }, []);
 
-  const marcarComoNueva = (id: string) => {
+  const marcarComoNueva = useCallback((id: string) => {
     setPreguntasNuevas(prev => new Set(prev).add(id));
     setTimeout(() => {
       setPreguntasNuevas(prev => { const s = new Set(prev); s.delete(id); return s; });
     }, 350);
-  };
+  }, []);
 
-  const crearNuevaPregunta = () => {
+  const crearNuevaPregunta = useCallback(() => {
     const nuevaPregunta: Pregunta = {
       id: Date.now().toString(),
       tipo: 'seleccion-multiple',
@@ -146,32 +147,41 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
     setPreguntas(prev => [...prev, nuevaPregunta]);
     setPreguntasEditando(prev => new Set(prev).add(nuevaPregunta.id));
     marcarComoNueva(nuevaPregunta.id);
-  };
+  }, [marcarComoNueva]);
 
-  const duplicarPregunta = (id: string) => {
-    const pregunta = preguntas.find(p => p.id === id);
-    if (pregunta) {
+  const duplicarPregunta = useCallback((id: string) => {
+    setPreguntas(prev => {
+      const pregunta = prev.find(p => p.id === id);
+      if (!pregunta) return prev;
       const nuevaPregunta = { ...pregunta, id: Date.now().toString() };
-      setPreguntas(prev => [...prev, nuevaPregunta]);
-      marcarComoNueva(nuevaPregunta.id);
-    }
-  };
+      return [...prev, nuevaPregunta];
+    });
+  }, []);
 
-  const eliminarPregunta = (id: string) => {
-    // Marcar como cerrando para activar animación de salida
+  const eliminarPregunta = useCallback((id: string) => {
     setPreguntasCerrando(prev => new Set(prev).add(id));
     setTimeout(() => {
       setPreguntas(prev => prev.filter(p => p.id !== id));
       setPreguntasEditando(prev => { const s = new Set(prev); s.delete(id); return s; });
       setPreguntasCerrando(prev => { const s = new Set(prev); s.delete(id); return s; });
     }, 220);
-  };
+  }, []);
 
-  const actualizarPregunta = (id: string, cambios: Partial<Pregunta>) => {
-    setPreguntas(preguntas.map(p => p.id === id ? { ...p, ...cambios } : p));
-  };
+  const moverPregunta = useCallback((index: number, direccion: 'arriba' | 'abajo') => {
+    const nuevoIndex = direccion === 'arriba' ? index - 1 : index + 1;
+    setPreguntas(prev => {
+      if (nuevoIndex < 0 || nuevoIndex >= prev.length) return prev;
+      const nuevasPreguntas = [...prev];
+      [nuevasPreguntas[index], nuevasPreguntas[nuevoIndex]] = [nuevasPreguntas[nuevoIndex], nuevasPreguntas[index]];
+      return nuevasPreguntas;
+    });
+  }, []);
 
-  const cambiarTipoPregunta = (id: string, nuevoTipo: TipoPregunta) => {
+  const actualizarPregunta = useCallback((id: string, cambios: Partial<Pregunta>) => {
+    setPreguntas(prev => prev.map(p => p.id === id ? { ...p, ...cambios } : p));
+  }, []);
+
+  const cambiarTipoPregunta = useCallback((id: string, nuevoTipo: TipoPregunta) => {
     let cambios: Partial<Pregunta> = { tipo: nuevoTipo };
 
     switch (nuevoTipo) {
@@ -199,169 +209,140 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
 
     actualizarPregunta(id, cambios);
     setMostrarSelectorTipo(null);
-  };
+  }, [actualizarPregunta]);
 
-  const agregarOpcion = (id: string) => {
-    const pregunta = preguntas.find(p => p.id === id);
-    if (pregunta?.opciones && pregunta.opciones.length < 10) {
+  const agregarOpcion = useCallback((id: string) => {
+    setPreguntas(prev => {
+      const pregunta = prev.find(p => p.id === id);
+      if (!pregunta?.opciones || pregunta.opciones.length >= 10) return prev;
       const nuevaOpcion: OpcionSeleccion = {
         id: Date.now().toString(),
         texto: `Opción ${pregunta.opciones.length + 1}`,
         esCorrecta: false
       };
-      actualizarPregunta(id, { opciones: [...pregunta.opciones, nuevaOpcion] });
-    }
-  };
+      return prev.map(p => p.id === id ? { ...p, opciones: [...p.opciones!, nuevaOpcion] } : p);
+    });
+  }, []);
 
-  const eliminarOpcion = (preguntaId: string, opcionId: string) => {
-    const pregunta = preguntas.find(p => p.id === preguntaId);
-    if (pregunta?.opciones) {
-      actualizarPregunta(preguntaId, {
-        opciones: pregunta.opciones.filter(o => o.id !== opcionId)
-      });
-    }
-  };
+  const eliminarOpcion = useCallback((preguntaId: string, opcionId: string) => {
+    setPreguntas(prev => prev.map(p => 
+      p.id === preguntaId && p.opciones 
+        ? { ...p, opciones: p.opciones.filter(o => o.id !== opcionId) } 
+        : p
+    ));
+  }, []);
 
-  const actualizarOpcion = (preguntaId: string, opcionId: string, texto: string) => {
-    const pregunta = preguntas.find(p => p.id === preguntaId);
-    if (pregunta?.opciones) {
-      actualizarPregunta(preguntaId, {
-        opciones: pregunta.opciones.map(o => o.id === opcionId ? { ...o, texto } : o)
-      });
-    }
-  };
+  const actualizarOpcion = useCallback((preguntaId: string, opcionId: string, texto: string) => {
+    setPreguntas(prev => prev.map(p => 
+      p.id === preguntaId && p.opciones 
+        ? { ...p, opciones: p.opciones.map(o => o.id === opcionId ? { ...o, texto } : o) } 
+        : p
+    ));
+  }, []);
 
-  const toggleRespuestaCorrecta = (preguntaId: string, opcionId: string) => {
-    const pregunta = preguntas.find(p => p.id === preguntaId);
-    if (pregunta?.opciones) {
-      actualizarPregunta(preguntaId, {
-        opciones: pregunta.opciones.map(o => 
-          o.id === opcionId ? { ...o, esCorrecta: !o.esCorrecta } : o
-        )
-      });
-    }
-  };
+  const toggleRespuestaCorrecta = useCallback((preguntaId: string, opcionId: string) => {
+    setPreguntas(prev => prev.map(p => 
+      p.id === preguntaId && p.opciones 
+        ? { ...p, opciones: p.opciones.map(o => 
+            o.id === opcionId ? { ...o, esCorrecta: !o.esCorrecta } : o
+          ) } 
+        : p
+    ));
+  }, []);
 
-  const agregarParConexion = (id: string) => {
-    const pregunta = preguntas.find(p => p.id === id);
-    if (pregunta?.paresConexion && pregunta.paresConexion.length < 10) {
+  const agregarParConexion = useCallback((id: string) => {
+    setPreguntas(prev => {
+      const pregunta = prev.find(p => p.id === id);
+      if (!pregunta?.paresConexion || pregunta.paresConexion.length >= 10) return prev;
       const nuevoPar: ParConexion = {
         id: Date.now().toString(),
         izquierda: '',
         derecha: ''
       };
-      actualizarPregunta(id, { paresConexion: [...pregunta.paresConexion, nuevoPar] });
-    }
-  };
+      return prev.map(p => p.id === id ? { ...p, paresConexion: [...p.paresConexion!, nuevoPar] } : p);
+    });
+  }, []);
 
-  const eliminarParConexion = (preguntaId: string, parId: string) => {
-    const pregunta = preguntas.find(p => p.id === preguntaId);
-    if (pregunta?.paresConexion) {
-      actualizarPregunta(preguntaId, {
-        paresConexion: pregunta.paresConexion.filter(p => p.id !== parId)
-      });
-    }
-  };
+  const eliminarParConexion = useCallback((preguntaId: string, parId: string) => {
+    setPreguntas(prev => prev.map(p => 
+      p.id === preguntaId && p.paresConexion 
+        ? { ...p, paresConexion: p.paresConexion.filter(par => par.id !== parId) } 
+        : p
+    ));
+  }, []);
 
-  const actualizarParConexion = (preguntaId: string, parId: string, lado: 'izquierda' | 'derecha', valor: string) => {
-    const pregunta = preguntas.find(p => p.id === preguntaId);
-    if (pregunta?.paresConexion) {
-      actualizarPregunta(preguntaId, {
-        paresConexion: pregunta.paresConexion.map(p => 
-          p.id === parId ? { ...p, [lado]: valor } : p
-        )
-      });
-    }
-  };
+  const actualizarParConexion = useCallback((preguntaId: string, parId: string, lado: 'izquierda' | 'derecha', valor: string) => {
+    setPreguntas(prev => prev.map(p => 
+      p.id === preguntaId && p.paresConexion 
+        ? { ...p, paresConexion: p.paresConexion.map(par => 
+            par.id === parId ? { ...par, [lado]: valor } : par
+          ) } 
+        : p
+    ));
+  }, []);
 
   // ========== NUEVAS FUNCIONES PARA RELLENAR ESPACIOS ==========
   
-  const actualizarTextoCompleto = (preguntaId: string, nuevoTexto: string) => {
-    const pregunta = preguntas.find(p => p.id === preguntaId);
-    if (!pregunta) return;
-
-    // Obtener las palabras del nuevo texto
-    const palabrasNuevas = nuevoTexto.split(/\s+/).filter(p => p.trim().length > 0);
-    
-    // Filtrar las palabras seleccionadas que aún existen en el nuevo texto
-    const palabrasSeleccionadasActualizadas = (pregunta.palabrasSeleccionadas || []).filter(ps => {
-      // Verificar si el índice todavía es válido
-      if (ps.indice >= palabrasNuevas.length) return false;
-      
-      // Verificar si la palabra en esa posición sigue siendo la misma
-      return palabrasNuevas[ps.indice] === ps.palabra;
-    });
-
-    actualizarPregunta(preguntaId, {
-      textoCompleto: nuevoTexto,
-      palabrasSeleccionadas: palabrasSeleccionadasActualizadas
-    });
-  };
+  const actualizarTextoCompleto = useCallback((preguntaId: string, nuevoTexto: string) => {
+    setPreguntas(prev => prev.map(p => {
+      if (p.id !== preguntaId) return p;
+      const palabrasNuevas = nuevoTexto.split(/\s+/).filter(w => w.trim().length > 0);
+      const palabrasSeleccionadasActualizadas = (p.palabrasSeleccionadas || []).filter(ps => {
+        if (ps.indice >= palabrasNuevas.length) return false;
+        return palabrasNuevas[ps.indice] === ps.palabra;
+      });
+      return { ...p, textoCompleto: nuevoTexto, palabrasSeleccionadas: palabrasSeleccionadasActualizadas };
+    }));
+  }, []);
 
   const manejarDobleClicPalabra = (preguntaId: string, e: React.MouseEvent<HTMLTextAreaElement>) => {
-    const pregunta = preguntas.find(p => p.id === preguntaId);
-    if (!pregunta || !pregunta.textoCompleto) return;
-
     const textarea = e.currentTarget as HTMLTextAreaElement;
     const posicionClick = textarea.selectionStart;
-    const texto = pregunta.textoCompleto;
 
-    // Encontrar los límites de la palabra en la posición del clic
-    let inicio = posicionClick;
-    let fin = posicionClick;
+    setPreguntas(prev => prev.map(p => {
+      if (p.id !== preguntaId || !p.textoCompleto) return p;
+      const texto = p.textoCompleto;
 
-    // Expandir hacia atrás hasta encontrar un espacio o el inicio
-    while (inicio > 0 && !/\s/.test(texto[inicio - 1])) {
-      inicio--;
-    }
+      let inicio = posicionClick;
+      let fin = posicionClick;
+      while (inicio > 0 && !/\s/.test(texto[inicio - 1])) inicio--;
+      while (fin < texto.length && !/\s/.test(texto[fin])) fin++;
 
-    // Expandir hacia adelante hasta encontrar un espacio o el final
-    while (fin < texto.length && !/\s/.test(texto[fin])) {
-      fin++;
-    }
+      const palabraSeleccionada = texto.substring(inicio, fin).trim();
+      if (!palabraSeleccionada || palabraSeleccionada.length === 0) return p;
 
-    const palabraSeleccionada = texto.substring(inicio, fin).trim();
-    
-    if (!palabraSeleccionada || palabraSeleccionada.length === 0) return;
+      const textoAntes = texto.substring(0, inicio);
+      const palabrasAntes = textoAntes.split(/\s+/).filter(w => w.trim().length > 0);
+      const indice = palabrasAntes.length;
 
-    // Contar cuántas palabras hay antes de esta posición
-    const textoAntes = texto.substring(0, inicio);
-    const palabrasAntes = textoAntes.split(/\s+/).filter(p => p.trim().length > 0);
-    const indice = palabrasAntes.length;
+      const palabrasSeleccionadas = p.palabrasSeleccionadas || [];
+      const yaSeleccionada = palabrasSeleccionadas.find(ps => ps.indice === indice);
 
-    const palabrasSeleccionadas = pregunta.palabrasSeleccionadas || [];
-    const yaSeleccionada = palabrasSeleccionadas.find(p => p.indice === indice);
-
-    if (yaSeleccionada) {
-      // Deseleccionar
-      actualizarPregunta(preguntaId, {
-        palabrasSeleccionadas: palabrasSeleccionadas.filter(p => p.indice !== indice)
-      });
-    } else {
-      // Seleccionar (máximo 10)
-      if (palabrasSeleccionadas.length < 10) {
-        actualizarPregunta(preguntaId, {
+      if (yaSeleccionada) {
+        return { ...p, palabrasSeleccionadas: palabrasSeleccionadas.filter(ps => ps.indice !== indice) };
+      } else if (palabrasSeleccionadas.length < 10) {
+        return {
+          ...p,
           palabrasSeleccionadas: [...palabrasSeleccionadas, { indice, palabra: palabraSeleccionada }]
             .sort((a, b) => a.indice - b.indice)
-        });
+        };
       }
-    }
+      return p;
+    }));
 
-    // Restaurar el foco al textarea
     setTimeout(() => {
       textarea.focus();
       textarea.setSelectionRange(posicionClick, posicionClick);
     }, 0);
   };
 
-  const eliminarPalabraSeleccionada = (preguntaId: string, indice: number) => {
-    const pregunta = preguntas.find(p => p.id === preguntaId);
-    if (!pregunta || !pregunta.palabrasSeleccionadas) return;
-
-    actualizarPregunta(preguntaId, {
-      palabrasSeleccionadas: pregunta.palabrasSeleccionadas.filter(p => p.indice !== indice)
-    });
-  };
+  const eliminarPalabraSeleccionada = useCallback((preguntaId: string, indice: number) => {
+    setPreguntas(prev => prev.map(p =>
+      p.id === preguntaId && p.palabrasSeleccionadas
+        ? { ...p, palabrasSeleccionadas: p.palabrasSeleccionadas.filter(ps => ps.indice !== indice) }
+        : p
+    ));
+  }, []);
 
   const generarTextoConEspacios = (pregunta: Pregunta): string => {
     if (!pregunta.textoCompleto) return '';
@@ -375,48 +356,41 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
     }).join(' ');
   };
 
-  const toggleCalificacionParcial = (preguntaId: string) => {
-    const pregunta = preguntas.find(p => p.id === preguntaId);
-    if (pregunta) {
-      actualizarPregunta(preguntaId, { 
-        calificacionParcial: !pregunta.calificacionParcial 
-      });
-    }
-  };
+  const toggleCalificacionParcial = useCallback((preguntaId: string) => {
+    setPreguntas(prev => prev.map(p =>
+      p.id === preguntaId ? { ...p, calificacionParcial: !p.calificacionParcial } : p
+    ));
+  }, []);
 
   // ========== FUNCIONES PARA PREGUNTA ABIERTA ==========
   
-  const cambiarMetodoEvaluacion = (preguntaId: string, metodo: MetodoEvaluacionAbierta) => {
+  const cambiarMetodoEvaluacion = useCallback((preguntaId: string, metodo: MetodoEvaluacionAbierta) => {
     actualizarPregunta(preguntaId, { metodoEvaluacion: metodo });
-  };
+  }, [actualizarPregunta]);
 
   const agregarPalabraClave = (preguntaId: string) => {
     if (palabraClaveTemp.trim() === '') return;
     
-    const pregunta = preguntas.find(p => p.id === preguntaId);
-    if (pregunta) {
-      const palabrasActuales = pregunta.palabrasClave || [];
-      if (palabrasActuales.length < 15) {
-        actualizarPregunta(preguntaId, {
-          palabrasClave: [...palabrasActuales, palabraClaveTemp.trim()]
-        });
-        setPalabraClaveTemp('');
-      }
-    }
+    setPreguntas(prev => prev.map(p => {
+      if (p.id !== preguntaId) return p;
+      const palabrasActuales = p.palabrasClave || [];
+      if (palabrasActuales.length >= 15) return p;
+      return { ...p, palabrasClave: [...palabrasActuales, palabraClaveTemp.trim()] };
+    }));
+    setPalabraClaveTemp('');
   };
 
-  const eliminarPalabraClave = (preguntaId: string, index: number) => {
-    const pregunta = preguntas.find(p => p.id === preguntaId);
-    if (pregunta?.palabrasClave) {
-      actualizarPregunta(preguntaId, {
-        palabrasClave: pregunta.palabrasClave.filter((_, i) => i !== index)
-      });
-    }
-  };
+  const eliminarPalabraClave = useCallback((preguntaId: string, index: number) => {
+    setPreguntas(prev => prev.map(p =>
+      p.id === preguntaId && p.palabrasClave
+        ? { ...p, palabrasClave: p.palabrasClave.filter((_, i) => i !== index) }
+        : p
+    ));
+  }, []);
 
-  const actualizarTextoExacto = (preguntaId: string, texto: string) => {
+  const actualizarTextoExacto = useCallback((preguntaId: string, texto: string) => {
     actualizarPregunta(preguntaId, { textoExacto: texto });
-  };
+  }, [actualizarPregunta]);
 
   const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
 
@@ -1298,23 +1272,47 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
 
     return (
       <div
-        onClick={() => toggleEditarPregunta(pregunta.id)}
-        className={`group relative rounded-2xl shadow-sm border transition-all duration-300 overflow-hidden cursor-pointer mb-6 border-ui ${
+        className={`group relative rounded-2xl shadow-sm border transition-all duration-300 overflow-hidden mb-6 border-ui ${
           darkMode
             ? "bg-slate-800/60 hover:border-blue-700/80"
             : "bg-white hover:shadow-lg hover:border-blue-300"
-        }`}
+        } ${dragIndex === index ? 'opacity-40 scale-[0.98]' : ''}`}
       >
-        {/* Indicador de Vista Previa / Edición */}
-        <div className="absolute top-0 right-0 px-4 py-2 rounded-bl-2xl text-sm font-medium flex items-center gap-2 transition-colors z-10 bg-raised text-muted group-hover:bg-blue-500 group-hover:text-white">
-            <span>Vista previa</span>
-            <Pencil className="w-4 h-4" />
-        </div>
+        {/* Contenido de la pregunta */}
+        <div
+          onClick={() => toggleEditarPregunta(pregunta.id)}
+          className="relative cursor-pointer min-w-0"
+        >
+          {/* Drag Handle */}
+          <div
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = 'move';
+              setDragIndex(index);
+            }}
+            onDragEnd={() => {
+              setDragIndex(null);
+              setDragOverIndex(null);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className={`absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg cursor-grab active:cursor-grabbing z-20 opacity-0 group-hover:opacity-100 transition-opacity ${
+              darkMode ? 'hover:bg-slate-700 text-slate-500 hover:text-slate-300' : 'hover:bg-gray-100 text-gray-300 hover:text-gray-500'
+            }`}
+            title="Arrastrar para reordenar"
+          >
+            <GripVertical className="w-5 h-5" />
+          </div>
 
-        {/* Barra lateral de estado (decorativa) con color dinámico */}
-        <div className={`absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b ${theme.gradient}`}></div>
+          {/* Indicador de Vista Previa / Edición */}
+          <div className="absolute top-0 right-0 px-4 py-2 rounded-bl-2xl text-sm font-medium flex items-center gap-2 transition-colors z-10 bg-raised text-muted group-hover:bg-blue-500 group-hover:text-white">
+              <span>Vista previa</span>
+              <Pencil className="w-4 h-4" />
+          </div>
 
-        <div className="p-3 sm:p-6 md:p-8 pl-5 sm:pl-8 md:pl-10">
+          {/* Barra lateral de estado (decorativa) con color dinámico */}
+          <div className={`absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b ${theme.gradient}`}></div>
+
+          <div className="p-3 sm:p-6 md:p-8 pl-5 sm:pl-8 md:pl-10">
           {/* Encabezado de la Pregunta */}
           <div className="flex items-start gap-4 mb-6">
             <span className={`flex items-center justify-center w-8 h-8 rounded-lg font-bold text-sm shrink-0 transition-all duration-300 ${
@@ -1451,20 +1449,50 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
               </div>
             )}
           </div>
+          </div>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       {preguntas.map((pregunta, index) => {
         const isNew = preguntasNuevas.has(pregunta.id);
         const isClosing = preguntasCerrando.has(pregunta.id);
+        const isEditing = preguntasEditando.has(pregunta.id);
         const isTransitioning = preguntasTransicionando.has(pregunta.id);
         return (
-          <div key={pregunta.id} className={isClosing ? 'anim-collapseUp' : isTransitioning ? 'anim-fadeOut' : isNew ? 'anim-slideDown' : ''}>
-            {preguntasEditando.has(pregunta.id)
+          <div
+            key={pregunta.id}
+            className={`${isClosing ? 'anim-collapseUp' : isTransitioning ? 'anim-fadeOut' : isNew ? 'anim-slideDown' : ''}`}
+            onDragOver={(e) => {
+              if (dragIndex === null || isEditing) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              setDragOverIndex(index);
+            }}
+            onDragLeave={() => setDragOverIndex(null)}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (dragIndex === null || dragIndex === index) {
+                setDragIndex(null);
+                setDragOverIndex(null);
+                return;
+              }
+              const nuevasPreguntas = [...preguntas];
+              const [moved] = nuevasPreguntas.splice(dragIndex, 1);
+              nuevasPreguntas.splice(index, 0, moved);
+              setPreguntas(nuevasPreguntas);
+              setDragIndex(null);
+              setDragOverIndex(null);
+            }}
+          >
+            {/* Drop indicator line */}
+            {dragOverIndex === index && dragIndex !== null && dragIndex !== index && (
+              <div className={`h-1 rounded-full mx-4 mb-2 transition-all ${darkMode ? 'bg-blue-500' : 'bg-blue-400'}`} />
+            )}
+            {isEditing
               ? renderizarPreguntaEdicion(pregunta, index)
               : renderizarPreguntaVista(pregunta, index)}
           </div>
