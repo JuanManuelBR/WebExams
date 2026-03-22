@@ -430,6 +430,7 @@ export class ExamService {
   async listExams() {
     const examenes = await this.examRepo.find({
       relations: ["questions"],
+      order: { questions: { orden: "ASC" } },
     });
     return examenes;
   }
@@ -440,6 +441,7 @@ export class ExamService {
     const examenes = await this.examRepo.find({
       where: { id_profesor: userId },
       relations: ["questions"],
+      order: { questions: { orden: "ASC" } },
     });
 
     return examenes;
@@ -507,6 +509,7 @@ export class ExamService {
         "questions.pares.itemA",
         "questions.pares.itemB",
       ],
+      order: { questions: { orden: "ASC" } },
     });
 
     if (!exam) {
@@ -542,6 +545,7 @@ export class ExamService {
         "questions.pares.itemA",
         "questions.pares.itemB",
       ],
+      order: { questions: { orden: "ASC" } },
     });
 
     if (!exam) return null;

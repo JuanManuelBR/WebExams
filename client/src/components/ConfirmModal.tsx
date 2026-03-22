@@ -1,4 +1,5 @@
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react";
+import { createPortal } from "react-dom";
 
 type ModalTipo = "exito" | "error" | "advertencia" | "info" | "confirmar";
 
@@ -85,7 +86,7 @@ export default function ModalConfirmacion({
   const btnConfirmarTexto = textoConfirmar || (esSoloAlerta ? "Aceptar" : "Sí, confirmar");
   const btnCancelarTexto = textoCancelar || "Cancelar";
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm anim-fadeIn">
       <div
         className={`w-full max-w-md p-6 rounded-2xl shadow-2xl border-2 anim-scaleIn ${
@@ -139,6 +140,7 @@ export default function ModalConfirmacion({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

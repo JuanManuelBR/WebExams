@@ -22,6 +22,8 @@ import {
   User,
   EyeOff,
   TimerOff,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import AlertsModal from "../../components/AlertsModal";
@@ -120,6 +122,7 @@ export default function VigilanciaExamenesLista({
   const [alertasEstudiante, setAlertasEstudiante] = useState<Alerta[]>([]);
   const [mostrarModalAlertas, setMostrarModalAlertas] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [mostrarArchivadosMonitor, setMostrarArchivadosMonitor] = useState(false);
   const [searchExamen, setSearchExamen] = useState("");
   const [filtrosPorExamen, setFiltrosPorExamen] = useState<{ [key: number]: FiltroEstado }>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -932,14 +935,28 @@ export default function VigilanciaExamenesLista({
                 className={`w-full pl-9 pr-4 py-2 text-xs rounded-lg border transition-all ${darkMode ? "bg-slate-800 border-slate-700 text-slate-200 placeholder:text-slate-500" : "bg-slate-50 border-slate-200 text-slate-900"} focus:outline-none focus:border-teal-500`}
               />
             </div>
+            <button
+              onClick={() => setMostrarArchivadosMonitor(!mostrarArchivadosMonitor)}
+              className={`w-full flex items-center justify-center gap-2 px-3 py-2 mt-3 rounded-lg text-xs font-medium transition-all ${darkMode ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+            >
+              {mostrarArchivadosMonitor ? <ArchiveRestore className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+              {mostrarArchivadosMonitor
+                ? `Exámenes Activos (${examenes.filter(e => e.estado !== "archivado").length})`
+                : `Archivados (${examenes.filter(e => e.estado === "archivado").length})`}
+            </button>
           </div>
 
           <div className={`md:flex-1 rounded-2xl shadow-sm border flex flex-col md:min-h-0 ${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"}`}>
             <div className="md:flex-1 md:overflow-y-scroll scrollbar-hide p-2 space-y-2">
               {examenes.filter((examen) => 
-                examen.nombre.toLowerCase().includes(searchExamen.toLowerCase()) ||
-                examen.codigoExamen.toLowerCase().includes(searchExamen.toLowerCase())
-              ).map((examen) => {
+                (mostrarArchivadosMonitor ? examen.estado === "archivado" : examen.estado !== "archivado") &&
+                (examen.nombre.toLowerCase().includes(searchExamen.toLowerCase()) ||
+                examen.codigoExamen.toLowerCase().includes(searchExamen.toLowerCase()))
+              ).sort((a, b) => {
+                if (a.estado === "open" && b.estado !== "open") return -1;
+                if (a.estado !== "open" && b.estado === "open") return 1;
+                return 0;
+              }).map((examen) => {
                 const isExpanded = examenExpandido === examen.id;
                 const tipoExamen = obtenerTipoExamen(examen);
                 const colores = obtenerColoresExamen(tipoExamen);
@@ -948,7 +965,7 @@ export default function VigilanciaExamenesLista({
                   <div key={examen.id} className={`rounded-xl transition-all ${isExpanded ? (darkMode ? "bg-slate-800/50" : "bg-teal-50/50") : ""}`}>
                     <button
                       onClick={() => toggleExamen(examen)}
-                      className={`w-full px-3 py-3 text-left flex items-center gap-3 rounded-xl border-l-4 transition-all group ${colores.borde} ${isExpanded ? (darkMode ? "bg-slate-800/50" : "bg-teal-50/70") : (darkMode ? "hover:bg-slate-800" : "hover:bg-slate-50")} ${examen.estado === "closed" ? "opacity-60" : "opacity-100"}`}
+                      className={`w-full px-3 py-3 text-left flex items-center gap-3 rounded-xl border-l-4 transition-all group ${colores.borde} ${isExpanded ? (darkMode ? "bg-slate-800/50" : "bg-teal-50/70") : (darkMode ? "hover:bg-slate-800" : "hover:bg-slate-50")} ${examen.estado !== "open" ? "opacity-60" : "opacity-100"}`}
                     >
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${colores.fondo}`}>
                         <FileText className="w-5 h-5 text-white" />

@@ -59,6 +59,7 @@ export default function ListaExamenes({
   const [lastCreatedCode] = useState<string | null>(() =>
     sessionStorage.getItem('lastCreatedExamCode')
   );
+  const [lastDuplicatedCode, setLastDuplicatedCode] = useState<string | null>(null);
 
   const [codigoCopiado, setCodigoCopiado] = useState<string | null>(null);
   const [urlCopiada, setUrlCopiada] = useState<string | null>(null);
@@ -70,6 +71,7 @@ export default function ListaExamenes({
     nombre: string;
   } | null>(null);
   const [mostrarArchivados, setMostrarArchivados] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(15);
   const [modalCompartir, setModalCompartir] = useState<ExamenConEstado | null>(
     null,
   );
@@ -133,6 +135,8 @@ export default function ListaExamenes({
   const examenesAMostrar = mostrarArchivados
     ? examenesArchivados
     : examenesActivos;
+  const examenesVisibles = examenesAMostrar.slice(0, visibleCount);
+  const hayMasPorMostrar = visibleCount < examenesAMostrar.length;
 
   const toggleEstadoExamen = async (id: number, estadoActual: string) => {
     try {
@@ -257,7 +261,7 @@ export default function ListaExamenes({
       setExamenes((prev) =>
         prev.map((ex) =>
           ex.codigoExamen === codigo
-            ? { ...ex, archivado: false, activoManual: true }
+            ? { ...ex, archivado: false, activoManual: false, estado: "closed" as const }
             : ex,
         ),
       );
@@ -277,6 +281,8 @@ export default function ListaExamenes({
         archivado: copia.estado === "archivado",
       };
       setExamenes((prev) => ordenarExamenes([...prev, copiaConEstado]));
+      setLastDuplicatedCode(copia.codigoExamen);
+      setTimeout(() => setLastDuplicatedCode(null), 8000);
       mostrarModal("info", "Examen duplicado", `Se creó una copia: "${copia.nombre}"`, cerrarModal);
     } catch {
       mostrarModal("advertencia", "Error", "No se pudo duplicar el examen. Intenta de nuevo.", cerrarModal);
@@ -470,7 +476,7 @@ export default function ListaExamenes({
     <div className="space-y-4">
       <div className="flex justify-end mb-2">
         <button
-          onClick={() => setMostrarArchivados(!mostrarArchivados)}
+          onClick={() => { setMostrarArchivados(!mostrarArchivados); setVisibleCount(15); }}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all shadow-sm ${
             darkMode
               ? "bg-[#2D3E52] text-gray-200 hover:bg-[#374151]"
@@ -488,7 +494,7 @@ export default function ListaExamenes({
         </button>
       </div>
 
-      {modalCompartir && (
+      {modalCompartir && createPortal(
         <div
           className="fixed top-0 left-0 w-screen h-screen bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-8 overflow-hidden animate-in fade-in duration-200"
           onClick={() => {
@@ -536,12 +542,12 @@ export default function ListaExamenes({
                   <h2
                     className={`text-2xl font-bold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}
                   >
-                    Compartir Examen
+                    Compartir Copia del Examen
                   </h2>
                   <p
                     className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}
                   >
-                    Envía una copia de "{modalCompartir.nombre}" a otro usuario
+                    Envía una copia de "{modalCompartir.nombre}" a otro docente
                   </p>
                 </div>
 
@@ -634,9 +640,9 @@ export default function ListaExamenes({
             )}
           </div>
         </div>
-      )}
+      , document.body)}
 
-      {codigoGrande && (
+      {codigoGrande && createPortal(
         <div
           className="fixed top-0 left-0 w-screen h-screen bg-black/90 backdrop-blur-sm z-[9999] flex items-center justify-center p-8 overflow-hidden animate-in fade-in duration-200"
           onClick={() => setCodigoGrande(null)}
@@ -669,7 +675,7 @@ export default function ListaExamenes({
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       <div className="space-y-3 pb-24">
         {examenesAMostrar.length === 0 ? (
@@ -690,18 +696,19 @@ export default function ListaExamenes({
             </p>
           </div>
         ) : (
-          examenesAMostrar.map((examen, index) => {
+          examenesVisibles.map((examen, index) => {
             const estado = obtenerEstadoExamen(examen);
             const isInactive = !examen.activoManual || examen.archivado;
             const isMenuOpen = menuAbierto === examen.codigoExamen;
             const tipoExamen = obtenerTipoExamen(examen);
             const isNew = lastCreatedCode === examen.codigoExamen;
+            const isDuplicated = lastDuplicatedCode === examen.codigoExamen;
 
             return (
               <ScrollReveal key={examen.id} delay={index * 55}>
               <div
                 className={`group rounded-2xl p-5 border transition-all duration-500 ${
-                  isNew
+                  isNew || isDuplicated
                     ? darkMode
                       ? "bg-violet-900/20 border-violet-500/60 shadow-lg shadow-violet-500/10"
                       : "bg-violet-50 border-violet-400 shadow-lg shadow-violet-200"
@@ -752,6 +759,11 @@ export default function ListaExamenes({
                         {isNew && (
                           <span className="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-violet-500 text-white animate-pulse">
                             Nuevo
+                          </span>
+                        )}
+                        {isDuplicated && (
+                          <span className="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-blue-500 text-white animate-pulse">
+                            Copia
                           </span>
                         )}
                         <span
@@ -1163,6 +1175,21 @@ export default function ListaExamenes({
           })
         )}
       </div>
+
+      {hayMasPorMostrar && (
+        <div className="flex justify-center py-6">
+          <button
+            onClick={() => setVisibleCount(prev => prev + 15)}
+            className={`px-6 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${
+              darkMode
+                ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 shadow-sm"
+            }`}
+          >
+            Mostrar más ({examenesAMostrar.length - visibleCount} restantes)
+          </button>
+        </div>
+      )}
 
       <ConfirmModal
         {...modal}

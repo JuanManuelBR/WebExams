@@ -104,9 +104,9 @@ const formatNumber = (val: string, decimals?: number): string => {
   const num = parseFloat(val);
   if (isNaN(num)) return val;
   if (typeof decimals === 'number' && decimals >= 0) return num.toFixed(decimals);
-  // Auto-format: remove unnecessary trailing zeros
+  // Auto-format: preserve precision for small numbers
   if (Number.isInteger(num)) return String(num);
-  return String(parseFloat(num.toPrecision(10)));
+  return String(parseFloat(num.toPrecision(12)));
 };
 
 // ─── Formula Engine ───────────────────────────────────────────────────────────
@@ -140,6 +140,20 @@ const FN_MAP: Record<string, (nums: number[]) => number> = {
   SIGN:    (v) => Math.sign(v[0] ?? 0),
   PI:      () => Math.PI,
   RAND:    () => Math.random(),
+  // Trigonometric functions
+  SIN:     (v) => Math.sin(v[0] ?? 0),
+  SENO:    (v) => Math.sin(v[0] ?? 0),
+  COS:     (v) => Math.cos(v[0] ?? 0),
+  TAN:     (v) => Math.tan(v[0] ?? 0),
+  ASIN:    (v) => Math.asin(v[0] ?? 0),
+  ACOS:    (v) => Math.acos(v[0] ?? 0),
+  ATAN:    (v) => Math.atan(v[0] ?? 0),
+  ATAN2:   (v) => Math.atan2(v[0] ?? 0, v[1] ?? 0),
+  SINH:    (v) => Math.sinh(v[0] ?? 0),
+  COSH:    (v) => Math.cosh(v[0] ?? 0),
+  TANH:    (v) => Math.tanh(v[0] ?? 0),
+  DEGREES: (v) => (v[0] ?? 0) * (180 / Math.PI),
+  RADIANS: (v) => (v[0] ?? 0) * (Math.PI / 180),
 };
 
 // Special functions that need access to raw string values (not just parsed numbers)
@@ -1198,16 +1212,25 @@ export default function HojaCalculo({ darkMode, readOnly = false, initialData, o
   const gridRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const dragAnchorRef = useRef<{ r: number; c: number } | null>(null);
+  const dragEndRef = useRef<{ r: number; c: number } | null>(null);
+  const dragRafRef = useRef<number | null>(null);
 
   const cells: Record<string, Cell> = useMemo(() => allCells[activeSheet] || {}, [allCells, activeSheet]);
   const charts: ChartConfig[] = useMemo(() => allCharts[activeSheet] || [], [allCharts, activeSheet]);
   const dm = darkMode;
 
-  // ── Auto-save: propagate full state to parent whenever anything changes ──
+  // ── Auto-save: debounced to avoid firing on every keystroke ──
   const onSaveRef = useRef(onSave);
   useEffect(() => { onSaveRef.current = onSave; });
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    onSaveRef.current?.({ allCells, allCharts, sheets, activeSheet, colWidths });
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      onSaveRef.current?.({ allCells, allCharts, sheets, activeSheet, colWidths });
+    }, 500);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [allCells, allCharts, sheets, activeSheet, colWidths]);
 
   const getColW = (sheetId: number, col: number): number => {
@@ -1304,17 +1327,13 @@ export default function HojaCalculo({ darkMode, readOnly = false, initialData, o
     } else {
       setSel({ r, c });
       setSelRange(null);
+      dragAnchorRef.current = { r, c };
+      dragEndRef.current = null;
+      isDraggingRef.current = true;
     }
     setSelectedChart(null);
     gridRef.current?.focus();
   }, [editingCell, editVal, sel.r, sel.c, commitEdit]);
-
-  const isInRange = useCallback((r: number, c: number): boolean => {
-    if (!selRange) return false;
-    const r1 = Math.min(selRange.r1, selRange.r2), r2 = Math.max(selRange.r1, selRange.r2);
-    const c1 = Math.min(selRange.c1, selRange.c2), c2 = Math.max(selRange.c1, selRange.c2);
-    return r >= r1 && r <= r2 && c >= c1 && c <= c2;
-  }, [selRange]);
 
   // ── Keyboard ──
   const onGridKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -1366,9 +1385,35 @@ export default function HojaCalculo({ darkMode, readOnly = false, initialData, o
       moveSel(0, e.shiftKey ? -1 : 1);
     } else if (e.key === 'Escape') {
       cancelEdit();
-    } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !editVal.startsWith('=')) {
-      commitEdit(editingCell, editVal);
-      moveSel(e.key === 'ArrowUp' ? -1 : 1, 0);
+    } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      if (editVal.startsWith('=')) {
+        // In formula mode: if cursor is at the end or right after an operator, insert a cell ref
+        const input = e.target as HTMLInputElement;
+        const pos = input.selectionStart ?? editVal.length;
+        const lastChar = editVal[pos - 1];
+        const isAtOperator = pos === editVal.length && /[=+\-*/,(:;]/.test(lastChar || '=');
+        if (isAtOperator) {
+          e.preventDefault();
+          // Navigate selection and insert ref
+          const dr = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0;
+          const dc = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
+          setSel(prev => {
+            const nr = Math.max(0, Math.min(ROWS - 1, prev.r + dr));
+            const nc = Math.max(0, Math.min(COLS - 1, prev.c + dc));
+            const newRef = getCellId(nr, nc);
+            setEditVal(v => v + newRef);
+            return { r: nr, c: nc };
+          });
+          return;
+        }
+        // Otherwise let the cursor move normally inside the formula text
+        return;
+      }
+      // Non-formula: commit and navigate
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        commitEdit(editingCell, editVal);
+        moveSel(e.key === 'ArrowUp' ? -1 : 1, 0);
+      }
     }
   }, [editingCell, editVal, commitEdit, cancelEdit, moveSel]);
 
@@ -1671,6 +1716,27 @@ export default function HojaCalculo({ darkMode, readOnly = false, initialData, o
     else if (colX + colW > scrollLeft + clientWidth) container.scrollLeft = colX + colW - clientWidth;
   }, [sel, activeSheet, colWidths]);
 
+  // ── Global mouseup: commit drag selection to state ──
+  useEffect(() => {
+    const onMouseUp = () => {
+      if (!isDraggingRef.current) return;
+      isDraggingRef.current = false;
+      if (dragRafRef.current !== null) {
+        cancelAnimationFrame(dragRafRef.current);
+        dragRafRef.current = null;
+      }
+      const anchor = dragAnchorRef.current;
+      const end = dragEndRef.current;
+      if (anchor && end && (anchor.r !== end.r || anchor.c !== end.c)) {
+        setSelRange({ r1: anchor.r, c1: anchor.c, r2: end.r, c2: end.c });
+      }
+      dragAnchorRef.current = null;
+      dragEndRef.current = null;
+    };
+    window.addEventListener('mouseup', onMouseUp);
+    return () => window.removeEventListener('mouseup', onMouseUp);
+  }, []);
+
   // ── Computed values ──
   const refName = selRange
     ? `${getCellId(Math.min(selRange.r1, selRange.r2), Math.min(selRange.c1, selRange.c2))}:${getCellId(Math.max(selRange.r1, selRange.r2), Math.max(selRange.c1, selRange.c2))}`
@@ -1823,7 +1889,7 @@ export default function HojaCalculo({ darkMode, readOnly = false, initialData, o
         <div className="relative group">
           <button className={`${tbBtnBase} px-2 font-bold text-[#188038] text-base`} title="Insertar función">∑</button>
           <div className={`absolute left-0 top-full mt-0.5 w-36 py-1 rounded shadow-xl hidden group-hover:block z-50 border ${dm ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
-            {['SUM', 'AVERAGE', 'COUNT', 'COUNTA', 'MAX', 'MIN', 'PRODUCT', 'MEDIAN', 'ROUND', 'ABS', 'SQRT', 'POWER', 'MOD', 'IF', 'STDEV', 'VAR', 'LN', 'LOG', 'EXP', 'INT'].map((fn) => (
+            {['SUM', 'AVERAGE', 'COUNT', 'COUNTA', 'MAX', 'MIN', 'PRODUCT', 'MEDIAN', 'ROUND', 'ABS', 'SQRT', 'POWER', 'MOD', 'IF', 'STDEV', 'VAR', 'LN', 'LOG', 'EXP', 'INT', 'SIN', 'SENO', 'COS', 'TAN', 'DEGREES', 'RADIANS', 'PI'].map((fn) => (
               <button
                 key={fn}
                 onClick={() => insertFunction(fn)}
@@ -1975,7 +2041,6 @@ export default function HojaCalculo({ darkMode, readOnly = false, initialData, o
 
                         const rawDisplay = getRaw(id, cells);
                         const isSel = sel.r === r && sel.c === c;
-                        const inRng = isInRange(r, c);
                         const editing = editingCell === id;
                         const fontSize = cell.fontSize || 13;
 
@@ -1986,11 +2051,33 @@ export default function HojaCalculo({ darkMode, readOnly = false, initialData, o
                           displayVal = formatNumber(rawDisplay, cell.decimals);
                         }
 
+                        const rMin = selRange ? Math.min(selRange.r1, selRange.r2) : -1;
+                        const rMax = selRange ? Math.max(selRange.r1, selRange.r2) : -1;
+                        const cMin = selRange ? Math.min(selRange.c1, selRange.c2) : -1;
+                        const cMax = selRange ? Math.max(selRange.c1, selRange.c2) : -1;
+                        const inRng = selRange !== null && r >= rMin && r <= rMax && c >= cMin && c <= cMax;
+
                         // Cell background
                         let cellBg = dm ? '#0f172a' : '#ffffff';
                         if (cell.bgColor) cellBg = cell.bgColor;
-                        else if (isSel && !inRng) cellBg = dm ? '#1e3a5f' : '#e8f0fe';
-                        else if (inRng) cellBg = dm ? '#1e3a5f' : '#e8f0fe';
+                        else if (inRng || isSel) cellBg = dm ? '#1e3a5f' : '#e8f0fe';
+
+                        // Selection range border on boundary cells
+                        let selBorder = '';
+                        if (inRng) {
+                          const bc = '#1a73e8';
+                          const parts: string[] = [];
+                          if (r === rMin) parts.push(`inset 0 2px 0 0 ${bc}`);
+                          if (r === rMax) parts.push(`inset 0 -2px 0 0 ${bc}`);
+                          if (c === cMin) parts.push(`inset 2px 0 0 0 ${bc}`);
+                          if (c === cMax) parts.push(`inset -2px 0 0 0 ${bc}`);
+                          selBorder = parts.join(', ');
+                        }
+
+                        const combinedShadow = [
+                          cell.border ? `inset 0 0 0 1px ${dm ? '#94a3b8' : '#374151'}` : '',
+                          selBorder,
+                        ].filter(Boolean).join(', ') || undefined;
 
                         return (
                           <td
@@ -2009,7 +2096,7 @@ export default function HojaCalculo({ darkMode, readOnly = false, initialData, o
                               fontStyle: cell.italic ? 'italic' : 'normal',
                               textDecoration: cell.underline ? 'underline' : 'none',
                               textAlign: cell.align || 'left',
-                              boxShadow: cell.border ? `inset 0 0 0 1px ${dm ? '#94a3b8' : '#374151'}` : undefined,
+                              boxShadow: combinedShadow,
                               fontSize: `${fontSize}px`,
                               color: cell.color || (dm ? '#e2e8f0' : '#1a202c'),
                               backgroundColor: cellBg,
@@ -2023,14 +2110,17 @@ export default function HojaCalculo({ darkMode, readOnly = false, initialData, o
                               }
                             }}
                             onMouseEnter={(e) => {
-                              // Only extend selection when left button is genuinely held down
-                              if (e.buttons !== 1) return;
-                              setSelRange((rng) =>
-                                rng
-                                  ? { ...rng, r2: r, c2: c }
-                                  : { r1: sel.r, c1: sel.c, r2: r, c2: c }
-                              );
-                              setSel({ r, c });
+                              if (e.buttons !== 1 || !isDraggingRef.current || !dragAnchorRef.current) return;
+                              dragEndRef.current = { r, c };
+                              if (dragRafRef.current === null) {
+                                dragRafRef.current = requestAnimationFrame(() => {
+                                  dragRafRef.current = null;
+                                  const anchor = dragAnchorRef.current;
+                                  const end = dragEndRef.current;
+                                  if (!anchor || !end) return;
+                                  setSelRange({ r1: anchor.r, c1: anchor.c, r2: end.r, c2: end.c });
+                                });
+                              }
                             }}
                           >
                             {editing ? (
