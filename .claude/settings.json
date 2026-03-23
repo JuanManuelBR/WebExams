@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/migue/OneDrive/Escritorio/WebExams/server -name *websocket* -o -name *socket*)",
+      "Bash(find /c/Users/migue/OneDrive/Escritorio/WebExams -name *.env*)"
+    ]
+  }
+}
