@@ -94,10 +94,10 @@ async function tryRefreshGoogleToken(): Promise<string | null> {
 
       if (error.response?.status === 401 || error.response?.status === 403) {
         // Intentar refrescar token de Google antes de cerrar sesión
-        if (!error.config?._retry) {
+        if (!(error.config as any)?._retry) {
           const newToken = await tryRefreshGoogleToken();
           if (newToken) {
-            error.config._retry = true;
+            (error.config as any)._retry = true;
             return api(error.config);
           }
         }
