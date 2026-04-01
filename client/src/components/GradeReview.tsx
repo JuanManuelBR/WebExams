@@ -908,6 +908,7 @@ export default function RevisarCalificacion({
                             }`}>
                               {currentScore}
                             </span>
+                            <span className={`text-xs font-medium ${darkMode ? "text-slate-500" : "text-slate-400"}`}>/ {pregunta.puntajeMaximo}</span>
                           </button>
                           )}
                         </div>
