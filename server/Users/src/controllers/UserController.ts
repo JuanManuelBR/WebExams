@@ -114,11 +114,11 @@ export class UserController {
 
       res.cookie("token", token, {
         httpOnly: true,
-        expires: new Date(Date.now() + 900000),
+        expires: new Date(Date.now() + 6 * 60 * 60 * 1000),
         secure: process.env.NODE_ENV === "production", // true en prod
         sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
         path: "/",
-        maxAge: 12 * 60 * 60 * 1000,
+        maxAge: 6 * 60 * 60 * 1000,
         priority: "high",
       });
 
@@ -151,11 +151,11 @@ export class UserController {
 
       res.cookie("token", token, {
         httpOnly: true,
-        expires: new Date(Date.now() + 900000),
+        expires: new Date(Date.now() + 6 * 60 * 60 * 1000),
         secure: process.env.NODE_ENV === "production",
         sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
         path: "/",
-        maxAge: 12 * 60 * 60 * 1000,
+        maxAge: 6 * 60 * 60 * 1000,
         priority: "high",
       });
 

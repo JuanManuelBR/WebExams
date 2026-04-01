@@ -414,12 +414,18 @@ export class GradingService {
       return { porcentaje: 0, notaFinal: 0.0 };
     }
 
-    const porcentaje = (puntajeObtenido / puntajeMaximo) * 100;
+    // Nunca superar el puntaje máximo (cubre errores de acumulación de floats)
+    const puntajeFinal = Math.min(
+      Math.round(puntajeObtenido * 100) / 100,
+      puntajeMaximo,
+    );
+
+    const porcentaje = (puntajeFinal / puntajeMaximo) * 100;
     const notaFinal = (porcentaje / 100) * 5;
 
     return {
-      porcentaje: Math.round(porcentaje * 100) / 100, // 2 decimales
-      notaFinal: Math.round(notaFinal * 100) / 100, // 2 decimales
+      porcentaje: Math.min(Math.round(porcentaje * 100) / 100, 100),
+      notaFinal: Math.min(Math.round(notaFinal * 100) / 100, 5.0),
     };
   }
 }

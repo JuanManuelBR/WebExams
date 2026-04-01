@@ -413,7 +413,7 @@ export default function RevisarCalificacion({
                       <div className="flex flex-col items-center gap-1.5 shrink-0 min-w-[90px]">
                         <p className={`text-[10px] font-bold uppercase tracking-widest ${darkMode ? "text-slate-500" : "text-slate-400"}`}>Nota Final</p>
                         <p className={`text-5xl font-black leading-none ${gradeColor}`}>
-                          {intento.notaFinal != null ? intento.notaFinal : "--"}
+                          {intento.notaFinal != null ? Math.round(intento.notaFinal * 100) / 100 : "--"}
                         </p>
                         <p className={`text-xs font-medium ${darkMode ? "text-slate-500" : "text-slate-400"}`}>/ 5.0</p>
                         {intento.calificacionPendiente ? (
@@ -533,7 +533,7 @@ export default function RevisarCalificacion({
                   <div>
                     <span className={`text-xs font-bold uppercase tracking-wider ${darkMode ? "text-teal-500" : "text-teal-600"}`}>Nota Final</span>
                     <p className={`text-2xl font-black ${getNotaColor(intento.notaFinal)}`}>
-                      {intento.notaFinal != null ? intento.notaFinal : "--"}
+                      {intento.notaFinal != null ? Math.round(intento.notaFinal * 100) / 100 : "--"}
                       <span className={`text-sm font-medium ${darkMode ? "text-slate-500" : "text-slate-400"}`}>/5.0</span>
                     </p>
                   </div>
@@ -563,7 +563,7 @@ export default function RevisarCalificacion({
                   <div>
                     <span className={`text-xs font-bold uppercase tracking-wider ${darkMode ? "text-teal-500" : "text-teal-600"}`}>Nota Final</span>
                     <p className={`text-2xl font-black ${getNotaColor(intento.notaFinal)}`}>
-                      {intento.notaFinal !== null ? intento.notaFinal : "--"}
+                      {intento.notaFinal !== null ? Math.round(intento.notaFinal * 100) / 100 : "--"}
                     </p>
                   </div>
                   <div>
@@ -827,7 +827,7 @@ export default function RevisarCalificacion({
             {(preguntas || []).map((pregunta, index) => {
               const barColor = getStableColor(pregunta.id, QUESTION_COLORS);
               const resp = pregunta.respuestaEstudiante;
-              const currentScore = scores[pregunta.id] ?? (resp ? resp.puntajeObtenido : 0);
+              const currentScore = Math.round((scores[pregunta.id] ?? (resp ? resp.puntajeObtenido : 0)) * 100) / 100;
               const pctScore = (currentScore / pregunta.puntajeMaximo) * 100;
               const status = saveStatus[pregunta.id] || "idle";
               const isEditing = editingQuestionId === pregunta.id;
@@ -1591,7 +1591,8 @@ function RenderOpen({ pregunta, darkMode }: { pregunta: Pregunta; darkMode: bool
           </p>
           <div className="flex flex-wrap gap-2">
             {pregunta.keywords.map((kw) => {
-              const found = texto.toLowerCase().includes(kw.texto.toLowerCase());
+              const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+              const found = normalize(texto).includes(normalize(kw.texto));
               return (
                 <span key={kw.id} className={`px-3 py-1 rounded-lg text-xs font-semibold border ${
                   found

@@ -76,10 +76,15 @@ export class ScoringService {
               `    ⚠️ Tipo de pregunta desconocido: ${question.type}`,
             );
         }
+        // Redondear a 2 decimales y nunca superar el puntaje máximo de la pregunta
+        puntajePregunta = Math.min(
+          Math.round(puntajePregunta * 100) / 100,
+          question.puntaje,
+        );
+
         if (studentAnswer) {
           studentAnswer.puntaje = puntajePregunta;
           await answerRepo.save(studentAnswer);
-
         }
 
         puntajeTotal += puntajePregunta;

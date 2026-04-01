@@ -125,18 +125,25 @@ export default function DashboardPage() {
         // Verificar con el backend si la sesión es válida
         await usersApi.get(`/${usuario.id}`);
 
-      } catch (error) {
-        console.error("❌ Error al verificar sesión:", error);
-        localStorage.removeItem("usuario");
-        window.location.href = "/login";
+      } catch (error: any) {
+        const status = error?.response?.status;
+        if (status === 401 || status === 403) {
+          // El interceptor ya maneja esto, pero por si acaso
+          console.error("❌ Sesión inválida:", error);
+          localStorage.removeItem("usuario");
+          window.location.href = "/login";
+        } else {
+          // Error de red o del servidor — no cerrar sesión, se reintentará
+          console.warn("⚠️ Error de red al verificar sesión (se reintentará):", error?.message);
+        }
       }
     };
 
     // Verificar inmediatamente al cargar
     verificarSesion();
 
-    // Verificar cada 2 minutos
-    const verificacionInterval = setInterval(verificarSesion, 2 * 60 * 1000);
+    // Verificar cada 10 minutos (reducido para minimizar falsos logout por errores de red)
+    const verificacionInterval = setInterval(verificarSesion, 10 * 60 * 1000);
 
     return () => clearInterval(verificacionInterval);
   }, []);

@@ -1,13 +1,12 @@
-// Token en memoria + sessionStorage para sobrevivir recargas de página
-// sessionStorage se limpia al cerrar la pestaña/navegador
-const SESSION_KEY = "authToken";
+// Token en memoria + localStorage para sobrevivir recargas, cierre de pestaña y reinicio del navegador
+const STORAGE_KEY = "authToken";
 
 let _token: string | null = null;
 
 export function setAuthToken(token: string) {
   _token = token;
   try {
-    sessionStorage.setItem(SESSION_KEY, token);
+    localStorage.setItem(STORAGE_KEY, token);
   } catch {
     // ignore
   }
@@ -16,7 +15,7 @@ export function setAuthToken(token: string) {
 export function getAuthToken(): string | null {
   if (_token) return _token;
   try {
-    const stored = sessionStorage.getItem(SESSION_KEY);
+    const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       _token = stored;
       return _token;
@@ -30,7 +29,7 @@ export function getAuthToken(): string | null {
 export function clearAuthToken() {
   _token = null;
   try {
-    sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(STORAGE_KEY);
   } catch {
     // ignore
   }
