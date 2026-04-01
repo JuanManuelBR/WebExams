@@ -41,7 +41,8 @@ async function tryRefreshGoogleToken(): Promise<string | null> {
       const usuario = JSON.parse(usuarioStr);
       if (usuario.loginMethod !== "google") return null;
 
-      const { getApps, getAuth } = await import("firebase/auth");
+      const { getApps } = await import("firebase/app");
+      const { getAuth } = await import("firebase/auth");
       const apps = getApps();
       if (!apps.length) return null;
 
