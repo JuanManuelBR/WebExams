@@ -156,9 +156,15 @@ export class QuestionResponseBuilder {
                 esCorrecta:
                   String(respuestaParsed[index] || "")
                     .toLowerCase()
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .replace(/\s+/g, " ")
                     .trim() ===
                   String(blank.textoCorrecto || "")
                     .toLowerCase()
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .replace(/\s+/g, " ")
                     .trim(),
               }));
           }
