@@ -202,17 +202,13 @@ export class ExamService {
       cookies,
     );
 
-    // Verificar que el examen no tenga intentos
+    // Verificar si el examen tiene intentos (bloquea solo la edición de preguntas)
+    let tieneIntentos = false;
     try {
       const attemptsRes = await internalHttpClient.get<{ count: number }>(
         `${this.EXAM_ATTEMPTS_MS_URL}/api/exam/${examId}/attempt-count`,
       );
-      if (attemptsRes.data.count > 0) {
-        throwHttpError(
-          `No se puede editar este examen porque tiene ${attemptsRes.data.count} intento(s) registrado(s). Crea una copia del examen si deseas hacer cambios.`,
-          400,
-        );
-      }
+      tieneIntentos = attemptsRes.data.count > 0;
     } catch (err: any) {
       if (err.status) throw err;
       console.error("Error al verificar intentos del examen:", err.message);
@@ -243,10 +239,10 @@ export class ExamService {
         existingExam.archivoPDF = data.archivoPDF || null;
       }
 
-      // 2. MANEJAR PREGUNTAS
+      // 2. MANEJAR PREGUNTAS (solo si el examen no tiene intentos)
       const imagenesAEliminar: string[] = [];
 
-      if (data.questions !== undefined) {
+      if (data.questions !== undefined && !tieneIntentos) {
         // ✅ Las preguntas vienen del DTO validado, tienen nombreImagen
         // pero necesitamos acceder a 'id' que solo existe en runtime
         const questionsFromRequest = data.questions as (BaseQuestionDto & {

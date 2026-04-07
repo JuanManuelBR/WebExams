@@ -949,17 +949,15 @@ export default function ListaExamenes({
                           onClick={async (e) => {
                             e.stopPropagation();
                             if (examen.activoManual) return;
+                            let tieneIntentos = false;
                             try {
                               const count = await examsAttemptsService.getAttemptCount(examen.id);
-                              if (count > 0) {
-                                mostrarModal("advertencia", "No se puede editar", `Este examen tiene ${count} intento(s) registrado(s). Crea una copia si deseas hacer cambios.`, cerrarModal);
-                                return;
-                              }
+                              tieneIntentos = count > 0;
                             } catch {
-                              // Si falla la verificación, dejar pasar y que el backend rechace
+                              // Si falla la verificación, continuar sin restricción
                             }
                             navigate("/editar-examen", {
-                              state: { examenAEditar: examen }
+                              state: { examenAEditar: examen, tieneIntentos }
                             });
                           }}
                           className={`p-1.5 rounded-lg transition-all duration-150 ${
@@ -1129,16 +1127,14 @@ export default function ListaExamenes({
                                 onClick={async () => {
                                   setMenuAbierto(null);
                                   if (examen.activoManual) return;
+                                  let tieneIntentos = false;
                                   try {
                                     const count = await examsAttemptsService.getAttemptCount(examen.id);
-                                    if (count > 0) {
-                                      mostrarModal("advertencia", "No se puede editar", `Este examen tiene ${count} intento(s) registrado(s). Crea una copia si deseas hacer cambios.`, cerrarModal);
-                                      return;
-                                    }
+                                    tieneIntentos = count > 0;
                                   } catch {
-                                    // Si falla la verificación, dejar pasar y que el backend rechace
+                                    // Si falla la verificación, continuar sin restricción
                                   }
-                                  navigate("/editar-examen", { state: { examenAEditar: examen } });
+                                  navigate("/editar-examen", { state: { examenAEditar: examen, tieneIntentos } });
                                 }}
                                 className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors ${
                                   examen.activoManual

@@ -11,6 +11,7 @@ import {
   X,
   AlertCircle,
   HelpCircle,
+  Lock,
 } from "lucide-react";
 import TextEditor from "../../components/TextEditor";
 import SecuritySection from "../../components/SecuritySection";
@@ -124,6 +125,7 @@ export default function CrearExamen({
   const navigate = useNavigate();
   const examenAEditar = location.state?.examenAEditar;
   const isEditMode = !!examenAEditar;
+  const tieneIntentos = isEditMode && !!location.state?.tieneIntentos;
 
   const [nombreExamen, setNombreExamen] = useState("");
   const [descripcionExamen, setDescripcionExamen] = useState("");
@@ -582,7 +584,7 @@ export default function CrearExamen({
       if (!isEditMode || !pdfExistente) { mostrarModal("advertencia", "Campo requerido", "Por favor, seleccione un archivo PDF", cerrarModal); return; }
     }
 
-    if (tipoPregunta === "automatico" && preguntasAutomaticas.length === 0) {
+    if (tipoPregunta === "automatico" && preguntasAutomaticas.length === 0 && !tieneIntentos) {
       mostrarModal("advertencia", "Campo requerido", "Por favor, agregue al menos una pregunta", cerrarModal);
       return;
     }
@@ -627,7 +629,7 @@ export default function CrearExamen({
         tipoPregunta,
         archivoPDF: tipoPregunta === "pdf" ? (archivoPDF || pdfExistente) : null,
         preguntasAutomaticas:
-          tipoPregunta === "automatico" ? preguntasAutomaticas : undefined,
+          tipoPregunta === "automatico" && !tieneIntentos ? preguntasAutomaticas : undefined,
         camposActivos: camposEstudiante.filter((c) => c.activo),
         fechaInicio: fechaInicioHabilitada ? fechaInicio : null,
         fechaCierre: fechaCierreHabilitada ? fechaCierre : null,
@@ -881,8 +883,8 @@ export default function CrearExamen({
             ].map(({ tipo, titulo, desc }) => (
               <div
                 key={tipo}
-                onClick={() => setTipoPregunta(tipo as TipoPregunta)}
-                className={`p-5 rounded-lg border cursor-pointer transition-all ${tipoPregunta === tipo ? `${borderActivo} ${bgActivoLight}` : "border-gray-200 hover:border-gray-300"}`}
+                onClick={tieneIntentos ? undefined : () => setTipoPregunta(tipo as TipoPregunta)}
+                className={`p-5 rounded-lg border transition-all ${tieneIntentos ? "cursor-not-allowed opacity-70" : "cursor-pointer"} ${tipoPregunta === tipo ? `${borderActivo} ${bgActivoLight}` : "border-gray-200 hover:border-gray-300"}`}
               >
                 <div className="flex items-start gap-3">
                   <div
@@ -938,26 +940,33 @@ export default function CrearExamen({
                     )}
                     {tipoPregunta === "automatico" && tipo === "automatico" && (
                       <div className="mt-4">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            abrirModalPreguntasAutomaticas();
-                          }}
-                          className={`px-4 py-2 rounded-lg ${bgBoton} text-white ${bgBotonHover} transition-colors font-medium`}
-                        >
-                          {preguntasAutomaticas.length > 0
-                            ? `Editar preguntas (${preguntasAutomaticas.length})`
-                            : "Agregar preguntas"}
-                        </button>
-                        {preguntasAutomaticas.length > 0 && (
-                          <p
-                            className="text-xs mt-2 text-muted"
-                          >
-                            ✓ {preguntasAutomaticas.length}{" "}
-                            {preguntasAutomaticas.length === 1
-                              ? "pregunta agregada"
-                              : "preguntas agregadas"}
-                          </p>
+                        {tieneIntentos ? (
+                          <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg border ${darkMode ? "bg-amber-900/20 border-amber-700/40 text-amber-400" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
+                            <Lock className="w-4 h-4 flex-shrink-0" />
+                            <span>{preguntasAutomaticas.length} pregunta(s) — no modificables porque el examen ya tiene intentos registrados</span>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                abrirModalPreguntasAutomaticas();
+                              }}
+                              className={`px-4 py-2 rounded-lg ${bgBoton} text-white ${bgBotonHover} transition-colors font-medium`}
+                            >
+                              {preguntasAutomaticas.length > 0
+                                ? `Editar preguntas (${preguntasAutomaticas.length})`
+                                : "Agregar preguntas"}
+                            </button>
+                            {preguntasAutomaticas.length > 0 && (
+                              <p className="text-xs mt-2 text-muted">
+                                ✓ {preguntasAutomaticas.length}{" "}
+                                {preguntasAutomaticas.length === 1
+                                  ? "pregunta agregada"
+                                  : "preguntas agregadas"}
+                              </p>
+                            )}
+                          </>
                         )}
                       </div>
                     )}
