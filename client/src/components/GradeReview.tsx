@@ -1592,8 +1592,9 @@ function RenderOpen({ pregunta, darkMode }: { pregunta: Pregunta; darkMode: bool
           </p>
           <div className="flex flex-wrap gap-2">
             {pregunta.keywords.map((kw) => {
-              const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-              const found = normalize(texto).includes(normalize(kw.texto));
+              const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+              const kwNorm = normalize(kw.texto).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              const found = new RegExp(`\\b${kwNorm}\\b`, "i").test(normalize(texto));
               return (
                 <span key={kw.id} className={`px-3 py-1 rounded-lg text-xs font-semibold border ${
                   found
