@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "concurrently --names \"USERS,EXAMS,ATTEMPTS,CLIENT\" --prefix-colors \"blue,green,yellow,magenta\" \"npm run dev --prefix server/Users\" \"npm run dev --prefix server/Exams\" \"npm run dev --prefix server/ExamsAttempts\" \"npm run dev --prefix client\"",
-    "dev:hot": "concurrently --names \"USERS,EXAMS,ATTEMPTS,CLIENT\" --prefix-colors \"blue,green,yellow,magenta\" \"npm run dev:hot --prefix server/Users\" \"npm run dev:hot --prefix server/Exams\" \"npm run dev:hot --prefix server/ExamsAttempts\" \"npm run dev --prefix client\""
+    "dev:hot": "concurrently --names \"USERS,EXAMS,ATTEMPTS,CLIENT\" --prefix-colors \"blue,green,yellow,magenta\" \"npm run dev:hot --prefix server/Users\" \"npm run dev:hot --prefix server/Exams\" \"npm run dev:hot --prefix server/ExamsAttempts\" \"npm run dev --prefix client\"",
+    "diagrams": "node docs/generate-diagrams.js"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
