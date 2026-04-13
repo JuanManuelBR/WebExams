@@ -282,10 +282,10 @@ export class AttemptLifecycleService {
     attempt.estado = AttemptState.FINISHED;
     attempt.codigoRevision = generateAccessCode();
 
-    // Envolver las escrituras finales en una transacción para evitar deadlocks
-    // bajo alta concurrencia. Reintentar hasta 3 veces si TiDB/MySQL reporta
-    // un deadlock (errno 1213).
-    const MAX_RETRIES = 3;
+    // Envolver las escrituras finales en una transacción. Reintentar hasta 5 veces
+    // en caso de colisión en codigoRevision (ER_DUP_ENTRY) o deadlock (ER_LOCK_DEADLOCK).
+    // Ambos son transitorios bajo alta concurrencia.
+    const MAX_RETRIES = 5;
     for (let i = 0; i < MAX_RETRIES; i++) {
       try {
         await AppDataSource.transaction(async (manager) => {
@@ -294,8 +294,15 @@ export class AttemptLifecycleService {
         });
         break;
       } catch (err: any) {
+        const isDupEntry = err?.errno === 1062 || err?.code === "ER_DUP_ENTRY";
         const isDeadlock = err?.errno === 1213 || err?.code === "ER_LOCK_DEADLOCK";
-        if (isDeadlock && i < MAX_RETRIES - 1) continue;
+        if ((isDupEntry || isDeadlock) && i < MAX_RETRIES - 1) {
+          if (isDupEntry) {
+            // Regenerar codigoRevision para evitar la colisión en el índice único
+            attempt.codigoRevision = generateAccessCode();
+          }
+          continue;
+        }
         throw err;
       }
     }
