@@ -105,13 +105,18 @@ export class SocketHandler {
             }
 
             try {
+              // Esperar brevemente antes de consultar el estado: si el estudiante
+              // desconectó el socket justo antes de llamar a /finish (o /finish
+              // está en vuelo), este delay da tiempo a que la BD refleje FINISHED
+              // y evita arrancar el periodo de gracia innecesariamente.
+              await new Promise(resolve => setTimeout(resolve, 800));
+
               const attemptRepo = AppDataSource.getRepository(ExamAttempt);
               const attempt = await attemptRepo.findOne({
                 where: { id: attemptId },
               });
 
-              // Si el intento ya está finalizado, el disconnect es intencional
-              // (el estudiante entregó el examen y el frontend cerró el socket).
+              // Si el intento ya está finalizado, el disconnect es intencional.
               // No iniciar el periodo de gracia ni notificar al profesor.
               if (attempt && attempt.estado === AttemptState.FINISHED) {
                 console.log(`✅ Intento ${attemptId} ya finalizado, disconnect esperado`);

@@ -101,7 +101,7 @@ export class AttemptLifecycleService {
 
     // Retry en caso de colisión de codigo_acceso o id_sesion (unique constraint)
     let examInProgress;
-    const MAX_RETRIES = 5;
+    const MAX_RETRIES = 10;
     for (let attempt_n = 0; attempt_n < MAX_RETRIES; attempt_n++) {
       const codigo_acceso = generateAccessCode();
       const id_sesion = generateSessionId();
@@ -120,7 +120,8 @@ export class AttemptLifecycleService {
         break;
       } catch (err: any) {
         // Colisión de clave única en codigo_acceso o id_sesion → reintentar
-        if (err?.errno === 1062 && attempt_n < MAX_RETRIES - 1) {
+        const isDupEntry = err?.errno === 1062 || err?.code === "ER_DUP_ENTRY";
+        if (isDupEntry && attempt_n < MAX_RETRIES - 1) {
           continue;
         }
         throw err;

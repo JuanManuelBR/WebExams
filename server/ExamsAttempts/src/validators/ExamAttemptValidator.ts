@@ -5,12 +5,27 @@ import { throwHttpError } from "../utils/errors";
 import { internalHttpClient } from "../utils/httpClient";
 
 const EXAM_MS_URL = process.env.EXAM_MS_URL;
+
+// Caché en memoria para datos del examen — evita llamadas repetidas al Exams MS
+// bajo alta concurrencia. TTL de 60 s: los datos del examen no cambian durante
+// una sesión activa, por lo que este margen es seguro.
+const EXAM_CACHE_TTL_MS = 60_000;
+const examCacheByCode = new Map<string, { data: any; expiresAt: number }>();
+const examCacheById   = new Map<number, { data: any; expiresAt: number }>();
+
 export class ExamAttemptValidator {
   static async validateExamExists(codigo_examen: string) {
+    const now = Date.now();
+    const cached = examCacheByCode.get(codigo_examen);
+    if (cached && cached.expiresAt > now) {
+      return cached.data;
+    }
+
     try {
       const response = await internalHttpClient.get(
         `${EXAM_MS_URL}/api/exams/forAttempt/${codigo_examen}`,
       );
+      examCacheByCode.set(codigo_examen, { data: response.data, expiresAt: now + EXAM_CACHE_TTL_MS });
       return response.data;
     } catch (error: any) {
       if (error.response?.status === 404) {
@@ -20,11 +35,18 @@ export class ExamAttemptValidator {
     }
   }
 
-  static async validateExamExistsById(codigo_examen: number) {
+  static async validateExamExistsById(examen_id: number) {
+    const now = Date.now();
+    const cached = examCacheById.get(examen_id);
+    if (cached && cached.expiresAt > now) {
+      return cached.data;
+    }
+
     try {
       const response = await internalHttpClient.get(
-        `${EXAM_MS_URL}/api/exams/by-id/${codigo_examen}`,
+        `${EXAM_MS_URL}/api/exams/by-id/${examen_id}`,
       );
+      examCacheById.set(examen_id, { data: response.data, expiresAt: now + EXAM_CACHE_TTL_MS });
       return response.data;
     } catch (error: any) {
       if (error.response?.status === 404) {
@@ -32,6 +54,13 @@ export class ExamAttemptValidator {
       }
       throwHttpError("Error al validar el examen", 500);
     }
+  }
+
+  // Invalida la caché de un examen específico — llamar cuando el profesor
+  // cierra o modifica el examen para que el cambio sea inmediato.
+  static invalidateCache(examen_id?: number, codigo_examen?: string) {
+    if (examen_id)    examCacheById.delete(examen_id);
+    if (codigo_examen) examCacheByCode.delete(codigo_examen);
   }
 
   static validateExamState(exam: any) {
