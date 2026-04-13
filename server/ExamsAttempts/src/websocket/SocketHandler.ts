@@ -109,6 +109,16 @@ export class SocketHandler {
               const attempt = await attemptRepo.findOne({
                 where: { id: attemptId },
               });
+
+              // Si el intento ya está finalizado, el disconnect es intencional
+              // (el estudiante entregó el examen y el frontend cerró el socket).
+              // No iniciar el periodo de gracia ni notificar al profesor.
+              if (attempt && attempt.estado === AttemptState.FINISHED) {
+                console.log(`✅ Intento ${attemptId} ya finalizado, disconnect esperado`);
+                this.connections.delete(socket.id);
+                return;
+              }
+
               if (attempt) {
                 const graceSeconds = DISCONNECT_GRACE_MS / 1000;
                 // Fallback por si la llamada HTTP del cliente falló
