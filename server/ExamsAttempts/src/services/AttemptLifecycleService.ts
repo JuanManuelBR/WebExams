@@ -282,8 +282,23 @@ export class AttemptLifecycleService {
     attempt.estado = AttemptState.FINISHED;
     attempt.codigoRevision = generateAccessCode();
 
-    await attemptRepo.save(attempt);
-    await progressRepo.delete({ intento_id });
+    // Envolver las escrituras finales en una transacción para evitar deadlocks
+    // bajo alta concurrencia. Reintentar hasta 3 veces si TiDB/MySQL reporta
+    // un deadlock (errno 1213).
+    const MAX_RETRIES = 3;
+    for (let i = 0; i < MAX_RETRIES; i++) {
+      try {
+        await AppDataSource.transaction(async (manager) => {
+          await manager.save(ExamAttempt, attempt);
+          await manager.delete(ExamInProgress, { intento_id });
+        });
+        break;
+      } catch (err: any) {
+        const isDeadlock = err?.errno === 1213 || err?.code === "ER_LOCK_DEADLOCK";
+        if (isDeadlock && i < MAX_RETRIES - 1) continue;
+        throw err;
+      }
+    }
 
     io.to(`attempt_${intento_id}`).emit("attempt_finished", {
       puntaje: attempt.puntaje,
