@@ -2,6 +2,7 @@
 // 📁 BACKEND/src/routes/UserRoutes.ts
 // ============================================
 
+import { authorizeOwnUser } from "@src/middlewares/authorization";
 import { UserController } from "../controllers/UserController";
 import { authenticateToken } from "../middlewares/auth";
 import { Router } from "express";
@@ -267,29 +268,6 @@ router.patch("/:id/update-access", UserController.updateLastAccess);
 
 /**
  * @openapi
- * /api/users:
- *   get:
- *     tags:
- *       - Users
- *     summary: Listar todos los usuarios
- *     security:
- *       - cookieAuth: []
- *     responses:
- *       200:
- *         description: Lista de todos los usuarios
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/User'
- *       401:
- *         description: No autenticado
- */
-router.get("/", UserController.getUsers, authenticateToken);
-
-/**
- * @openapi
  * /api/users/active:
  *   get:
  *     tags:
@@ -310,7 +288,7 @@ router.get("/", UserController.getUsers, authenticateToken);
  *       401:
  *         description: No autenticado
  */
-router.get("/active", UserController.getActiveUsers, authenticateToken);
+router.get("/active", authenticateToken, UserController.getActiveUsers);
 
 /**
  * @openapi
@@ -360,7 +338,7 @@ router.get("/:id", UserController.getUserById);
  *       404:
  *         description: Usuario no encontrado
  */
-router.delete("/:id", UserController.deleteUser, authenticateToken);
+router.delete("/:id", authenticateToken, authorizeOwnUser, UserController.deleteUser);
 
 /**
  * @openapi
@@ -406,6 +384,6 @@ router.delete("/:id", UserController.deleteUser, authenticateToken);
  *       404:
  *         description: Usuario no encontrado
  */
-router.put("/:id", UserController.editUser, authenticateToken);
+router.put("/:id", authenticateToken, authorizeOwnUser, UserController.editUser );
 
 export default router;

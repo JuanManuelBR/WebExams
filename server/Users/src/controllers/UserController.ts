@@ -90,17 +90,6 @@ export class UserController {
     }
   }
 
-  static async getUsers(req: AuthenticatedRequest, res: Response) {
-    try {
-      const usuarios = await user_service.getAllusers();
-      return res.status(200).json(usuarios);
-    } catch (error: any) {
-      return res
-        .status(400)
-        .json({ message: "Ocurrió un error inesperado: " + error.message });
-    }
-  }
-
   static async login(req: AuthenticatedRequest, res: Response) {
     try {
       const data = req.body;

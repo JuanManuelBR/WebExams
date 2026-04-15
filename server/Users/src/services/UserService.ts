@@ -261,18 +261,6 @@ export class UserService {
     }
   }
 
-  async getAllusers() {
-    try {
-      const usuarios = await this.user_repository.find({
-        where: { activo: true },
-        select: ["id", "nombres", "apellidos", "email"],
-      });
-
-      return usuarios;
-    } catch (error: any) {
-      throw new Error("Error inesperado: " + error.message);
-    }
-  }
 
   async getUserByEmail(email: string): Promise<User> {
     const usuario = await this.user_repository.findOne({
