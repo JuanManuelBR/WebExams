@@ -2,7 +2,7 @@
 // 📁 BACKEND/src/routes/UserRoutes.ts
 // ============================================
 
-import { authorizeOwnUser } from "@src/middlewares/authorization";
+import { authorizeOwnUser } from "../middlewares/authorization";
 import { UserController } from "../controllers/UserController";
 import { authenticateToken } from "../middlewares/auth";
 import { Router } from "express";
