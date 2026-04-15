@@ -33,7 +33,7 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get("/me", authenticateToken, ExamsController.getExamsByUser, authorizeExamOwner);
+router.get("/me", authenticateToken, ExamsController.getExamsByUser);
 
 /**
  * @openapi
@@ -113,7 +113,7 @@ router.get("/me", authenticateToken, ExamsController.getExamsByUser, authorizeEx
  *       401:
  *         description: No autenticado
  */
-router.post("/", upload.any(), ExamsController.addExam, authenticateToken);
+router.post("/",authenticateToken, upload.any(), ExamsController.addExam);
 
 /**
  * @openapi
@@ -165,29 +165,8 @@ router.post("/", upload.any(), ExamsController.addExam, authenticateToken);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.put("/:id", authenticateToken, upload.any(), ExamsController.updateExam);
+router.put("/:id", authenticateToken, authorizeExamOwner, upload.any(), ExamsController.updateExam);
 
-/**
- * @openapi
- * /api/exams:
- *   get:
- *     tags:
- *       - Exams
- *     summary: Listar todos los exámenes
- *     description: Retorna todos los exámenes existentes (requiere autenticación).
- *     security:
- *       - cookieAuth: []
- *     responses:
- *       200:
- *         description: Lista de todos los exámenes
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Exam'
- */
-router.get("/", ExamsController.listExams, authenticateToken);
 
 /**
  * @openapi
@@ -211,7 +190,7 @@ router.get("/", ExamsController.listExams, authenticateToken);
  *       401:
  *         description: No autenticado
  */
-router.delete("/:id", ExamsController.deleteExamsByUser, authenticateToken);
+router.delete("/:id", authenticateToken, authorizeExamOwner, ExamsController.deleteExamsByUser);
 
 /**
  * @openapi
@@ -243,7 +222,7 @@ router.delete("/:id", ExamsController.deleteExamsByUser, authenticateToken);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get("/by-id/:id", ExamsController.getExamById, authenticateToken);
+router.get("/by-id/:id", authenticateToken, authorizeExamOwner, ExamsController.getExamById);
 
 /**
  * @openapi
@@ -383,7 +362,7 @@ router.post("/validate-password", ExamsController.validatePassword);
  *       404:
  *         description: Examen no encontrado
  */
-router.patch("/:id/status", authenticateToken, ExamsController.updateExamStatus);
+router.patch("/:id/status", authenticateToken, authorizeExamOwner, ExamsController.updateExamStatus);
 
 /**
  * @openapi
@@ -407,7 +386,7 @@ router.patch("/:id/status", authenticateToken, ExamsController.updateExamStatus)
  *       404:
  *         description: Examen no encontrado
  */
-router.patch("/:id/archive", authenticateToken, ExamsController.archiveExam);
+router.patch("/:id/archive", authenticateToken, authorizeExamOwner, ExamsController.archiveExam);
 
 /**
  * @openapi
@@ -431,7 +410,7 @@ router.patch("/:id/archive", authenticateToken, ExamsController.archiveExam);
  *       404:
  *         description: Examen no encontrado
  */
-router.delete("/:id/single", authenticateToken, ExamsController.deleteExamById);
+router.delete("/:id/single", authenticateToken, authorizeExamOwner, ExamsController.deleteExamById);
 
 /**
  * @openapi
@@ -460,7 +439,7 @@ router.delete("/:id/single", authenticateToken, ExamsController.deleteExamById);
  *       404:
  *         description: Examen no encontrado
  */
-router.post("/:id/copy", authenticateToken, ExamsController.copyExam);
+router.post("/:id/copy", authenticateToken, authorizeExamOwner, ExamsController.copyExam);
 
 /**
  * @openapi
@@ -493,7 +472,7 @@ router.post("/:id/copy", authenticateToken, ExamsController.copyExam);
  *       404:
  *         description: Examen no encontrado
  */
-router.patch("/:id/regenerate-code", authenticateToken, ExamsController.regenerateExamCode);
+router.patch("/:id/regenerate-code", authenticateToken, authorizeExamOwner, ExamsController.regenerateExamCode);
 
 /**
  * @openapi
@@ -591,6 +570,6 @@ router.patch("/:id/remove-time-limit", ExamsController.removeTimeLimit);
  *                 value:
  *                   message: Examen no encontrado
  */
-router.post("/:id/share", authenticateToken, ExamsController.shareExam);
+router.post("/:id/share", authenticateToken, authorizeExamOwner, ExamsController.shareExam);
 
 export default router;
