@@ -13,7 +13,9 @@ interface HomeContentProps {
 
 interface AttemptDashboard {
   id: number;
-  nombre_estudiante: string;
+  nombre_estudiante: string | null;
+  correo_estudiante?: string | null;
+  identificacion_estudiante?: string | null;
   estado: string;
   fecha_inicio: string;
   fecha_fin?: string | null;
@@ -263,7 +265,7 @@ function AttemptRow({ attempt, darkMode }: { attempt: AttemptDashboard; darkMode
       <Icon className={`w-4 h-4 flex-shrink-0 ${color}`} />
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-medium truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-          {attempt.nombre_estudiante || 'Estudiante'}
+          {attempt.nombre_estudiante?.trim() || attempt.identificacion_estudiante?.trim() || attempt.correo_estudiante?.trim() || 'Sin identificar'}
         </p>
         <p className={`text-xs truncate ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
           {attempt.examenNombre}
