@@ -265,7 +265,11 @@ function AttemptRow({ attempt, darkMode }: { attempt: AttemptDashboard; darkMode
       <Icon className={`w-4 h-4 flex-shrink-0 ${color}`} />
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-medium truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-          {attempt.nombre_estudiante?.trim() || attempt.identificacion_estudiante?.trim() || attempt.correo_estudiante?.trim() || 'Sin identificar'}
+          {(() => {
+            const nombre = attempt.nombre_estudiante?.trim();
+            const nombreValido = nombre && nombre !== 'Sin nombre' && nombre !== '';
+            return nombreValido ? nombre : (attempt.identificacion_estudiante?.trim() || attempt.correo_estudiante?.trim() || 'Sin identificar');
+          })()}
         </p>
         <p className={`text-xs truncate ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
           {attempt.examenNombre}
