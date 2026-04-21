@@ -1491,17 +1491,17 @@ export default function VigilanciaExamenesLista({
                                 {[...alertasEstudiante].reverse().map((alerta) => {
                                     const config = getAlertConfig(alerta.tipo_evento);
                                     return (
-                                        <div key={alerta.id} className={`p-3 rounded-xl border shadow-sm flex gap-2 transition-transform hover:-translate-y-1 ${config.bg} ${config.border}`}>
-                                            <div className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center ${darkMode ? "bg-black/20" : "bg-white"} ${config.color}`}>
-                                                {config.icon}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex justify-between items-start">
-                                                    <h4 className={`text-sm font-bold truncate ${darkMode ? "text-slate-200" : "text-slate-800"}`}>{formatearTipoEvento(alerta.tipo_evento)}</h4>
-                                                    <span className={`text-xs font-mono mt-0.5 font-semibold ${darkMode ? "text-white/80" : "text-slate-600/90"}`}>
-                                                        {new Date(alerta.fecha_envio).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                                    </span>
+                                        <div key={alerta.id} className={`p-3 rounded-xl border shadow-sm flex flex-col gap-2 min-h-[90px] transition-transform hover:-translate-y-1 ${config.bg} ${config.border}`}>
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center ${darkMode ? "bg-black/20" : "bg-white"} ${config.color}`}>
+                                                    {config.icon}
                                                 </div>
+                                                <span className={`text-xs font-mono font-semibold flex-shrink-0 ml-auto ${darkMode ? "text-white/80" : "text-slate-600/90"}`}>
+                                                    {new Date(alerta.fecha_envio).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <h4 className={`text-xs font-bold leading-tight ${darkMode ? "text-slate-200" : "text-slate-800"}`}>{formatearTipoEvento(alerta.tipo_evento)}</h4>
                                                 <p className={`text-xs mt-1 leading-snug ${darkMode ? "text-slate-300" : "text-slate-600"}`}>
                                                     {alerta.descripcion || "Se detectó un cambio en el comportamiento."}
                                                 </p>

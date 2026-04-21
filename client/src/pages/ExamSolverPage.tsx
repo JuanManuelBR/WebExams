@@ -929,7 +929,8 @@ export default function SecureExamPlatform() {
       if (duration <= 0) {
         // El tiempo ya expiró antes de que el timer arrancara (raro, pero posible)
         setRemainingTime("00:00:00");
-        blockExam("El tiempo del examen ha finalizado", "INFO");
+        setWasTimeExpired(examData?.limiteTiempoCumplido === "descartar" ? "descartar" : "enviar");
+        submitExam();
         return;
       }
     } else {
@@ -945,7 +946,8 @@ export default function SecureExamPlatform() {
 
       if (remaining <= 0) {
         setRemainingTime("00:00:00");
-        blockExam("El tiempo del examen ha finalizado", "INFO");
+        setWasTimeExpired(examData?.limiteTiempoCumplido === "descartar" ? "descartar" : "enviar");
+        submitExam();
         return;
       }
 
@@ -1781,9 +1783,15 @@ export default function SecureExamPlatform() {
         setExamBlocked(false);
         setBlockReason("");
         localStorage.removeItem("examBlockedState");
+        // Marcar isResuming por si examStarted es false (socket caído + recarga)
+        setStudentData((prev) => {
+          if (!prev) return prev;
+          const updated = { ...prev, isResuming: true };
+          localStorage.setItem("studentData", JSON.stringify(updated));
+          return updated;
+        });
         setShowUnlockScreen(true);
 
-        // Traer la ventana al frente y darle foco
         try {
           window.focus();
         } catch (err) {
@@ -1953,6 +1961,23 @@ export default function SecureExamPlatform() {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!examStarted || examBlocked) return;
+      // Bloquear Tab solo si el foco está fuera de elementos interactivos (inputs, editores, canvas)
+      if (e.key === "Tab") {
+        const active = document.activeElement;
+        const enElementoInteractivo = active && (
+          active.tagName === "TEXTAREA" ||
+          active.tagName === "INPUT" ||
+          active.getAttribute("contenteditable") === "true" ||
+          !!active.closest("[contenteditable='true']") ||
+          !!active.closest(".cm-editor") ||       // CodeMirror
+          !!active.closest(".monaco-editor") ||   // Monaco
+          !!active.closest("canvas")              // Lienzo / dibujo
+        );
+        if (!enElementoInteractivo) {
+          e.preventDefault();
+        }
+        return;
+      }
       const blockedKeys = ["F11", "F12", "F1", "F5", "PrintScreen"];
       if (e.metaKey || blockedKeys.includes(e.key)) {
         e.preventDefault();
@@ -2582,17 +2607,25 @@ export default function SecureExamPlatform() {
           <button
             type="button"
             onClick={async () => {
-              // requestFullscreen debe llamarse en el hilo del gesto del usuario.
-              // Usar document.documentElement evita problemas cuando el elemento
-              // actual se desmonta al cambiar de pantalla.
               startupGraceRef.current = true;
+              // Garantizar isResuming antes de startExam, leyendo y escribiendo
+              // localStorage directamente para evitar estado React stale.
+              try {
+                const raw = localStorage.getItem("studentData");
+                if (raw) {
+                  const parsed = JSON.parse(raw);
+                  if (!parsed.isResuming) {
+                    parsed.isResuming = true;
+                    localStorage.setItem("studentData", JSON.stringify(parsed));
+                    setStudentData(parsed);
+                  }
+                }
+              } catch {}
               if (!examStarted) {
-                // Caso recarga: reanuda el intento completo (startExam gestiona fullscreen)
                 await document.documentElement.requestFullscreen().catch(() => {});
                 setShowUnlockScreen(false);
                 await startExam();
               } else {
-                // Caso normal: examen ya en curso, solo reactivar pantalla completa
                 await document.documentElement.requestFullscreen().catch(() => {});
                 setShowUnlockScreen(false);
                 startupGraceRef.current = false;

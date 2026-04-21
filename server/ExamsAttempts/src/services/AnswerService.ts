@@ -105,12 +105,9 @@ export class AnswerService {
 
     const progreso = Math.min(100, Math.round((totalAnswers / totalQuestions) * 100));
 
-   
-
     attempt.progreso = progreso;
 
     const savedAttempt = await attemptRepo.save(attempt);
-
 
     io.to(`exam_${attempt.examen_id}`).emit("progress_updated", {
       attemptId: data.intento_id,
