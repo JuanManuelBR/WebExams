@@ -275,8 +275,17 @@ export class AttemptLifecycleService {
       attempt.notaFinal = null;
       attempt.calificacionPendiente = true;
     } else {
-      const puntaje = await ScoringService.calculateScore(attempt);
-      attempt.puntaje = puntaje;
+      try {
+        const puntaje = await ScoringService.calculateScore(attempt);
+        attempt.puntaje = puntaje;
+      } catch (scoringError) {
+        // Si el servicio de exámenes falla, guardar como pendiente en vez de crashear
+        console.error(`❌ Error al calificar intento ${attempt.id}, se marca como pendiente:`, scoringError);
+        attempt.puntaje = null;
+        attempt.porcentaje = null;
+        attempt.notaFinal = null;
+        attempt.calificacionPendiente = true;
+      }
     }
 
     attempt.fecha_fin = new Date();
@@ -349,8 +358,16 @@ export class AttemptLifecycleService {
     } else if (attempt.limiteTiempoCumplido === "descartar") {
       attempt.puntaje = 0;
     } else {
-      const puntaje = await ScoringService.calculateScore(attempt);
-      attempt.puntaje = puntaje;
+      try {
+        const puntaje = await ScoringService.calculateScore(attempt);
+        attempt.puntaje = puntaje;
+      } catch (scoringError) {
+        console.error(`❌ Error al calificar intento ${attempt.id} por tiempo expirado, se marca como pendiente:`, scoringError);
+        attempt.puntaje = null;
+        attempt.porcentaje = null;
+        attempt.notaFinal = null;
+        attempt.calificacionPendiente = true;
+      }
     }
 
     attempt.fecha_fin = new Date();
@@ -366,6 +383,18 @@ export class AttemptLifecycleService {
       esExamenPDF: attempt.esExamenPDF,
       calificacionPendiente: attempt.calificacionPendiente,
       limiteTiempoCumplido: attempt.limiteTiempoCumplido,
+    });
+
+    io.to(`exam_${attempt.examen_id}`).emit("student_finished_exam", {
+      attemptId: attempt.id,
+      estudiante: {
+        nombre: attempt.nombre_estudiante,
+        correo: attempt.correo_estudiante,
+      },
+      puntaje: attempt.puntaje,
+      notaFinal: attempt.notaFinal,
+      esExamenPDF: attempt.esExamenPDF,
+      calificacionPendiente: attempt.calificacionPendiente,
     });
   }
 
