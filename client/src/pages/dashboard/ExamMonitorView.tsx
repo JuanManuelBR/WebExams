@@ -503,6 +503,19 @@ export default function VigilanciaExamenesLista({
       }
     });
 
+    newSocket.on("grades_email_done", (data: { enviados: number; errores: number; sinCorreo: number; error?: string }) => {
+      if (data.error || data.errores === -1) {
+        mostrarModal("error", "Error al enviar correos", data.error || "Error desconocido al enviar los correos.", cerrarModal);
+      } else {
+        const msg = [
+          `${data.enviados} correo(s) enviado(s) exitosamente.`,
+          data.errores > 0 ? `${data.errores} error(es) al enviar.` : "",
+          data.sinCorreo > 0 ? `${data.sinCorreo} estudiante(s) sin correo o nota pendiente.` : "",
+        ].filter(Boolean).join(" ");
+        mostrarModal("exito", "Correos enviados", msg, cerrarModal);
+      }
+    });
+
     newSocket.on("disconnect", () => {
       console.log("🔌 Desconectado del WebSocket");
     });
@@ -740,15 +753,10 @@ export default function VigilanciaExamenesLista({
       async () => {
         cerrarModal();
         try {
-          const resultado = await examsAttemptsService.sendGrades(examenActual.id);
-          const msg = [
-            `${resultado.enviados} correo(s) enviado(s) exitosamente.`,
-            resultado.errores > 0 ? `${resultado.errores} error(es) al enviar.` : '',
-            resultado.sinCorreo > 0 ? `${resultado.sinCorreo} estudiante(s) sin correo o nota pendiente.` : '',
-          ].filter(Boolean).join(' ');
-          mostrarModal("exito", "Correos enviados", msg, cerrarModal);
+          await examsAttemptsService.sendGrades(examenActual.id);
+          mostrarModal("info", "Enviando correos", "Los correos se están enviando en segundo plano. Se te notificará aquí cuando terminen.", cerrarModal);
         } catch (e: any) {
-          mostrarModal("error", "Error", e?.response?.data?.message || "Error al enviar los correos.", cerrarModal);
+          mostrarModal("error", "Error", e?.response?.data?.message || "Error al iniciar el envío de correos.", cerrarModal);
         }
       },
     );

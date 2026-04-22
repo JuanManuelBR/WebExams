@@ -467,8 +467,23 @@ export class ExamController {
       if (isNaN(examId)) {
         return res.status(400).json({ message: "ID de examen inválido" });
       }
-      const result = await ExamService.sendGradesEmail(examId, req.app.get("io"));
-      res.status(200).json(result);
+      const io = req.app.get("io");
+
+      res.status(202).json({ message: "Enviando correos en segundo plano..." });
+
+      ExamService.sendGradesEmail(examId, io)
+        .then((result) => {
+          io.to(`exam_${examId}`).emit("grades_email_done", result);
+        })
+        .catch((err) => {
+          console.error("Error enviando correos en background:", err);
+          io.to(`exam_${examId}`).emit("grades_email_done", {
+            enviados: 0,
+            errores: -1,
+            sinCorreo: 0,
+            error: err?.message || "Error desconocido",
+          });
+        });
     } catch (err) {
       next(err);
     }
