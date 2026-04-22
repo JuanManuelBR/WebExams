@@ -95,7 +95,7 @@ export const examsAttemptsService = {
     return response.data;
   },
 
-  async sendGrades(examId: number): Promise<{ enviados: number; errores: number; sinCorreo: number }> {
+  async sendGrades(examId: number): Promise<{ message: string }> {
     const response = await examsAttemptsApi.post(`/${examId}/grades/send-email`);
     return response.data;
   },
