@@ -31,3 +31,5 @@ docs/diagrams/14-UserFlow-CalificacionAuto.png
 docs/generate-diagrams.js
 /pruebas
 /tests-carga
+docs/diagrama-componentes.puml
+out/docs/diagrama-componentes/02-Componentes.png
