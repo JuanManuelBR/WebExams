@@ -257,7 +257,6 @@ export default function CrearExamen({
     excel: false,
     javascript: false,
     python: false,
-    java: false,
   });
 
   // Efecto para cargar datos si estamos en modo edición
@@ -328,7 +327,6 @@ export default function CrearExamen({
           excel: ex.incluirHojaExcel || false,
           javascript: ex.incluirJavascript || false,
           python: ex.incluirPython || false,
-          java: ex.incluirJava || false,
         });
 
         // Consecuencia de abandono (backend: "notificar"/"bloquear"/"ninguna")
@@ -533,7 +531,6 @@ export default function CrearExamen({
       excel: false,
       javascript: false,
       python: false,
-      java: false,
     });
     setSeccion1Abierta(true);
     setSeccion2Abierta(false);

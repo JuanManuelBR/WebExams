@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(npx tsc:*)",
-      "Bash(node -e \"const r=require\\('./resultado.json'\\); const errors=r.aggregate?.errors||{}; console.log\\('ERRORS:', JSON.stringify\\(errors, null,2\\)\\); console.log\\('HTTP codes:', JSON.stringify\\(r.aggregate?.counters, null,2\\)\\)\")"
-    ]
-  }
-}

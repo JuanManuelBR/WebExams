@@ -1,4 +1,21 @@
 node_modules
 dist
-config
+.git
+.gitignore
 *.log
+.env
+.env.development
+.env.test
+config/.env.development
+config/.env.test
+tests
+*.test.ts
+.DS_Store
+
+# Uploads se manejan vía volumen Docker en runtime
+uploads/images/*
+uploads/pdfs/*
+uploads/temp/*
+!uploads/images/.gitkeep
+!uploads/pdfs/.gitkeep
+!uploads/temp/.gitkeep

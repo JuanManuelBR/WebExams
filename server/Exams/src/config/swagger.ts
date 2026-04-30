@@ -26,7 +26,7 @@ const options: swaggerJsdoc.Options = {
       },
       {
         name: 'Images',
-        description: 'Gestión de imágenes (Cloudinary)',
+        description: 'Gestión de imágenes (almacenamiento local)',
       },
       {
         name: 'PDFs',
@@ -69,7 +69,6 @@ const options: swaggerJsdoc.Options = {
             incluirHojaExcel: { type: 'boolean', example: false },
             incluirJavascript: { type: 'boolean', example: false },
             incluirPython: { type: 'boolean', example: false },
-            incluirJava: { type: 'boolean', example: false },
             dividirPreguntas: { type: 'boolean', example: false },
             permitirVolverPreguntas: { type: 'boolean', example: true },
             questions: {

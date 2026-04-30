@@ -24,7 +24,6 @@ import {
   LayoutGrid,
   CheckCircle2,
   LogOut,
-  Coffee,
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import ExamPanel from "../components/ExamQuestionsPanel";
@@ -37,7 +36,6 @@ const HojaCalculo = lazy(() => import("../components/Spreadsheet"));
 const Lienzo = lazy(() => import("../components/DrawingBoard"));
 const EditorJavaScript = lazy(() => import("../components/EditorJavaScript"));
 const EditorPython = lazy(() => import("../components/EditorPython"));
-const EditorJava = lazy(() => import("../components/EditorJava"));
 const GRACE_SECONDS = 180;
 import logoUniversidad from "../../assets/logo-universidad.webp";
 import logoUniversidadNoche from "../../assets/logo-universidad-noche.webp";
@@ -69,7 +67,6 @@ interface ExamData {
   incluirHojaExcel: boolean;
   incluirJavascript: boolean;
   incluirPython: boolean;
-  incluirJava: boolean;
   descripcion: string;
   questions: any;
   archivoPDF?: string | null;
@@ -84,8 +81,7 @@ type PanelType =
   | "calculadora"
   | "excel"
   | "javascript"
-  | "python"
-  | "java";
+  | "python";
 type Layout = "horizontal" | "vertical";
 
 // --- INDICADOR DE GUARDADO ---
@@ -462,16 +458,6 @@ export default function SecureExamPlatform() {
     },
   ]);
 
-  // Estado persistente para el editor de Java
-  const [javaCells, setJavaCells] = useState<any[]>([
-    {
-      id: "1",
-      type: "markdown",
-      content: "# Editor Java\n",
-      status: "idle",
-    },
-  ]);
-
   // Estado persistente para Lienzo (Dibujo)
   const [lienzoState, setLienzoState] = useState<any>(null);
 
@@ -497,7 +483,6 @@ export default function SecureExamPlatform() {
   const PDF_ANSWER_ID = 0; // Panel "Responder" (texto plano)
   const PDF_PYTHON_ID = 1; // Editor Python
   const PDF_JS_ID = 2; // Editor JavaScript/HTML
-  const PDF_JAVA_ID = 3; // Editor Java
   const PDF_LIENZO_ID = 4; // Lienzo / Diagrama
   const PDF_HOJA_ID = 5; // Hoja de Cálculo
 
@@ -577,22 +562,6 @@ export default function SecureExamPlatform() {
       }),
     );
   }, [jsCells]);
-
-  // Auto-save: Java cells
-  useEffect(() => {
-    if (!examData?.incluirJava) return;
-    if (javaCells.length <= 1 && javaCells[0]?.content === "# Editor Java\n")
-      return;
-    const cleaned = cleanCellsForSave(javaCells);
-    const codeCells = cleaned.filter((c: any) => c.type === "code").length;
-    const textCells = cleaned.filter((c: any) => c.type === "markdown").length;
-    savePdfAnswer(
-      PDF_JAVA_ID,
-      cleaned,
-      "java",
-      JSON.stringify({ totalCells: cleaned.length, codeCells, textCells }),
-    );
-  }, [javaCells]);
 
   // Limpia el estado del Lienzo para persistencia: elimina history/historyIndex (undo/redo)
   // que no se necesitan para reconstruir el diagrama y pueden ser muy pesados
@@ -675,7 +644,7 @@ export default function SecureExamPlatform() {
     if (type === "dibujo") return 50; // Lienzo requiere 60% mínimo
     // Si hay 3 paneles, relajamos un poco los mínimos para que quepan
     if (type === "exam") return 50;
-    if (type === "python" || type === "javascript" || type === "java")
+    if (type === "python" || type === "javascript")
       return panelCount === 3 ? 30 : 40;
     if (type === "answer") return 30;
     if (type === "calculadora") return 35;
@@ -1398,25 +1367,6 @@ export default function SecureExamPlatform() {
           ),
         );
       }
-      if (examData.incluirJava && javaCells.length > 0) {
-        const cleaned = cleanCellsForSave(javaCells);
-        const codeCells = cleaned.filter((c: any) => c.type === "code").length;
-        const textCells = cleaned.filter(
-          (c: any) => c.type === "markdown",
-        ).length;
-        pdfSaves.push(
-          saveAnswer(
-            PDF_JAVA_ID,
-            cleaned,
-            "java",
-            JSON.stringify({
-              totalCells: cleaned.length,
-              codeCells,
-              textCells,
-            }),
-          ),
-        );
-      }
       if (examData.incluirHojaExcel && hojaCalcState) {
         const clean = cleanHojaForSave(hojaCalcState);
         const totalCells = Object.values(
@@ -1698,8 +1648,6 @@ export default function SecureExamPlatform() {
                   setPythonCells(parsed);
                 } else if (answer.tipo_respuesta === "javascript") {
                   setJsCells(parsed);
-                } else if (answer.tipo_respuesta === "java") {
-                  setJavaCells(parsed);
                 } else if (answer.tipo_respuesta === "hoja_calculo") {
                   setHojaCalcState(parsed);
                 } else if (answer.tipo_respuesta === "diagrama") {
@@ -2134,7 +2082,6 @@ export default function SecureExamPlatform() {
       "dibujo",
       "javascript",
       "python",
-      "java",
     ];
 
     // Si se abre "answer" y hay una herramienta abierta, reemplazarla
@@ -2387,16 +2334,6 @@ export default function SecureExamPlatform() {
             darkMode={darkMode}
             initialCells={pythonCells}
             onSave={(data) => setPythonCells(data.cells)}
-            zoomLevel={zoomLevel}
-          />
-        );
-
-      case "java":
-        return (
-          <EditorJava
-            darkMode={darkMode}
-            initialCells={javaCells}
-            onSave={(data: any) => setJavaCells(data.cells)}
             zoomLevel={zoomLevel}
           />
         );
@@ -3031,16 +2968,6 @@ export default function SecureExamPlatform() {
                 onClick={() => openPanel("python")}
               />
             )}
-            {examData?.incluirJava && (
-              <SidebarNavItem
-                icon={Coffee}
-                label="Java"
-                active={openPanels.includes("java")}
-                collapsed={sidebarCollapsed}
-                darkMode={darkMode}
-                onClick={() => openPanel("java")}
-              />
-            )}
           </nav>
 
           {/* Footer Sidebar (Botones de acción) */}
@@ -3230,7 +3157,7 @@ export default function SecureExamPlatform() {
                         <span
                           className={`text-xs font-bold uppercase tracking-wider ${darkMode ? "text-gray-400" : "text-white"}`}
                         >
-                          {panel === "excel" ? "Hoja de Cálculo" : panel === "calculadora" ? "Calculadora" : panel === "dibujo" ? "Dibujo" : panel === "answer" ? "Respuesta" : panel === "javascript" ? "JavaScript" : panel === "python" ? "Python" : panel === "java" ? "Java" : panel === "exam" ? "Examen" : panel}
+                          {panel === "excel" ? "Hoja de Cálculo" : panel === "calculadora" ? "Calculadora" : panel === "dibujo" ? "Dibujo" : panel === "answer" ? "Respuesta" : panel === "javascript" ? "JavaScript" : panel === "python" ? "Python" : panel === "exam" ? "Examen" : panel}
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
@@ -3267,8 +3194,7 @@ export default function SecureExamPlatform() {
                         className="h-full w-full"
                         style={
                           panel === "python" ||
-                          panel === "javascript" ||
-                          panel === "java"
+                          panel === "javascript"
                             ? {} // Sin zoom para editores persistentes
                             : {
                                 transform: `scale(${panelZooms[index] / 100})`,

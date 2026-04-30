@@ -1,15 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find /c/Users/migue/OneDrive/Escritorio/WebExams/server -name *websocket* -o -name *socket*)",
-      "Bash(find /c/Users/migue/OneDrive/Escritorio/WebExams -name *.env*)",
-      "Bash(xargs grep:*)",
-      "Bash(python3 -c \" import sys, json lines = sys.stdin.readlines\\(\\) for line in lines[-30:]: try: obj = json.loads\\(line\\) role = obj.get\\('role', ''\\) content = obj.get\\('content', ''\\) if isinstance\\(content, list\\): for c in content: if isinstance\\(c, dict\\) and c.get\\('type'\\) == 'text': print\\(f'[{role}]: {c[\\\\\"text\\\\\"][:300]}'\\) elif isinstance\\(content, str\\): print\\(f'[{role}]: {content[:300]}'\\) except: pass \")",
-      "Read(//c/Users/migue/.claude/projects/c--Users-migue-OneDrive-Escritorio-WebExams/**)",
-      "Bash(npm install:*)",
-      "Bash(node_modules/.bin/tsc --noEmit)",
-      "Bash(./node_modules/.bin/tsc --noEmit)",
-      "Bash(echo \"EXIT:$?\")"
+      "Bash(grep -v \"^drwxr.*\\\\.git$\\\\|^drwxr.*\\\\.\\\\.$\\\\|^drwxr.*\\\\s\\\\.$\")"
     ]
   }
 }

@@ -92,7 +92,7 @@ router.get("/:fileName", PDFController.get);
  *                   example: examen_prog.pdf
  *                 url:
  *                   type: string
- *                   example: https://res.cloudinary.com/.../examen_prog.pdf
+ *                   example: abc123.pdf
  *                 pages:
  *                   type: number
  *                   nullable: true

@@ -1,35 +1,22 @@
 node_modules/
-docs/webexams.puml
-plantuml.jar
-docs/13-Attempts-CalificarFeedback.png
-docs/12-Attempts-TomarExamen.png
-docs/11-Attempts-Estados.png
-docs/10-Attempts-Clases.png
-docs/09-Exams-AccesoEstudiante.png
-docs/08-Exams-CrearExamen.png
-docs/07-Exams-Clases.png
-docs/06-Users-LoginGoogle.png
-docs/05-Users-RegistroEmail.png
-docs/04-Users-Clases.png
-docs/03-CasosDeUso.png
-docs/02-Componentes.png
-docs/01-Despliegue.png
-docs/diagrams/01-Despliegue.png
-docs/diagrams/02-Componentes.png
-docs/diagrams/03-Users-Clases.png
-docs/diagrams/04-Exams-Clases.png
-docs/diagrams/05-Attempts-Clases.png
-docs/diagrams/06-LoginGoogle.png
-docs/diagrams/07-CrearExamen.png
-docs/diagrams/08-Estados.png
-docs/diagrams/09-Arquitectura.png
-docs/diagrams/10-ER.png
-docs/diagrams/11-UserFlow-Creacion.png
-docs/diagrams/12-UserFlow-Presentacion.png
-docs/diagrams/13-UserFlow-Monitoreo.png
-docs/diagrams/14-UserFlow-CalificacionAuto.png
-docs/generate-diagrams.js
-/pruebas
-/tests-carga
-docs/diagrama-componentes.puml
-out/docs/diagrama-componentes/02-Componentes.png
+
+# Variables de entorno (cada servicio tiene su propio .env también ignorado)
+.env
+
+# Config local del IDE / herramientas
+.claude/
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backups generados por make backup
+backups/

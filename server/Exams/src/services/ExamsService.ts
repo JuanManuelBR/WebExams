@@ -112,7 +112,6 @@ export class ExamService {
         incluirHojaExcel: data.incluirHojaExcel,
         incluirJavascript: data.incluirJavascript,
         incluirPython: data.incluirPython,
-        incluirJava: data.incluirJava,
         horaApertura: data.horaApertura || null,
         horaCierre: data.horaCierre || null,
         limiteTiempo: data.limiteTiempo,
@@ -358,8 +357,6 @@ export class ExamService {
         existingExam.incluirJavascript = data.incluirJavascript;
       if (data.incluirPython !== undefined)
         existingExam.incluirPython = data.incluirPython;
-      if (data.incluirJava !== undefined)
-        existingExam.incluirJava = data.incluirJava;
       if (data.horaApertura !== undefined)
         existingExam.horaApertura = data.horaApertura;
       if (data.horaCierre !== undefined)
@@ -485,7 +482,6 @@ export class ExamService {
       incluirHojaExcel: examen.incluirHojaExcel,
       incluirJavascript: examen.incluirJavascript,
       incluirPython: examen.incluirPython,
-      incluirJava: examen.incluirJava,
       nombreProfesor: nombreProfesor,
       limiteTiempo: examen.limiteTiempo,
     };
@@ -653,7 +649,6 @@ export class ExamService {
       incluirHojaExcel: exam.incluirHojaExcel,
       incluirJavascript: exam.incluirJavascript,
       incluirPython: exam.incluirPython,
-      incluirJava: exam.incluirJava,
 
       dividirPreguntas: exam.dividirPreguntas,
       permitirVolverPreguntas: exam.permitirVolverPreguntas,
@@ -968,7 +963,6 @@ export class ExamService {
         incluirHojaExcel: original.incluirHojaExcel,
         incluirJavascript: original.incluirJavascript,
         incluirPython: original.incluirPython,
-        incluirJava: original.incluirJava,
         horaApertura: null,
         horaCierre: null,
         limiteTiempo: original.limiteTiempo,
@@ -1167,7 +1161,6 @@ export class ExamService {
         incluirHojaExcel: original.incluirHojaExcel,
         incluirJavascript: original.incluirJavascript,
         incluirPython: original.incluirPython,
-        incluirJava: original.incluirJava,
         horaApertura: null,
         horaCierre: null,
         limiteTiempo: original.limiteTiempo,

@@ -734,16 +734,22 @@ function QuestionCard({
 
 // 1. Pregunta Abierta
 function OpenQuestion({ question, answer, onChange, darkMode, readOnly }: any) {
-  const maxLength = 1000;
-  const currentLength = (answer || "").length;
+  const maxLength = 3000;
+  // Solo cuenta caracteres no-whitespace (espacios, tabs y saltos de línea no suman)
+  const countEffective = (s: string) => s.replace(/\s/g, "").length;
+  const currentLength = countEffective(answer || "");
 
   return (
     <div className="relative">
       <textarea
         readOnly={readOnly}
         value={answer || ""}
-        onChange={(e) => onChange(question.id, e.target.value, 3000)}
-        maxLength={maxLength}
+        onChange={(e) => {
+          const next = e.target.value;
+          if (countEffective(next) <= maxLength) {
+            onChange(question.id, next, 3000);
+          }
+        }}
         spellCheck={false}
         autoComplete="off"
         autoCorrect="off"

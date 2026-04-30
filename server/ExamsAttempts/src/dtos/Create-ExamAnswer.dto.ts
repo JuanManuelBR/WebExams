@@ -30,11 +30,10 @@ export class CreateExamAnswerDto {
     TipoRespuesta.TEXTO_PLANO,
     TipoRespuesta.PYTHON,
     TipoRespuesta.JAVASCRIPT,
-    TipoRespuesta.JAVA,
     TipoRespuesta.DIAGRAMA,
     TipoRespuesta.HOJA_CALCULO,
   ], {
-    message: "El tipo de respuesta debe ser 'normal', 'texto_plano', 'python', 'javascript', 'java', 'diagrama' o 'hoja_calculo'",
+    message: "El tipo de respuesta debe ser 'normal', 'texto_plano', 'python', 'javascript', 'diagrama' o 'hoja_calculo'",
   })
   tipo_respuesta?: TipoRespuesta;
 

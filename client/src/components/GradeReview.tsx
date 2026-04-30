@@ -723,12 +723,12 @@ export default function RevisarCalificacion({
                     {[...(respuestasPDF || [])]
                       .filter(resp => {
                         if (resp.tipo_respuesta === "sin_respuesta") return false;
-                        if (!["python", "javascript", "java"].includes(resp.tipo_respuesta)) return true;
+                        if (!["python", "javascript"].includes(resp.tipo_respuesta)) return true;
                         let content: any = resp.respuesta;
                         if (typeof content === "string") { try { content = JSON.parse(content); } catch { return true; } }
                         if (!Array.isArray(content) || content.length !== 1) return true;
                         const cell = content[0];
-                        const defaults: Record<string, string> = { python: "# Editor Python", javascript: "# Editor JavaScript", java: "# Editor Java" };
+                        const defaults: Record<string, string> = { python: "# Editor Python", javascript: "# Editor JavaScript" };
                         const cellContent = String(cell.content ?? "").trim();
                         return !((cell.type === "markdown" || cell.type === "text") && (cellContent === defaults[resp.tipo_respuesta] || cellContent === ""));
                       })
@@ -739,7 +739,6 @@ export default function RevisarCalificacion({
                           diagrama: 2,
                           javascript: 3,
                           python: 4,
-                          java: 5,
                         };
                         const oa = ORDER[a.tipo_respuesta] ?? 99;
                         const ob = ORDER[b.tipo_respuesta] ?? 99;
@@ -801,17 +800,17 @@ export default function RevisarCalificacion({
               <div className="space-y-6">
                 {[...(respuestasPDF || [])]
                   .filter(resp => {
-                    if (!["python", "javascript", "java"].includes(resp.tipo_respuesta)) return true;
+                    if (!["python", "javascript"].includes(resp.tipo_respuesta)) return true;
                     let content: any = resp.respuesta;
                     if (typeof content === "string") { try { content = JSON.parse(content); } catch { return true; } }
                     if (!Array.isArray(content) || content.length !== 1) return true;
                     const cell = content[0];
-                    const defaults: Record<string, string> = { python: "# Editor Python", javascript: "# Editor JavaScript", java: "# Editor Java" };
+                    const defaults: Record<string, string> = { python: "# Editor Python", javascript: "# Editor JavaScript" };
                     const cellContent = String(cell.content ?? "").trim();
                     return !((cell.type === "markdown" || cell.type === "text") && (cellContent === defaults[resp.tipo_respuesta] || cellContent === ""));
                   })
                   .sort((a, b) => {
-                    const ORDER: Record<string, number> = { normal: 0, texto_plano: 0, hoja_calculo: 1, diagrama: 2, javascript: 3, python: 4, java: 5 };
+                    const ORDER: Record<string, number> = { normal: 0, texto_plano: 0, hoja_calculo: 1, diagrama: 2, javascript: 3, python: 4 };
                     return (ORDER[a.tipo_respuesta] ?? 99) - (ORDER[b.tipo_respuesta] ?? 99);
                   })
                   .map((resp, idx) => (
@@ -955,7 +954,7 @@ export default function RevisarCalificacion({
                             Retroalimentación
                           </span>
                         </div>
-                        <div className={`p-5 text-sm leading-relaxed whitespace-pre-wrap ${darkMode ? "text-slate-300" : "text-slate-700"}`}>
+                        <div className={`p-5 text-sm leading-relaxed whitespace-pre-wrap break-words ${darkMode ? "text-slate-300" : "text-slate-700"}`}>
                           {resp.retroalimentacion}
                         </div>
                       </div>
@@ -1150,7 +1149,6 @@ const TIPO_LABELS: Record<string, string> = {
   texto_plano: "Texto",
   python: "Python",
   javascript: "JavaScript",
-  java: "Java",
   diagrama: "Diagrama / Lienzo",
   hoja_calculo: "Hoja de Cálculo",
 };
@@ -1184,7 +1182,6 @@ function RenderPDFRespuesta({ respuesta, index, darkMode, disableRun = false, ta
     diagrama:     { stripe: "from-violet-400 to-purple-500",  badge: darkMode ? "bg-violet-900/40 text-violet-300" : "bg-violet-50 text-violet-600 border border-violet-200", icon: darkMode ? "text-violet-400"  : "text-violet-500" },
     javascript:   { stripe: "from-amber-400 to-yellow-500",   badge: darkMode ? "bg-amber-900/40 text-amber-300"  : "bg-amber-50 text-amber-600 border border-amber-200",   icon: darkMode ? "text-amber-400"   : "text-amber-600" },
     python:       { stripe: "from-sky-400 to-blue-500",       badge: darkMode ? "bg-sky-900/40 text-sky-300"      : "bg-sky-50 text-sky-600 border border-sky-200",         icon: darkMode ? "text-sky-400"     : "text-sky-500" },
-    java:         { stripe: "from-orange-400 to-red-500",     badge: darkMode ? "bg-orange-900/40 text-orange-300": "bg-orange-50 text-orange-600 border border-orange-200", icon: darkMode ? "text-orange-400"  : "text-orange-600" },
   };
   const accent = TIPO_ACCENT[tipo] ?? { stripe: "from-slate-400 to-slate-500", badge: darkMode ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-500 border border-slate-200", icon: darkMode ? "text-slate-400" : "text-slate-500" };
 
@@ -1197,7 +1194,7 @@ function RenderPDFRespuesta({ respuesta, index, darkMode, disableRun = false, ta
   const tipoIcon = () => {
     if (tipo === "diagrama") return <PenLine className="w-4 h-4" />;
     if (tipo === "hoja_calculo") return <Table2 className="w-4 h-4" />;
-    if (["python", "javascript", "java"].includes(tipo)) return <Code2 className="w-4 h-4" />;
+    if (["python", "javascript"].includes(tipo)) return <Code2 className="w-4 h-4" />;
     return <FileText className="w-4 h-4" />;
   };
 
@@ -1257,9 +1254,9 @@ function RenderPDFRespuesta({ respuesta, index, darkMode, disableRun = false, ta
             : <div className={`w-full min-h-[80px] p-4 rounded-xl border-2 text-sm italic opacity-50 ${darkMode ? "bg-slate-900/40 border-slate-700 text-slate-400" : "bg-gray-50 border-gray-200 text-slate-400"}`}>Sin contenido</div>
         )}
 
-        {["python", "javascript", "java"].includes(tipo) && (
+        {["python", "javascript"].includes(tipo) && (
           <div className="space-y-3">
-            {/* Editor de ejecución (solo Python y JavaScript) */}
+            {/* Editor de ejecución (Python y JavaScript) */}
             {runMode && tipo === "python" && (
               <div style={{ minHeight: 400 }}>
                 <EditorPython darkMode={darkMode} initialCells={editorCells} viewMode />
@@ -1271,8 +1268,8 @@ function RenderPDFRespuesta({ respuesta, index, darkMode, disableRun = false, ta
               </div>
             )}
 
-            {/* Vista estática del código (cuando no está en runMode o es Java) */}
-            {(!runMode || tipo === "java") && (
+            {/* Vista estática del código (cuando no está en runMode) */}
+            {!runMode && (
               <>
                 {Array.isArray(content) ? (
                   content.map((cell: any, ci: number) => {
@@ -1301,7 +1298,7 @@ function RenderPDFRespuesta({ respuesta, index, darkMode, disableRun = false, ta
                               ? darkMode ? "bg-yellow-900/50 text-yellow-300" : "bg-yellow-50 text-yellow-700"
                               : darkMode ? "bg-emerald-900/50 text-emerald-300" : "bg-emerald-50 text-emerald-700"
                           }`}>
-                            {isMarkdown ? "texto" : isHtml ? "HTML" : tipo === "python" ? "Python" : tipo === "java" ? "Java" : "JavaScript"}
+                            {isMarkdown ? "texto" : isHtml ? "HTML" : tipo === "python" ? "Python" : "JavaScript"}
                           </span>
                           {(isSuccess || isError) && (
                             <span className={`ml-auto flex items-center gap-1 font-medium ${isSuccess ? "text-emerald-400" : "text-red-400"}`}>
@@ -1580,7 +1577,7 @@ function RenderOpen({ pregunta, darkMode }: { pregunta: Pregunta; darkMode: bool
     <div className="space-y-4">
       {/* Texto read-only con el mismo estilo que el textarea de ExamPanel */}
       <div className={`w-full min-h-[140px] p-4 rounded-xl border-2 ${darkMode ? "bg-slate-800/70 border-slate-700 text-slate-200" : "bg-gray-50 border-gray-200 text-slate-700"}`}>
-        <p className="whitespace-pre-wrap text-base">
+        <p className="whitespace-pre-wrap break-words text-base">
           {texto || <span className="italic opacity-50">Respuesta vacía</span>}
         </p>
       </div>
@@ -1616,7 +1613,7 @@ function RenderOpen({ pregunta, darkMode }: { pregunta: Pregunta; darkMode: bool
             <CheckCircle className="w-3.5 h-3.5" />
             Respuesta correcta esperada
           </p>
-          <p className={`text-sm whitespace-pre-wrap ${darkMode ? "text-emerald-200" : "text-emerald-800"}`}>
+          <p className={`text-sm whitespace-pre-wrap break-words ${darkMode ? "text-emerald-200" : "text-emerald-800"}`}>
             {pregunta.textoRespuesta}
           </p>
         </div>

@@ -28,7 +28,6 @@ export class QuestionResponseBuilder {
         TipoRespuesta.DIAGRAMA,
         TipoRespuesta.PYTHON,
         TipoRespuesta.JAVASCRIPT,
-        TipoRespuesta.JAVA,
         TipoRespuesta.HOJA_CALCULO,
       ];
       if (structuredTypes.includes(r.tipo_respuesta)) {

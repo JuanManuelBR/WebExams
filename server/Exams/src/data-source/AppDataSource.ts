@@ -18,6 +18,9 @@ import { MatchItemB } from "../models/MatchItemB";
 import { MatchPair } from "../models/MatchPair";
 import { OpenQuestionKeyword } from "../models/OpenQuestionKeyWord";
 
+// SSL solo si DB_SSL=true (necesario para algunas BDs gestionadas; MySQL local no lo requiere)
+const useSsl = process.env.DB_SSL === "true";
+
 // crear el AppDataSource (Conexión BD)
 export const AppDataSource = new DataSource({
   type: "mysql",
@@ -26,7 +29,7 @@ export const AppDataSource = new DataSource({
   password: process.env.DB_PASS,
   port: Number(process.env.DB_PORT),
   username: process.env.DB_USER,
-  synchronize: false,
+  synchronize: true,
   logging: false,
   entities: [
     Exam,
@@ -42,12 +45,12 @@ export const AppDataSource = new DataSource({
     MatchPair,
     OpenQuestionKeyword,
   ],
-  migrations: [],
-  migrationsTableName: "migrations",
-  ssl: {
-    minVersion: "TLSv1.2",
-    rejectUnauthorized: true,
-  },
+  ...(useSsl && {
+    ssl: {
+      minVersion: "TLSv1.2",
+      rejectUnauthorized: true,
+    },
+  }),
   connectTimeout: 30000,
   extra: {
     enableKeepAlive: true,
