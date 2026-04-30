@@ -922,12 +922,12 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                   <textarea
                     value={pregunta.textoExacto || ''}
                     onChange={(e) => {
-                      if (e.target.value.length <= 1000) {
+                      if (e.target.value.length <= 3000) {
                         actualizarTextoExacto(pregunta.id, e.target.value);
                       }
                     }}
                     placeholder="Escribe la respuesta exacta que esperas del estudiante..."
-                    maxLength={1000}
+                    maxLength={3000}
                     rows={4}
                     className="w-full px-4 py-3 rounded-lg border resize-none bg-raised border-ui text-primary placeholder-gray-400"
                   />
@@ -936,14 +936,14 @@ export default function CrearPreguntas({ darkMode, preguntasIniciales = [], onPr
                     <div className="flex items-center gap-2 mt-2">
                       <Check className="w-4 h-4 text-green-500" />
                       <span className={`text-sm ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
-                        Respuesta configurada ({pregunta.textoExacto.length}/1000 caracteres)
+                        Respuesta configurada ({pregunta.textoExacto.length}/3000 caracteres)
                       </span>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 mt-2">
                       <AlertCircle className="w-4 h-4 text-yellow-500" />
                       <span className={`text-sm ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
-                        Define la respuesta esperada (máximo 1000 caracteres)
+                        Define la respuesta esperada (máximo 3000 caracteres)
                       </span>
                     </div>
                   )}

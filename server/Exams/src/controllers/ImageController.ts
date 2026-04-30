@@ -24,8 +24,12 @@ export class ImageController {
   static async get(req: Request, res: Response) {
     try {
       const { fileName } = req.params;
-      const url = imageService.getImageUrl(fileName);
-      return res.redirect(url);
+      const filePath = await imageService.resolveImagePath(fileName);
+      if (!filePath) {
+        return res.status(404).json({ message: 'Imagen no encontrada' });
+      }
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      return res.sendFile(filePath);
     } catch (error: any) {
       return res.status(404).json({ message: 'Imagen no encontrada' });
     }

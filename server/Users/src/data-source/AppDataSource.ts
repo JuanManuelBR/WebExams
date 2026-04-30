@@ -3,7 +3,9 @@ import "reflect-metadata";
 
 import { User } from "../models/User";
 
-// Railway env vars
+// SSL solo si DB_SSL=true (necesario para algunas BDs gestionadas; MySQL local no lo requiere)
+const useSsl = process.env.DB_SSL === "true";
+
 export const AppDataSource = new DataSource({
   type: "mysql",
   host: process.env.DB_HOST || "localhost",
@@ -14,8 +16,10 @@ export const AppDataSource = new DataSource({
   synchronize: true,
   logging: false,
   entities: [User],
-  ssl: {
-    minVersion: "TLSv1.2",
-    rejectUnauthorized: true,
-  },
+  ...(useSsl && {
+    ssl: {
+      minVersion: "TLSv1.2",
+      rejectUnauthorized: true,
+    },
+  }),
 });

@@ -42,6 +42,29 @@ export class AnswerService {
       throwHttpError("No se pueden guardar respuestas en este intento", 403);
     }
 
+    // Detección de respuesta en blanco para preguntas de texto:
+    // si la respuesta solo contiene espacios/tabs/saltos de línea, no se persiste
+    // como contenido real — se marca el registro como SIN_RESPUESTA.
+    const tipoEntrada = data.tipo_respuesta;
+    const esTipoTexto =
+      !tipoEntrada ||
+      tipoEntrada === TipoRespuesta.NORMAL ||
+      tipoEntrada === TipoRespuesta.TEXTO_PLANO;
+    let esRespuestaEnBlanco = false;
+    if (esTipoTexto && typeof data.respuesta === "string") {
+      let parsed: any = data.respuesta;
+      try {
+        parsed = JSON.parse(data.respuesta);
+      } catch {
+        // No era JSON, usar el string crudo
+      }
+      if (parsed == null) {
+        esRespuestaEnBlanco = true;
+      } else if (typeof parsed === "string" && parsed.replace(/\s/g, "").length === 0) {
+        esRespuestaEnBlanco = true;
+      }
+    }
+
     const existingAnswer = await repo.findOne({
       where: {
         intento_id: data.intento_id,
@@ -51,14 +74,25 @@ export class AnswerService {
 
     let answer;
 
+    // Si llega una respuesta en blanco y no existe registro previo,
+    // no se crea nada — la pregunta queda como no contestada.
+    if (esRespuestaEnBlanco && !existingAnswer) {
+      return null;
+    }
+
     if (existingAnswer) {
-      existingAnswer.respuesta = data.respuesta;
+      if (esRespuestaEnBlanco) {
+        existingAnswer.respuesta = null;
+        existingAnswer.tipo_respuesta = TipoRespuesta.SIN_RESPUESTA;
+      } else {
+        existingAnswer.respuesta = data.respuesta;
+        if (data.tipo_respuesta !== undefined) {
+          existingAnswer.tipo_respuesta = data.tipo_respuesta;
+        }
+      }
       existingAnswer.fecha_respuesta = data.fecha_respuesta;
       if (data.retroalimentacion !== undefined) {
         existingAnswer.retroalimentacion = data.retroalimentacion;
-      }
-      if (data.tipo_respuesta !== undefined) {
-        existingAnswer.tipo_respuesta = data.tipo_respuesta;
       }
       if (data.metadata_codigo !== undefined) {
         existingAnswer.metadata_codigo = data.metadata_codigo;

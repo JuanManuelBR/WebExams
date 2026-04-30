@@ -13,7 +13,6 @@ export enum TipoRespuesta {
   TEXTO_PLANO = "texto_plano",
   PYTHON = "python",
   JAVASCRIPT = "javascript",
-  JAVA = "java",
   DIAGRAMA = "diagrama",
   HOJA_CALCULO = "hoja_calculo",
   SIN_RESPUESTA = "sin_respuesta",

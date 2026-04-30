@@ -13,7 +13,7 @@ const router = Router();
  *     tags:
  *       - Images
  *     summary: Subir una imagen
- *     description: "Sube una imagen a Cloudinary. Formatos aceptados: JPEG, PNG, GIF, WEBP, BMP. Tamaño máximo 10 MB."
+ *     description: "Sube una imagen al almacenamiento local del servidor. Formatos aceptados: JPEG, PNG, GIF, WEBP, BMP. Tamaño máximo 10 MB."
  *     requestBody:
  *       required: true
  *       content:
@@ -40,7 +40,7 @@ const router = Router();
  *                   example: imagen_pregunta_1.webp
  *                 url:
  *                   type: string
- *                   example: https://res.cloudinary.com/.../imagen_pregunta_1.webp
+ *                   example: abc123.webp
  *       400:
  *         description: Tipo de archivo no permitido o archivo inválido
  *         content:
@@ -66,7 +66,7 @@ router.post("/upload", upload.single("image"), ImageController.upload);
  *         example: imagen_pregunta_1.webp
  *     responses:
  *       200:
- *         description: Imagen retornada (redirect a Cloudinary o stream)
+ *         description: Imagen retornada (stream del archivo local)
  *       404:
  *         description: Imagen no encontrada
  *         content:

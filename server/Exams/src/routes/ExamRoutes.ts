@@ -92,8 +92,6 @@ router.get("/me", authenticateToken, ExamsController.getExamsByUser);
  *                 type: boolean
  *               incluirPython:
  *                 type: boolean
- *               incluirJava:
- *                 type: boolean
  *               dividirPreguntas:
  *                 type: boolean
  *               permitirVolverPreguntas:

@@ -1,6 +1,14 @@
 **/node_modules
 dist/
-temp/
+/temp/
 **/**/*.log
 config.js
 /config/
+
+# Uploads — archivos subidos en runtime no deben versionarse
+uploads/images/*
+!uploads/images/.gitkeep
+uploads/pdfs/*
+!uploads/pdfs/.gitkeep
+uploads/temp/*
+!uploads/temp/.gitkeep

@@ -75,7 +75,6 @@ export class ExamAttempt {
   @Column({ type: "text", nullable: true, default: null })
   retroalimentacion?: string | null;
 
-  @Index()
   @Column({ type: "varchar", length: 10, nullable: true, unique: true, default: null })
   codigoRevision?: string | null;
 
