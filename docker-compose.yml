@@ -83,6 +83,7 @@ services:
       SERVICE_SECRET: ${SERVICE_SECRET}
       USERS_MS_URL: http://users:3000
       EXAM_ATTEMPTS_MS_URL: http://attempts:3002
+      CORS_ORIGIN: ${FRONTEND_URL}
       UPLOADS_DIR: /app/uploads
     volumes:
       - uploads_data:/app/uploads
@@ -114,6 +115,7 @@ services:
       SERVICE_SECRET: ${SERVICE_SECRET}
       USER_MS_URL: http://users:3000
       EXAM_MS_URL: http://exams:3001
+      CORS_ORIGIN: ${FRONTEND_URL}
       RESEND_API_KEY: ${RESEND_API_KEY}
       SMTP_FROM: ${SMTP_FROM}
     networks:
