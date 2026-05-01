@@ -88,7 +88,7 @@ interface Alerta {
 type EstadoDisplay = "Activo" | "Bloqueado" | "Pausado" | "Terminado" | "Abandonado" | "Calificado";
 type FiltroEstado = "todos" | "activos" | "bloqueados" | "pausados" | "terminados" | "abandonados" | "calificados";
 
-const EXAMS_API_URL = import.meta.env.VITE_EXAMS_URL || "http://localhost:3001";
+const EXAMS_API_URL = import.meta.env.VITE_EXAMS_URL || window.location.origin;
 
 
 const obtenerColoresExamen = (tipo: string): { borde: string; fondo: string } => {

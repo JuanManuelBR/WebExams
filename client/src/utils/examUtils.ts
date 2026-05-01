@@ -1,4 +1,4 @@
-const EXAMS_API_URL = import.meta.env.VITE_EXAMS_URL || "http://localhost:3001";
+const EXAMS_API_URL = import.meta.env.VITE_EXAMS_URL || window.location.origin;
 
 /**
  * Construye la URL del PDF pasando por el proxy del backend para evitar descargas forzadas.

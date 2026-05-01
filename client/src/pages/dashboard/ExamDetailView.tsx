@@ -37,7 +37,7 @@ export default function VerExamen({ darkMode }: VerExamenProps) {
   const isPdf = Boolean(examenEfectivo?.archivoPDF);
   const pdfUrl = useMemo(() => {
     if (!isPdf || !examenEfectivo?.archivoPDF) return null;
-    const examsUrl = import.meta.env.VITE_EXAMS_BASE || "http://localhost:3001";
+    const examsUrl = import.meta.env.VITE_EXAMS_BASE || window.location.origin;
     if (examenEfectivo.archivoPDF.startsWith("http")) {
       return `${examsUrl}/api/pdfs/proxy?url=${encodeURIComponent(examenEfectivo.archivoPDF)}`;
     }
