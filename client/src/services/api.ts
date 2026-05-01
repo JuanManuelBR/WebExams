@@ -1,12 +1,13 @@
 import axios from "axios";
 import { setAuthToken, clearAuthToken } from "./authToken";
 
-// Detecta automático: dev = proxy, prod = Railway
-const isDev = import.meta.env.DEV;
-
-const USERS_BASE = isDev
-  ? "/api/users" // Proxy Vite local
-  : `${import.meta.env.VITE_USERS_BASE}/api/users`;
+// Rutas relativas: el mismo origen del frontend hace proxy a los microservicios.
+// En dev (Vite), el proxy de vite.config.ts redirige /api/* a localhost:300X.
+// En prod (Docker/Nginx), Nginx redirige /api/* a los containers.
+// Si VITE_USERS_BASE está definido, se usa como override (compat con setups antiguos).
+const USERS_BASE = import.meta.env.VITE_USERS_BASE
+  ? `${import.meta.env.VITE_USERS_BASE}/api/users`
+  : "/api/users";
 
 export const usersApi = axios.create({
   baseURL: USERS_BASE,
