@@ -36,9 +36,9 @@ async function tryRefreshGoogleToken(): Promise<string | null> {
       // Forzar refresco del token de Firebase
       const idToken = await firebaseUser.getIdToken(true);
 
-      const USERS_BASE = import.meta.env.DEV
-        ? "/api/users"
-        : `${import.meta.env.VITE_USERS_BASE}/api/users`;
+      const USERS_BASE = import.meta.env.VITE_USERS_BASE
+        ? `${import.meta.env.VITE_USERS_BASE}/api/users`
+        : "/api/users";
 
       // Llamada directa con axios (no usersApi) para evitar loops en interceptores
       const response = await axios.post(
