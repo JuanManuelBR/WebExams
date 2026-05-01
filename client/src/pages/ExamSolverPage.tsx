@@ -211,7 +211,7 @@ function TimerNotification({
 // Si VITE_SOCKET_URL está definida (ej. dev directo sin proxy), se usa.
 const ATTEMPTS_API_URL =
   import.meta.env.VITE_SOCKET_URL || window.location.origin;
-const EXAMS_API_URL = import.meta.env.VITE_EXAMS_URL || "http://localhost:3001";
+const EXAMS_API_URL = import.meta.env.VITE_EXAMS_URL || window.location.origin;
 
 // --- CALIDAD DE CONEXIÓN (0 = sin conexión, 1–4 = barras) ---
 function useConnectionQuality(isConnected: boolean): 0 | 1 | 2 | 3 | 4 {

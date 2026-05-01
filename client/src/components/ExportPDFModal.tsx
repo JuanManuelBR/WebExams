@@ -4,7 +4,7 @@ import { X, Download, FileText, CheckSquare, Square, Loader2, FileDown } from "l
 import { examsService, obtenerUsuarioActual, type ExamenCreado } from "../services/examsService";
 import { generateExamPDF } from "../utils/generateExamPDF";
 
-const EXAMS_API_URL = import.meta.env.VITE_EXAMS_URL || "http://localhost:3001";
+const EXAMS_API_URL = import.meta.env.VITE_EXAMS_URL || window.location.origin;
 
 interface ExportarPDFModalProps {
   examen: ExamenCreado & { archivado?: boolean };

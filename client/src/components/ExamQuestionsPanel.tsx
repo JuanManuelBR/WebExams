@@ -49,7 +49,7 @@ interface ExamPanelProps {
   onQuestionIndexChange?: (index: number) => void;
 }
 
-const EXAMS_API_URL = import.meta.env.VITE_EXAMS_URL || "http://localhost:3001";
+const EXAMS_API_URL = import.meta.env.VITE_EXAMS_URL || window.location.origin;
 
 
 // --- VISOR PDF PARA MÓVIL (canvas inline, sin abrir pestaña) ---
