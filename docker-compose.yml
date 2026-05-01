@@ -4,6 +4,9 @@ services:
     image: mysql:8.0
     container_name: webexams-mysql
     restart: unless-stopped
+    # mysql_native_password mantiene compatibilidad con drivers viejos
+    # (el package "mysql" v2.x del backend no soporta caching_sha2_password de MySQL 8)
+    command: --default-authentication-plugin=mysql_native_password
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_USER: ${DB_USER}
