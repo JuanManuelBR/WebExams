@@ -226,7 +226,7 @@ export default function VigilanciaExamenesLista({
   useEffect(() => {
     if (!examenActual) return;
 
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || "http://localhost:3002";
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin;
     const newSocket = io(socketUrl, {
       transports: ["websocket", "polling"],
       reconnection: true,

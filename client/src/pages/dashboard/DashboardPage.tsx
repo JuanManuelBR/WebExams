@@ -192,7 +192,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!usuarioData?.id) return;
 
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || "http://localhost:3002";
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin;
     const socket = io(socketUrl, {
       transports: ["websocket", "polling"],
       reconnection: true,
