@@ -206,8 +206,11 @@ function TimerNotification({
 }
 
 // --- COMPONENTE PRINCIPAL ---
+// En dev (Vite), el proxy redirige /api/exam y /socket.io.
+// En prod (Nginx en Docker o servidor), el mismo origen sirve todo.
+// Si VITE_SOCKET_URL está definida (ej. dev directo sin proxy), se usa.
 const ATTEMPTS_API_URL =
-  import.meta.env.VITE_SOCKET_URL || "http://localhost:3002";
+  import.meta.env.VITE_SOCKET_URL || window.location.origin;
 const EXAMS_API_URL = import.meta.env.VITE_EXAMS_URL || "http://localhost:3001";
 
 // --- CALIDAD DE CONEXIÓN (0 = sin conexión, 1–4 = barras) ---
