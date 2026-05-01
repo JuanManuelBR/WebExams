@@ -210,6 +210,11 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!auth) {
+      setError('La autenticación no está disponible. Verifica la configuración de Firebase.');
+      return;
+    }
+
     setLoading(true);
 
     try {
