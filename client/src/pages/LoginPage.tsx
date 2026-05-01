@@ -7,11 +7,11 @@ import fondoImagen from '../../assets/fondo.webp';
 import { authService } from '../services/authService';
 
 // Importa Firebase
-import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider, type Auth } from 'firebase/auth';
 
 // ============================================
-// CONFIGURACIÓN DE FIREBASE
+// CONFIGURACIÓN DE FIREBASE (con manejo seguro de errores)
 // ============================================
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -22,15 +22,26 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-// Inicializar Firebase solo si no está inicializado
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
+// Inicializar Firebase con try/catch — si falla, el login con Google se desactiva
+// pero el resto de la app sigue funcionando.
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let googleProvider: GoogleAuthProvider | null = null;
 
-// Configurar el provider para forzar la selección de cuenta
-googleProvider.setCustomParameters({
-  prompt: 'select_account'
-});
+try {
+  if (firebaseConfig.apiKey && firebaseConfig.projectId) {
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+    auth = getAuth(app);
+    googleProvider = new GoogleAuthProvider();
+    googleProvider.setCustomParameters({ prompt: 'select_account' });
+  } else {
+    console.warn('Firebase no está configurado — el login con Google estará desactivado.');
+  }
+} catch (err) {
+  console.warn('No se pudo inicializar Firebase. El login con Google estará desactivado.', err);
+}
+// Mantener referencia a `app` para que el linter no la marque como no usada
+void app;
 
 // ============================================
 // COMPONENTE LOGIN
@@ -90,12 +101,17 @@ export default function LoginPage() {
       return;
     }
 
+    if (!auth) {
+      setError('La autenticación no está disponible. Verifica la configuración de Firebase.');
+      return;
+    }
+
     setLoading(true);
 
     try {
       await authService.loginWithEmail(auth, email, password);
       navigate('/home');
-      
+
     } catch (error: any) {
       console.error('❌ Error al iniciar sesión:', error);
       
@@ -121,6 +137,11 @@ export default function LoginPage() {
    * LOGIN CON GOOGLE
    */
   const handleGoogleLogin = async () => {
+    if (!auth || !googleProvider) {
+      setError('Login con Google no disponible (Firebase no está configurado).');
+      return;
+    }
+
     setLoadingGoogle(true);
     setLoading(true);
     setError('');

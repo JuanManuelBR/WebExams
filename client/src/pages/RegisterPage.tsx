@@ -7,11 +7,11 @@ import fondoImagen from '../../assets/fondo.webp';
 import { authService } from '../services/authService';
 
 // Importa Firebase
-import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider, type Auth } from 'firebase/auth';
 
 // ============================================
-// CONFIGURACIÓN DE FIREBASE
+// CONFIGURACIÓN DE FIREBASE (con manejo seguro de errores)
 // ============================================
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -22,15 +22,23 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-// Inicializar Firebase solo si no está inicializado
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let googleProvider: GoogleAuthProvider | null = null;
 
-// Configurar el provider para forzar la selección de cuenta
-googleProvider.setCustomParameters({
-  prompt: 'select_account'
-});
+try {
+  if (firebaseConfig.apiKey && firebaseConfig.projectId) {
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+    auth = getAuth(app);
+    googleProvider = new GoogleAuthProvider();
+    googleProvider.setCustomParameters({ prompt: 'select_account' });
+  } else {
+    console.warn('Firebase no está configurado — el registro/login con Google estará desactivado.');
+  }
+} catch (err) {
+  console.warn('No se pudo inicializar Firebase. El registro/login con Google estará desactivado.', err);
+}
+void app;
 
 // ============================================
 // INTERFACES
@@ -228,6 +236,11 @@ export default function RegisterPage() {
    * REGISTRO CON GOOGLE
    */
   const handleGoogleRegister = async () => {
+    if (!auth || !googleProvider) {
+      setError('Registro con Google no disponible (Firebase no está configurado).');
+      return;
+    }
+
     setLoadingGoogle(true);
     setLoading(true);
     setError('');

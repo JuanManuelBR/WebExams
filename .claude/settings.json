@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(grep -v \"^drwxr.*\\\\.git$\\\\|^drwxr.*\\\\.\\\\.$\\\\|^drwxr.*\\\\s\\\\.$\")"
-    ]
-  }
-}
